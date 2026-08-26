@@ -17,6 +17,8 @@ import {
   Smartphone
 } from 'lucide-react';
 import PWAInstallButton from "@/components/ui/PWAInstallButton";
+import ThemeToggle from "@/components/ui/ThemeToggle";
+
 
 const menuSections = [
   {
@@ -72,18 +74,42 @@ export default function MasterDataPage() {
       />
 
       <div className="space-y-6">
-        {/* PWA Mobile App Card Banner */}
+        {/* PWA & Theme Settings Row */}
         <div className="space-y-3">
           <div className="flex items-center gap-2 border-b border-[#1e2330] pb-2">
             <span className="px-2.5 py-0.5 rounded-md bg-[#1a2838] text-[#aab8c8] text-[0.65rem] font-extrabold uppercase tracking-wider border border-[#2a3848]">
-              Aplikasi PWA
+              Preferensi & Aplikasi
             </span>
             <h2 className="text-xs sm:text-sm font-bold text-[#e2e6ed] tracking-tight">
-              Akses Cepat di Smartphone & Desktop
+              Tampilan Tema & Akses Cepat PWA
             </h2>
           </div>
-          <PWAInstallButton variant="menu-card" />
+          <div className="grid sm:grid-cols-2 gap-4">
+            <PWAInstallButton variant="menu-card" />
+            <div className="glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between border border-[#1e2330]">
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-[#1a2030] border border-[#2a3040] flex items-center justify-center text-[#c8a870]">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-[#1a2030] border border-[#2a3040] text-[#aab8c8] text-[0.65rem] font-extrabold uppercase tracking-wider">
+                    Tema Aktif
+                  </span>
+                </div>
+                <h3 className="font-bold text-xs sm:text-sm text-[#e2e6ed]">
+                  Mode Tampilan (Dark / Light)
+                </h3>
+                <p className="text-[0.7rem] text-[#8899aa] mt-1 leading-relaxed">
+                  Pilih tema gelap untuk kenyamanan mata di ruangan redup atau tema terang untuk pencahayaan terang.
+                </p>
+              </div>
+              <div className="mt-4 pt-3 border-t border-[#1e2330]">
+                <ThemeToggle variant="full" />
+              </div>
+            </div>
+          </div>
         </div>
+
 
         {menuSections.map((section, sectionIdx) => (
           <div key={sectionIdx} className="space-y-3">

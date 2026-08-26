@@ -10,6 +10,7 @@ import {
   Layers 
 } from 'lucide-react';
 import PWAInstallButton from './PWAInstallButton';
+import ThemeToggle from './ThemeToggle';
 
 const navItems = [
   { label: 'Beranda', path: '/', icon: LayoutDashboard },
@@ -30,15 +31,19 @@ export default function Sidebar() {
       md:top-0 md:bottom-auto md:w-64 md:h-screen md:flex-col md:justify-start md:border-t-0 md:border-r md:border-[#1e2330] md:bg-[#0c0f17] md:px-3.5 md:py-6
     ">
       {/* Brand Logo Header (Desktop only) */}
-      <div className="hidden md:flex items-center gap-3 px-3 pb-5 mb-5 border-b border-[#1e2330] w-full">
-        <div className="w-9 h-9 rounded-xl bg-[#1a2030] border border-[#2a3040] flex items-center justify-center text-[#8899aa] shadow-sm">
-          <Layers className="w-5 h-5" />
+      <div className="hidden md:flex items-center justify-between px-2 pb-5 mb-5 border-b border-[#1e2330] w-full">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-[#1a2030] border border-[#2a3040] flex items-center justify-center text-[#8899aa] shadow-sm">
+            <Layers className="w-4 h-4" />
+          </div>
+          <div>
+            <h1 className="text-xs font-bold text-[#e2e6ed] tracking-tight">MANUFAKTUR</h1>
+            <p className="text-[0.6rem] font-medium text-[#5a6270] tracking-wider uppercase">Internal App</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-sm font-bold text-[#e2e6ed] tracking-tight">MANUFAKTUR</h1>
-          <p className="text-[0.65rem] font-medium text-[#5a6270] tracking-wider uppercase">Internal System</p>
-        </div>
+        <ThemeToggle variant="compact" />
       </div>
+
 
       {/* Navigation Items (4 Bottom Items) */}
       <nav className="flex w-full justify-around md:flex-col md:justify-start md:gap-1.5">

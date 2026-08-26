@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Sidebar from "@/components/ui/Sidebar";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,16 +38,30 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="icon" type="image/png" href="/favicon.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const t = localStorage.getItem('manufaktur_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', t);
+                document.documentElement.classList.add(t);
+              } catch (e) {}
+            `,
+          }}
+        />
       </head>
 
       <body suppressHydrationWarning>
-        <div className="flex flex-col min-h-screen md:flex-row">
-          <Sidebar />
-          <main className="flex-1 p-4 pb-24 md:ml-64 md:p-6 md:pb-6 bg-base">
-            {children}
-          </main>
-        </div>
+        <ThemeProvider>
+          <div className="flex flex-col min-h-screen md:flex-row">
+            <Sidebar />
+            <main className="flex-1 p-4 pb-24 md:ml-64 md:p-6 md:pb-6 bg-base">
+              {children}
+            </main>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+
