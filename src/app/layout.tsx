@@ -1,0 +1,40 @@
+import type { Metadata, Viewport } from "next";
+import Sidebar from "@/components/ui/Sidebar";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Manufaktur App",
+  description: "Aplikasi internal untuk cash flow, manufaktur & inventory",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0c0f17",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="id" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
+      <body suppressHydrationWarning>
+        <div className="flex flex-col min-h-screen md:flex-row">
+          <Sidebar />
+          <main className="flex-1 p-4 pb-24 md:ml-64 md:p-6 md:pb-6 bg-base">
+            {children}
+          </main>
+        </div>
+      </body>
+    </html>
+  );
+}

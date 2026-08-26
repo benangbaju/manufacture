@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@theme {
+  --color-base: #0c0f17;
+  --color-surface: #12161f;
+  --color-surface-alt: #171c28;
+  --color-surface-hover: #1d2435;
+  --color-border: #1e2330;
+  --color-border-subtle: #1e2330;
+
+  --color-primary: #4a6d8c;
+  --color-primary-hover: #3d5a80;
+  --color-primary-light: rgba(74, 109, 140, 0.12);
+
+  --color-success: #6ea87a;
+  --color-success-light: rgba(110, 168, 122, 0.12);
+
+  --color-warning: #b89860;
+  --color-warning-light: rgba(184, 152, 96, 0.12);
+
+  --color-danger: #b85c5c;
+  --color-danger-light: rgba(184, 92, 92, 0.12);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  background-color: #0c0f17;
+  color: #e2e6ed;
+  font-family: var(--font-sans);
+  background-image: 
+    radial-gradient(ellipse at 50% -20%, rgba(30, 35, 48, 0.2), transparent 70%),
+    linear-gradient(to bottom, #0e1219, #0c0f17 600px);
+  background-attachment: fixed;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+a, a:any-link, a:link, a:visited, a:hover, a:active {
+  color: inherit !important;
+  text-decoration: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0c0f17;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e2330;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #2a3040;
+}
+
+/* Remove number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Form, Input & Select Dropdown High-Contrast Rules */
+select, input, textarea {
+  color: #e2e6ed;
+}
+
+select option {
+  background-color: #12161f !important;
+  color: #e2e6ed !important;
+  padding: 10px;
+}
+
+select option:disabled {
+  color: #5a6270 !important;
+  background-color: #0c0f17 !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #5a6270 !important;
+  opacity: 1;
+}
+
+/* Ensure no muted dark text clashes with dark background */
+.text-slate-500 {
+  color: #8890a0 !important;
+}
+
+/* Tactile Industrial Card Utilities */
+.glass-panel {
+  background: #12161f;
+  border: 1px solid #1e2330;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
+.glass-card {
+  background: #12161f;
+  border: 1px solid #1e2330;
+  box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+  transition: all 0.15s ease-in-out;
+}
+
+.glass-card:hover {
+  border-color: #2a3040;
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+}
