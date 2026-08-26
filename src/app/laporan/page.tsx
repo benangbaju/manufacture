@@ -1,124 +1,218 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import { generateExcelReport, ReportData } from "@/lib/exportExcel";
 import { 
+  getDbProductionBatches, 
+  getDbPurchases, 
+  getDbSales, 
+  getDbExpenses, 
+  getDbArticles,
+  getDbChannels
+} from "@/lib/services/db";
+import { 
   Download, 
-  Calendar, 
-  Coins, 
-  Receipt, 
-  Sparkles, 
   ShoppingBag, 
   Scissors, 
-  FileSpreadsheet,
-  AlertTriangle,
-  CheckCircle2,
-  Tag
+  FileSpreadsheet
 } from 'lucide-react';
 
-const dummyReports: Record<string, ReportData> = {
-  'Agustus 2026': {
-    month: 'Agustus 2026',
-    revenue: 48500000,
-    regularRevenue: 47200000,
-    rejectRevenue: 1300000,
-    regularQtySold: 440,
-    rejectQtySold: 30,
-    cogs: 24200000,
-    grossProfit: 24300000,
-    expenses: 6850000,
-    netProfit: 17450000,
-    salesByChannel: [
-      { channel: 'Shopee', regularQty: 205, rejectQty: 5, totalQty: 210, regularRevenue: 22875000, rejectRevenue: 225000, totalRevenue: 23100000 },
-      { channel: 'TikTok Shop', regularQty: 145, rejectQty: 0, totalQty: 145, regularRevenue: 15950000, rejectRevenue: 0, totalRevenue: 15950000 },
-      { channel: 'WhatsApp / Chat', regularQty: 45, rejectQty: 0, totalQty: 45, regularRevenue: 4950000, rejectRevenue: 0, totalRevenue: 4950000 },
-      { channel: 'Offline Store', regularQty: 10, rejectQty: 20, totalQty: 30, regularRevenue: 2400000, rejectRevenue: 900000, totalRevenue: 3300000 },
-      { channel: 'Website', regularQty: 10, rejectQty: 0, totalQty: 10, regularRevenue: 1200000, rejectRevenue: 0, totalRevenue: 1200000 },
-    ],
-    productionBatches: [
-      { date: '2026-08-24', article: 'Kemeja Lengan Panjang', variant: 'Putih', qtyGood: 58, qtyReject: 2, totalCut: 60, rejectRatePct: 3.3, fabricUsed: 2.0, yieldRate: 30.0 },
-      { date: '2026-08-22', article: 'Celana Chino Pendek', variant: 'Khaki', qtyGood: 44, qtyReject: 1, totalCut: 45, rejectRatePct: 2.2, fabricUsed: 1.5, yieldRate: 30.0 },
-      { date: '2026-08-18', article: 'Kaos Polos Oversize', variant: 'Hitam', qtyGood: 78, qtyReject: 2, totalCut: 80, rejectRatePct: 2.5, fabricUsed: 2.5, yieldRate: 32.0 },
-      { date: '2026-08-14', article: 'Jaket Bomber', variant: 'Navy', qtyGood: 33, qtyReject: 2, totalCut: 35, rejectRatePct: 5.7, fabricUsed: 1.8, yieldRate: 19.4 },
-    ],
-    purchases: [
-      { date: '2026-08-20', material: 'Kain Katun Putih', qty: 50, unit: 'yard', totalCost: 4500000 },
-      { date: '2026-08-15', material: 'Kancing Kemeja Putih', qty: 1000, unit: 'pcs', totalCost: 350000 },
-      { date: '2026-08-10', material: 'Kain Denim Biru', qty: 40, unit: 'yard', totalCost: 4800000 },
-    ],
-    expenseList: [
-      { date: '2026-08-20', category: 'Ads (Iklan)', amount: 2500000, notes: 'Shopee Ads & TikTok Ads' },
-      { date: '2026-08-15', category: 'Gaji Karyawan', amount: 3500000, notes: 'Gaji staf gudang & penjahit' },
-      { date: '2026-08-10', category: 'Ongkir Kain', amount: 450000, notes: 'Ekspedisi kain Bandung-Jkt' },
-      { date: '2026-08-05', category: 'Listrik & Operasional', amount: 400000, notes: 'Listrik workshop' },
-    ],
-    rejectInventorySummary: [
-      { article: 'Kemeja Lengan Panjang', variant: 'Putih', readyStock: 120, rejectStock: 4 },
-      { article: 'Kemeja Lengan Panjang', variant: 'Hitam', readyStock: 95, rejectStock: 2 },
-      { article: 'Celana Chino Pendek', variant: 'Khaki', readyStock: 80, rejectStock: 3 },
-      { article: 'Celana Chino Pendek', variant: 'Hitam', readyStock: 110, rejectStock: 5 },
-      { article: 'Kaos Polos Oversize', variant: 'Putih', readyStock: 200, rejectStock: 6 },
-    ]
-  },
-  'Juli 2026': {
-    month: 'Juli 2026',
-    revenue: 42000000,
-    regularRevenue: 41200000,
-    rejectRevenue: 800000,
-    regularQtySold: 375,
-    rejectQtySold: 20,
-    cogs: 21500000,
-    grossProfit: 20500000,
-    expenses: 6200000,
-    netProfit: 14300000,
-    salesByChannel: [
-      { channel: 'Shopee', regularQty: 190, rejectQty: 0, totalQty: 190, regularRevenue: 20900000, rejectRevenue: 0, totalRevenue: 20900000 },
-      { channel: 'TikTok Shop', regularQty: 120, rejectQty: 0, totalQty: 120, regularRevenue: 13200000, rejectRevenue: 0, totalRevenue: 13200000 },
-      { channel: 'WhatsApp / Chat', regularQty: 40, rejectQty: 0, totalQty: 40, regularRevenue: 4400000, rejectRevenue: 0, totalRevenue: 4400000 },
-      { channel: 'Offline Store', regularQty: 15, rejectQty: 20, totalQty: 35, regularRevenue: 1950000, rejectRevenue: 800000, totalRevenue: 2750000 },
-      { channel: 'Website', regularQty: 7, rejectQty: 0, totalQty: 7, regularRevenue: 750000, rejectRevenue: 0, totalRevenue: 750000 },
-    ],
-    productionBatches: [
-      { date: '2026-07-25', article: 'Kemeja Lengan Panjang', variant: 'Hitam', qtyGood: 48, qtyReject: 2, totalCut: 50, rejectRatePct: 4.0, fabricUsed: 1.7, yieldRate: 29.4 },
-      { date: '2026-07-15', article: 'Kaos Polos Oversize', variant: 'Putih', qtyGood: 68, qtyReject: 2, totalCut: 70, rejectRatePct: 2.8, fabricUsed: 2.2, yieldRate: 31.8 },
-    ],
-    purchases: [
-      { date: '2026-07-10', material: 'Kain Katun Hitam', qty: 40, unit: 'yard', totalCost: 3600000 },
-    ],
-    expenseList: [
-      { date: '2026-07-20', category: 'Ads (Iklan)', amount: 2000000, notes: 'Shopee Ads' },
-      { date: '2026-07-15', category: 'Gaji Karyawan', amount: 3500000, notes: 'Gaji staf' },
-      { date: '2026-07-05', category: 'Listrik & Operasional', amount: 700000, notes: 'Operasional workshop' },
-    ],
-    rejectInventorySummary: [
-      { article: 'Kemeja Lengan Panjang', variant: 'Hitam', readyStock: 48, rejectStock: 2 },
-      { article: 'Kaos Polos Oversize', variant: 'Putih', readyStock: 68, rejectStock: 2 },
-    ]
-  },
-};
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
 
 export default function LaporanPage() {
-  const [selectedMonth, setSelectedMonth] = useState('Agustus 2026');
+  const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
 
-  const currentReport = dummyReports[selectedMonth] || dummyReports['Agustus 2026'];
-  const netMargin = ((currentReport.netProfit / currentReport.revenue) * 100).toFixed(1);
-  const grossMargin = ((currentReport.grossProfit / currentReport.revenue) * 100).toFixed(1);
+  const [rawBatches, setRawBatches] = useState<any[]>([]);
+  const [rawPurchases, setRawPurchases] = useState<any[]>([]);
+  const [rawSales, setRawSales] = useState<any[]>([]);
+  const [rawExpenses, setRawExpenses] = useState<any[]>([]);
+  const [rawArticles, setRawArticles] = useState<any[]>([]);
+  const [rawChannels, setRawChannels] = useState<any[]>([]);
 
-  // Calculate monthly production quality metrics
-  const totalMonthCut = currentReport.productionBatches.reduce((acc, b) => acc + b.totalCut, 0);
-  const totalMonthGood = currentReport.productionBatches.reduce((acc, b) => acc + b.qtyGood, 0);
-  const totalMonthReject = currentReport.productionBatches.reduce((acc, b) => acc + b.qtyReject, 0);
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [batches, purchases, sales, expenses, articles, channels] = await Promise.all([
+        getDbProductionBatches(),
+        getDbPurchases(),
+        getDbSales(),
+        getDbExpenses(),
+        getDbArticles(),
+        getDbChannels(),
+      ]);
+
+      setRawBatches(batches || []);
+      setRawPurchases(purchases || []);
+      setRawSales(sales || []);
+      setRawExpenses(expenses || []);
+      setRawArticles(articles || []);
+      setRawChannels(channels || []);
+
+      const monthSet = new Set<string>();
+      const addDate = (d?: string) => {
+        if (!d) return;
+        const dateObj = new Date(d);
+        if (!isNaN(dateObj.getTime())) {
+          const mName = `${MONTH_NAMES[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+          monthSet.add(mName);
+        }
+      };
+
+      (batches || []).forEach(b => addDate(b.batch_date));
+      (purchases || []).forEach(p => addDate(p.purchase_date));
+      (sales || []).forEach(s => addDate(s.sale_date));
+      (expenses || []).forEach(e => addDate(e.expense_date));
+
+      const now = new Date();
+      const currentMonthName = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+      monthSet.add(currentMonthName);
+
+      const monthsArr = Array.from(monthSet);
+      setAvailableMonths(monthsArr);
+      setSelectedMonth(monthsArr[0] || currentMonthName);
+    } catch (err) {
+      console.error('Failed to load report data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filterByMonth = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    const mName = `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+    return mName === selectedMonth;
+  };
+
+  const monthSales = rawSales.filter(s => filterByMonth(s.sale_date));
+  const monthBatches = rawBatches.filter(b => filterByMonth(b.batch_date));
+  const monthPurchases = rawPurchases.filter(p => filterByMonth(p.purchase_date));
+  const monthExpenses = rawExpenses.filter(e => filterByMonth(e.expense_date));
+
+  const regularSales = monthSales.filter(s => s.item_grade === 'grade_a');
+  const rejectSales = monthSales.filter(s => s.item_grade === 'reject');
+
+  const regularRevenue = regularSales.reduce((sum, s) => sum + (s.total_price || 0), 0);
+  const rejectRevenue = rejectSales.reduce((sum, s) => sum + (s.total_price || 0), 0);
+  const revenue = regularRevenue + rejectRevenue;
+
+  const regularQtySold = regularSales.reduce((sum, s) => sum + s.qty, 0);
+  const rejectQtySold = rejectSales.reduce((sum, s) => sum + s.qty, 0);
+
+  const batchSewingCost = monthBatches.reduce((sum, b) => sum + (b.total_sewing_cost || 0), 0);
+  const purchaseCost = monthPurchases.reduce((sum, p) => sum + (p.total_price || 0), 0);
+  const cogs = batchSewingCost + purchaseCost;
+
+  const grossProfit = revenue - cogs;
+  const expenses = monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const netProfit = grossProfit - expenses;
+
+  const salesByChannel = rawChannels.map(ch => {
+    const chSales = monthSales.filter(s => s.channel_id === ch.id || s.channels?.name === ch.name);
+    const reg = chSales.filter(s => s.item_grade === 'grade_a');
+    const rej = chSales.filter(s => s.item_grade === 'reject');
+
+    const regQty = reg.reduce((sum, s) => sum + s.qty, 0);
+    const rejQty = rej.reduce((sum, s) => sum + s.qty, 0);
+    const regRev = reg.reduce((sum, s) => sum + (s.total_price || 0), 0);
+    const rejRev = rej.reduce((sum, s) => sum + (s.total_price || 0), 0);
+
+    return {
+      channel: ch.name,
+      regularQty: regQty,
+      rejectQty: rejQty,
+      totalQty: regQty + rejQty,
+      regularRevenue: regRev,
+      rejectRevenue: rejRev,
+      totalRevenue: regRev + rejRev,
+    };
+  });
+
+  const productionBatches = monthBatches.map(b => {
+    const totalCut = (b.qty_produced || 0) + (b.qty_reject || 0);
+    const rejRate = totalCut > 0 ? Number(((b.qty_reject / totalCut) * 100).toFixed(1)) : 0;
+    return {
+      date: b.batch_date,
+      article: b.articles?.name || 'Produk',
+      variant: b.variants?.color || 'Varian',
+      qtyGood: b.qty_produced,
+      qtyReject: b.qty_reject || 0,
+      totalCut,
+      fabricUsed: b.fabric_used,
+      yieldRate: b.yield_ratio,
+      rejectRatePct: rejRate,
+    };
+  });
+
+  const purchases = monthPurchases.map(p => ({
+    date: p.purchase_date,
+    material: p.material_name,
+    qty: p.qty,
+    unit: p.unit,
+    totalCost: p.total_price,
+  }));
+
+  const expenseList = monthExpenses.map(e => ({
+    date: e.expense_date,
+    category: e.category,
+    amount: e.amount,
+    notes: e.notes || '',
+  }));
+
+  const rejectInventorySummary = rawArticles.flatMap(a =>
+    (a.variants || []).map((v: any) => ({
+      article: a.name,
+      variant: v.color,
+      readyStock: v.stock_qty,
+      rejectStock: v.stock_reject_qty || 0,
+    }))
+  );
+
+  const reportData: ReportData = {
+    month: selectedMonth,
+    revenue,
+    regularRevenue,
+    rejectRevenue,
+    regularQtySold,
+    rejectQtySold,
+    cogs,
+    grossProfit,
+    expenses,
+    netProfit,
+    salesByChannel,
+    productionBatches,
+    purchases,
+    expenseList,
+    rejectInventorySummary,
+  };
+
+  const netMargin = revenue > 0 ? ((netProfit / revenue) * 100).toFixed(1) : '0.0';
+  const grossMargin = revenue > 0 ? ((grossProfit / revenue) * 100).toFixed(1) : '0.0';
+
+  const totalMonthCut = productionBatches.reduce((acc, b) => acc + b.totalCut, 0);
+  const totalMonthGood = productionBatches.reduce((acc, b) => acc + b.qtyGood, 0);
+  const totalMonthReject = productionBatches.reduce((acc, b) => acc + b.qtyReject, 0);
   const monthRejectRatePct = totalMonthCut > 0 ? ((totalMonthReject / totalMonthCut) * 100).toFixed(1) : '0.0';
 
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await generateExcelReport(currentReport);
+      await generateExcelReport(reportData);
     } catch (err) {
       console.error('Export failed:', err);
-      alert('Gagal mengekspor laporan');
+      alert('Gagal mengekspor laporan Excel.');
     } finally {
       setIsExporting(false);
     }
@@ -127,237 +221,200 @@ export default function LaporanPage() {
   return (
     <div>
       <PageHeader 
-        title="Laporan & Laba Rugi" 
-        description="Analisis struktur keuangan, pemisahan omset reguler vs reject cuci gudang, dan download spreadsheet Excel lengkap"
+        title="Laporan Keuangan & Mutu Manufaktur" 
+        description="Analisis laba rugi bulanan (P&L), segmentasi omset Grade A vs Cuci Gudang Reject, dan rasio efisiensi produksi"
         action={
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#3d5a80] hover:bg-[#b89860] text-[#e2e6ed] font-semibold rounded-xl shadow-sm transition-all text-xs sm:text-sm disabled:opacity-50 active:scale-[0.99]"
-          >
-            <Download className="w-4 h-4" />
-            <span>{isExporting ? 'Memproses File...' : 'Download Excel (.xlsx)'}</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {availableMonths.length > 0 && (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs sm:text-sm font-semibold text-[#e2e6ed] focus:border-[#4a6d8c] outline-none cursor-pointer"
+              >
+                {availableMonths.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            )}
+
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#3d5a80] hover:bg-[#b89860] text-[#e2e6ed] rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              <span>{isExporting ? 'Mengunduh...' : 'Download Excel (.xlsx)'}</span>
+            </button>
+          </div>
         }
       />
 
-      {/* Month Selector Filter Bar */}
-      <div className="glass-card rounded-2xl p-4 mb-6 flex items-center justify-between border-[#1e2330]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7a8a9a] flex items-center justify-center">
-            <Calendar className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-[0.7rem] font-semibold text-[#5a6270] uppercase tracking-wider">Periode Aktif</p>
-            <p className="text-sm sm:text-base font-bold text-[#e2e6ed] tracking-tight">{selectedMonth}</p>
-          </div>
-        </div>
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="p-2 sm:px-3 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium appearance-none cursor-pointer"
-        >
-          {Object.keys(dummyReports).map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* P&L Main KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 mb-6">
-        {/* Omset Card with Segregation */}
-        <div className="glass-card rounded-2xl p-4 sm:p-5 border-[#1e2330]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[0.7rem] font-semibold text-[#5a6270] uppercase tracking-wider">Total Omset</p>
-            <Coins className="w-4 h-4 text-[#7a8a9a]" />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] tracking-tight">Rp {currentReport.revenue.toLocaleString('id-ID')}</p>
-          <div className="flex flex-wrap items-center gap-1.5 text-[0.65rem] text-[#7a8a9a] mt-1.5">
-            <span className="text-[#8ab896] font-semibold">Reguler: Rp {(currentReport.regularRevenue/1000000).toFixed(1)}jt</span>
-            <span>•</span>
-            <span className="text-[#c8a870] font-semibold">Reject: Rp {(currentReport.rejectRevenue/1000000).toFixed(1)}jt</span>
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Total Pendapatan</p>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] mt-1 font-mono">
+            Rp {revenue.toLocaleString('id-ID')}
+          </p>
+          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            <span>Grade A: Rp {(regularRevenue / 1000).toFixed(0)}k</span>
+            <span>Reject: Rp {(rejectRevenue / 1000).toFixed(0)}k</span>
           </div>
         </div>
 
-        {/* HPP Card */}
-        <div className="glass-card rounded-2xl p-4 sm:p-5 border-[#1e2330]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[0.7rem] font-semibold text-[#5a6270] uppercase tracking-wider">HPP / COGS</p>
-            <Scissors className="w-4 h-4 text-[#b89860]" />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-[#b89860] tracking-tight">Rp {currentReport.cogs.toLocaleString('id-ID')}</p>
-          <p className="text-[0.65rem] text-[#5a6270] mt-1.5">Menyerap bahan baku & potong reject</p>
+        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Beban Pokok (HPP / Biaya)</p>
+          <p className="text-xl sm:text-2xl font-black text-[#c8a870] mt-1 font-mono">
+            Rp {cogs.toLocaleString('id-ID')}
+          </p>
+          <p className="text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            Laba Kotor: Rp {grossProfit.toLocaleString('id-ID')} ({grossMargin}%)
+          </p>
         </div>
 
-        {/* Quality / Reject Rate Card */}
-        <div className="glass-card rounded-2xl p-4 sm:p-5 border-[#1e2330]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[0.7rem] font-semibold text-[#5a6270] uppercase tracking-wider">Reject Rate Produksi</p>
-            <AlertTriangle className="w-4 h-4 text-[#c8a870]" />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-[#c8a870] tracking-tight">{monthRejectRatePct}%</p>
-          <p className="text-[0.65rem] text-[#5a6270] mt-1.5">{totalMonthReject} pcs reject dari {totalMonthCut} pcs potong</p>
+        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Biaya Operasional</p>
+          <p className="text-xl sm:text-2xl font-black text-[#c87070] mt-1 font-mono">
+            Rp {expenses.toLocaleString('id-ID')}
+          </p>
+          <p className="text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            {expenseList.length} pos biaya dicatat
+          </p>
         </div>
 
-        {/* Net Profit Card */}
-        <div className="glass-card rounded-2xl p-4 sm:p-5 border-[#2a3a30] bg-[#151a24]">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[0.7rem] font-semibold text-[#6ea87a] uppercase tracking-wider">Laba Bersih</p>
-            <Sparkles className="w-4 h-4 text-[#6ea87a]" />
-          </div>
-          <p className="text-xl sm:text-2xl font-black text-[#6ea87a] tracking-tight">Rp {currentReport.netProfit.toLocaleString('id-ID')}</p>
-          <p className="text-[0.65rem] text-[#8899aa] mt-1.5 font-medium">Net Profit Margin: <span className="font-bold text-[#e2e6ed]">{netMargin}%</span></p>
+        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Laba Bersih (Net Profit)</p>
+          <p className={`text-xl sm:text-2xl font-black mt-1 font-mono ${netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
+            Rp {netProfit.toLocaleString('id-ID')}
+          </p>
+          <p className="text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            Net Profit Margin: <strong className={netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{netMargin}%</strong>
+          </p>
         </div>
       </div>
 
-      {/* Detail Breakdown Tables */}
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
-        {/* Sales by Channel */}
-        <div className="glass-card rounded-2xl p-5 border-[#1e2330]">
-          <h2 className="text-sm sm:text-base font-bold text-[#e2e6ed] mb-4 flex items-center justify-between tracking-tight">
-            <span className="flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-[#7a8a9a]" />
-              <span>Omset per Channel Penjualan</span>
+      {/* Production Quality Summary */}
+      <div className="grid lg:grid-cols-3 gap-6 mb-6">
+        <div className="glass-card rounded-2xl p-5 border-[#1e2330] space-y-4">
+          <div className="flex items-center gap-2">
+            <Scissors className="w-4 h-4 text-[#7a8a9a]" />
+            <h3 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Statistik Mutu Produksi Bulan Ini</h3>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
+              <span className="text-[0.65rem] text-[#5a6270]">Total Potong:</span>
+              <p className="text-base font-extrabold text-[#e2e6ed]">{totalMonthCut} pcs</p>
+            </div>
+            <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
+              <span className="text-[0.65rem] text-[#8ab896]">Grade A:</span>
+              <p className="text-base font-extrabold text-[#8ab896]">{totalMonthGood} pcs</p>
+            </div>
+            <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
+              <span className="text-[0.65rem] text-[#c8a870]">Reject:</span>
+              <p className="text-base font-extrabold text-[#c8a870]">{totalMonthReject} pcs</p>
+            </div>
+          </div>
+
+          <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
+            <span className="text-[#8899aa]">Persentase Reject Bulan Ini:</span>
+            <span className={`font-bold font-mono text-sm ${Number(monthRejectRatePct) > 5 ? 'text-[#c87070]' : 'text-[#6ea87a]'}`}>
+              {monthRejectRatePct}%
             </span>
-            <span className="text-[0.7rem] font-medium text-[#5a6270]">{currentReport.salesByChannel.length} Channel</span>
-          </h2>
-          <div className="space-y-3.5">
-            {currentReport.salesByChannel.map(sc => {
-              const share = ((sc.totalRevenue / currentReport.revenue) * 100).toFixed(0);
-              return (
-                <div key={sc.channel} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <div>
-                      <span className="font-semibold text-[#b0b8c4]">{sc.channel}</span>
-                      <span className="text-[#5a6270] text-[0.7rem] ml-1.5">
-                        ({sc.regularQty} Bagus{sc.rejectQty > 0 ? `, ${sc.rejectQty} Reject` : ''})
-                      </span>
-                    </div>
-                    <span className="font-bold text-[#e2e6ed]">Rp {sc.totalRevenue.toLocaleString('id-ID')}</span>
-                  </div>
-                  <div className="w-full bg-[#0c0f17] h-2 rounded-full overflow-hidden border border-[#1e2330]">
-                    <div className="bg-[#4a6d8c] h-full rounded-full" style={{ width: `${share}%` }}></div>
-                  </div>
-                  <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270]">
-                    <span>
-                      {sc.rejectRevenue > 0 && <span className="text-[#c8a870]">Reject: Rp {sc.rejectRevenue.toLocaleString('id-ID')}</span>}
-                    </span>
-                    <span>{share}% kontribusi omset</span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
 
-        {/* Financial Summary Structure (P&L Segregated) */}
-        <div className="glass-card rounded-2xl p-5 border-[#1e2330]">
-          <h2 className="text-sm sm:text-base font-bold text-[#e2e6ed] mb-4 flex items-center gap-2 tracking-tight">
-            <FileSpreadsheet className="w-4 h-4 text-[#6ea87a]" />
-            <span>Struktur Laba Rugi (P&L Terpisah)</span>
-          </h2>
-          <div className="space-y-2 divide-y divide-[#1e2330] text-xs sm:text-sm">
-            <div className="space-y-1 pt-1">
-              <div className="flex justify-between font-semibold text-[#e2e6ed]">
-                <span>Pendapatan Penjualan Total</span>
-                <span>Rp {currentReport.revenue.toLocaleString('id-ID')}</span>
-              </div>
-              <div className="flex justify-between text-[0.75rem] text-[#8899aa] pl-3">
-                <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-[#6ea87a]" /> Omset Reguler (Grade A)</span>
-                <span className="text-[#8ab896]">Rp {currentReport.regularRevenue.toLocaleString('id-ID')}</span>
-              </div>
-              <div className="flex justify-between text-[0.75rem] text-[#8899aa] pl-3">
-                <span className="flex items-center gap-1"><Tag className="w-3 h-3 text-[#b89860]" /> Omset Cuci Gudang (Reject)</span>
-                <span className="text-[#c8a870]">Rp {currentReport.rejectRevenue.toLocaleString('id-ID')}</span>
-              </div>
-            </div>
+        {/* Channel Breakdown */}
+        <div className="lg:col-span-2 glass-card rounded-2xl p-5 border-[#1e2330] space-y-4">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-[#7a8a9a]" />
+            <h3 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Performa Penjualan per Channel</h3>
+          </div>
 
-            <div className="flex justify-between pt-2">
-              <div>
-                <span className="text-[#8899aa]">(-) Harga Pokok Penjualan (HPP)</span>
-                <p className="text-[0.65rem] text-[#5a6270]">Bahan & ongkos potong reject terserap ke HPP</p>
-              </div>
-              <span className="font-bold text-[#b89860]">- Rp {currentReport.cogs.toLocaleString('id-ID')}</span>
-            </div>
-
-            <div className="flex justify-between pt-2 bg-[#0c0f17] p-2.5 rounded-xl border border-[#1e2330]">
-              <span className="font-bold text-[#e2e6ed]">(=) Laba Kotor (Gross Profit)</span>
-              <span className="font-black text-[#e2e6ed]">
-                Rp {currentReport.grossProfit.toLocaleString('id-ID')} 
-                <span className="text-xs text-[#5a6270] font-normal ml-1">({grossMargin}%)</span>
-              </span>
-            </div>
-
-            <div className="flex justify-between pt-2">
-              <span className="text-[#8899aa]">(-) Total Beban Operasional</span>
-              <span className="font-semibold text-[#b85c5c]">- Rp {currentReport.expenses.toLocaleString('id-ID')}</span>
-            </div>
-
-            <div className="flex justify-between pt-3 bg-[#1a2a20] p-3 rounded-xl border border-[#2a3a30]">
-              <span className="font-bold text-[#6ea87a] text-sm">(=) Laba Bersih Akhir</span>
-              <span className="font-black text-[#6ea87a] text-sm sm:text-base">Rp {currentReport.netProfit.toLocaleString('id-ID')}</span>
-            </div>
+          <div className="overflow-x-auto rounded-xl border border-[#1e2330]">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="bg-[#0e1219] text-[#5a6270] text-[0.65rem] uppercase tracking-wider border-b border-[#1e2330]">
+                  <th className="p-3">Channel</th>
+                  <th className="p-3 text-right">Grade A</th>
+                  <th className="p-3 text-right">Reject</th>
+                  <th className="p-3 text-right">Total Qty</th>
+                  <th className="p-3 text-right">Total Omset</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#1e2330]">
+                {salesByChannel.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-4 text-center text-[#5a6270]">Belum ada channel terdaftar.</td>
+                  </tr>
+                ) : (
+                  salesByChannel.map((ch, idx) => (
+                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="p-3 font-semibold text-[#e2e6ed]">{ch.channel}</td>
+                      <td className="p-3 text-right font-mono text-[#8ab896]">{ch.regularQty} pcs</td>
+                      <td className="p-3 text-right font-mono text-[#c8a870]">{ch.rejectQty} pcs</td>
+                      <td className="p-3 text-right font-mono font-bold text-[#e2e6ed]">{ch.totalQty} pcs</td>
+                      <td className="p-3 text-right font-mono font-bold text-[#8ab896]">
+                        Rp {ch.totalRevenue.toLocaleString('id-ID')}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      {/* Production Batches Yield Performance & Reject Control */}
-      <div className="glass-card rounded-2xl overflow-hidden mb-6 border-[#1e2330]">
-        <div className="p-4 border-b border-[#1e2330] flex items-center justify-between bg-[#0e1219]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-[#201e1a] text-[#b89860] flex items-center justify-center">
-              <Scissors className="w-3.5 h-3.5" />
+      {/* Financial Structure Breakdown */}
+      <div className="glass-card rounded-2xl p-5 border-[#1e2330]">
+        <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider mb-4 flex items-center gap-2">
+          <FileSpreadsheet className="w-4 h-4 text-[#8ab896]" />
+          <span>Struktur Laba Rugi (P&L Realistis)</span>
+        </h2>
+        <div className="space-y-2 divide-y divide-[#1e2330] text-xs">
+          <div className="space-y-1 pt-1">
+            <div className="flex justify-between font-semibold text-[#e2e6ed]">
+              <span>Pendapatan Penjualan Total</span>
+              <span className="font-mono text-[#8ab896]">Rp {revenue.toLocaleString('id-ID')}</span>
             </div>
-            <div>
-              <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Kontrol Kualitas Produksi & Yield Potong Kain</h2>
-              <p className="text-[0.7rem] text-[#5a6270]">Pemisahan hasil bagus (Grade A) vs reject afkir per batch pemotongan</p>
+            <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-3">
+              <span>• Penjualan Normal (Grade A)</span>
+              <span className="font-mono text-[#8ab896]">Rp {regularRevenue.toLocaleString('id-ID')}</span>
+            </div>
+            <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-3">
+              <span>• Penjualan Cuci Gudang (Reject)</span>
+              <span className="font-mono text-[#c8a870]">Rp {rejectRevenue.toLocaleString('id-ID')}</span>
             </div>
           </div>
-          <span className="text-[0.7rem] bg-[#1a2030] border border-[#2a3040] text-[#aab8c8] px-2.5 py-1 rounded-full font-semibold">
-            Rata-rata Yield: 27.8 pcs/meter
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm">
-            <thead>
-              <tr className="bg-[#0e1219] text-[#5a6270] text-[0.7rem] uppercase tracking-wider border-b border-[#1e2330]">
-                <th className="p-3.5">Tanggal</th>
-                <th className="p-3.5">Artikel & Varian</th>
-                <th className="p-3.5">Hasil Bagus</th>
-                <th className="p-3.5">Reject</th>
-                <th className="p-3.5">Total Potong</th>
-                <th className="p-3.5">Reject Rate</th>
-                <th className="p-3.5">Kain Terpakai</th>
-                <th className="p-3.5">Yield</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#1e2330]">
-              {currentReport.productionBatches.map((b, i) => (
-                <tr key={i} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="p-3.5 text-[#5a6270] font-mono text-xs">{b.date}</td>
-                  <td className="p-3.5 font-semibold text-[#e2e6ed]">{b.article} - <span className="text-[#7a8a9a]">{b.variant}</span></td>
-                  <td className="p-3.5 font-bold text-[#8ab896]">+{b.qtyGood} pcs</td>
-                  <td className="p-3.5 font-bold text-[#c8a870]">+{b.qtyReject} pcs</td>
-                  <td className="p-3.5 font-medium text-[#e2e6ed]">{b.totalCut} pcs</td>
-                  <td className="p-3.5">
-                    <span className={`font-bold px-2 py-0.5 rounded text-[0.7rem] ${
-                      b.rejectRatePct <= 3.0 
-                        ? 'bg-[#1a2a20] text-[#6ea87a] border border-[#2a3a30]' 
-                        : 'bg-[#201e1a] text-[#c8a870] border border-[#3a3020]'
-                    }`}>
-                      {b.rejectRatePct.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="p-3.5 text-[#8899aa]">{b.fabricUsed} meter</td>
-                  <td className="p-3.5">
-                    <span className="font-bold px-2 py-0.5 rounded text-[0.7rem] bg-[#1a2030] text-[#aab8c8] border border-[#2a3040]">
-                      {b.yieldRate.toFixed(1)} pcs/m
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+          <div className="flex justify-between pt-2">
+            <div>
+              <span className="text-[#8899aa]">(-) Beban Pokok Produksi & Pembelian Bahan (HPP)</span>
+              <p className="text-[0.65rem] text-[#5a6270]">Total ongkos jahit & pembelian bahan baku</p>
+            </div>
+            <span className="font-bold text-[#c8a870] font-mono">- Rp {cogs.toLocaleString('id-ID')}</span>
+          </div>
+
+          <div className="flex justify-between pt-2 bg-[#0c0f17] p-2.5 rounded-xl border border-[#1e2330]">
+            <span className="font-bold text-[#e2e6ed]">(=) Laba Kotor (Gross Profit)</span>
+            <span className="font-black text-[#e2e6ed] font-mono">
+              Rp {grossProfit.toLocaleString('id-ID')} 
+              <span className="text-xs text-[#5a6270] font-normal ml-1">({grossMargin}%)</span>
+            </span>
+          </div>
+
+          <div className="flex justify-between pt-2">
+            <span className="text-[#8899aa]">(-) Total Beban Operasional</span>
+            <span className="font-semibold text-[#c87070] font-mono">- Rp {expenses.toLocaleString('id-ID')}</span>
+          </div>
+
+          <div className="flex justify-between pt-3 bg-[#1a2a20] p-3 rounded-xl border border-[#2a3a30]">
+            <span className="font-bold text-[#8ab896] text-sm">(=) Laba Bersih Akhir</span>
+            <span className={`font-black text-sm sm:text-base font-mono ${netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
+              Rp {netProfit.toLocaleString('id-ID')}
+            </span>
+          </div>
         </div>
       </div>
     </div>

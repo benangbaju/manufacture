@@ -4,14 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, 
-  PackagePlus, 
   Factory, 
   ShoppingBag, 
-  Receipt, 
-  FileSpreadsheet, 
   Menu, 
   Layers 
 } from 'lucide-react';
+import PWAInstallButton from './PWAInstallButton';
 
 const navItems = [
   { label: 'Beranda', path: '/', icon: LayoutDashboard },
@@ -74,9 +72,13 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* PWA Install Button (Desktop Sidebar Bottom) */}
+      <PWAInstallButton variant="sidebar" />
     </aside>
   );
 }
+
 
 
 

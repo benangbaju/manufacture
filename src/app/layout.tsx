@@ -3,8 +3,17 @@ import Sidebar from "@/components/ui/Sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Manufaktur App",
-  description: "Aplikasi internal untuk cash flow, manufaktur & inventory",
+  title: "Manufaktur & Cash Flow App",
+  description: "Aplikasi internal untuk cash flow, manufaktur & inventory tracking",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Manufaktur",
+  },
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -26,7 +35,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
       </head>
+
       <body suppressHydrationWarning>
         <div className="flex flex-col min-h-screen md:flex-row">
           <Sidebar />

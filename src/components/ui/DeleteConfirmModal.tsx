@@ -7,6 +7,7 @@ interface DeleteConfirmModalProps {
   isOpen: boolean;
   title?: string;
   itemName?: string;
+  message?: string;
   details?: string[];
   onConfirm: () => void;
   onCancel: () => void;
@@ -16,6 +17,7 @@ export default function DeleteConfirmModal({
   isOpen,
   title = 'Konfirmasi Hapus Data',
   itemName,
+  message,
   details,
   onConfirm,
   onCancel,
@@ -63,11 +65,18 @@ export default function DeleteConfirmModal({
           </button>
         </div>
 
-        {itemName && (
+        {(itemName || message) && (
           <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl space-y-1.5 text-xs text-[#b0b8c4]">
-            <p className="font-semibold text-[#e2e6ed] truncate">
-              {itemName}
-            </p>
+            {itemName && (
+              <p className="font-semibold text-[#e2e6ed] truncate">
+                {itemName}
+              </p>
+            )}
+            {message && (
+              <p className="text-[#aab8c8] text-xs leading-relaxed">
+                {message}
+              </p>
+            )}
             {details && details.length > 0 && (
               <div className="pt-1.5 border-t border-[#1e2330] space-y-1 text-[0.7rem] text-[#5a6270]">
                 {details.map((d, i) => (
@@ -77,6 +86,7 @@ export default function DeleteConfirmModal({
             )}
           </div>
         )}
+
 
         <div className="grid grid-cols-2 gap-2 pt-1">
           <button

@@ -13,15 +13,17 @@ import {
   PackagePlus,
   Factory,
   ShoppingBag,
-  ArrowRight
+  ArrowRight,
+  Smartphone
 } from 'lucide-react';
+import PWAInstallButton from "@/components/ui/PWAInstallButton";
 
 const menuSections = [
   {
     step: "Langkah 1: Setup Awal",
     sectionTitle: "Integrasi & Channel Penjualan",
     items: [
-      { href: '/setup', icon: Database, title: 'Setup Database', desc: 'Koneksi Supabase & 1-Click Seeder.' },
+      { href: '/setup', icon: Database, title: 'Setup Database', desc: 'Koneksi Supabase & status database.' },
       { href: '/master/channel', icon: Store, title: 'Channel Penjualan', desc: 'Kelola channel (Shopee, Web, TikTok, dll).' },
     ]
   },
@@ -29,8 +31,8 @@ const menuSections = [
     step: "Langkah 2: Katalog Induk",
     sectionTitle: "Master Artikel & Inventori Bahan",
     items: [
-      { href: '/master/artikel', icon: Shirt, title: 'Artikel & Varian', desc: 'Kelola 21 daftar baju dan warna variannya.' },
-      { href: '/master/kain', icon: Scissors, title: 'Stok Kain Roll', desc: 'Kelola kain per warna dan stok meter.' },
+      { href: '/master/artikel', icon: Shirt, title: 'Artikel & Varian', desc: 'Kelola daftar baju dan warna variannya.' },
+      { href: '/master/kain', icon: Scissors, title: 'Stok Kain Roll', desc: 'Kelola kain per warna dan stok meter/yard.' },
       { href: '/master/bahan-baku', icon: Tag, title: 'Bahan Rasio-Tetap', desc: 'Kelola kancing, label, resleting, benang.' },
     ]
   },
@@ -47,8 +49,8 @@ const menuSections = [
     sectionTitle: "Workflow Manufaktur Harian",
     items: [
       { href: '/pembelian', icon: PackagePlus, title: '1. Pembelian Bahan', desc: 'Catat pengadaan kain & bahan baku dari supplier.' },
-      { href: '/produksi', icon: Factory, title: '2. Produksi Selesai', desc: 'Catat hasil potong & jahit baju jadi.' },
-      { href: '/penjualan', icon: ShoppingBag, title: '3. Penjualan Produk', desc: 'Catat penjualan produk baju ke konsumen.' },
+      { href: '/produksi', icon: Factory, title: '2. Produksi & Reject', desc: 'Catat hasil potong Grade A & barang reject.' },
+      { href: '/penjualan', icon: ShoppingBag, title: '3. Penjualan Produk', desc: 'Catat penjualan produk Grade A / reject.' },
     ]
   },
   {
@@ -70,6 +72,19 @@ export default function MasterDataPage() {
       />
 
       <div className="space-y-6">
+        {/* PWA Mobile App Card Banner */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 border-b border-[#1e2330] pb-2">
+            <span className="px-2.5 py-0.5 rounded-md bg-[#1a2838] text-[#aab8c8] text-[0.65rem] font-extrabold uppercase tracking-wider border border-[#2a3848]">
+              Aplikasi PWA
+            </span>
+            <h2 className="text-xs sm:text-sm font-bold text-[#e2e6ed] tracking-tight">
+              Akses Cepat di Smartphone & Desktop
+            </h2>
+          </div>
+          <PWAInstallButton variant="menu-card" />
+        </div>
+
         {menuSections.map((section, sectionIdx) => (
           <div key={sectionIdx} className="space-y-3">
             <div className="flex items-center gap-2 border-b border-[#1e2330] pb-2">
@@ -116,3 +131,4 @@ export default function MasterDataPage() {
     </div>
   );
 }
+
