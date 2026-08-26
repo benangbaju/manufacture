@@ -10,7 +10,11 @@ export async function getDbArticles() {
     .select('*, product_variants(*)')
     .order('id');
   if (error) throw error;
-  return data || [];
+  return (data || []).map((a: any) => ({
+    ...a,
+    variants: a.product_variants || a.variants || [],
+    product_variants: a.product_variants || a.variants || [],
+  }));
 }
 
 export async function getDbArticleDetail(id: number) {

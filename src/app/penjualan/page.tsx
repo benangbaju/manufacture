@@ -122,7 +122,7 @@ export default function PenjualanPage() {
   }, []);
 
   const activeArticle = articles.find(a => a.id === selectedArticleId);
-  const activeVariant = activeArticle?.variants.find(v => v.id === selectedVariantId);
+  const activeVariant = activeArticle?.variants?.find((v: any) => v.id === selectedVariantId) || null;
   const activeChannel = channels.find(c => c.id === selectedChannelId);
 
   const currentAvailableStock = activeVariant
@@ -135,7 +135,7 @@ export default function PenjualanPage() {
   const handleArticleSelect = (id: number) => {
     setSelectedArticleId(id);
     const art = articles.find(a => a.id === id);
-    if (art && art.variants.length > 0) {
+    if (art && art.variants && art.variants.length > 0) {
       setSelectedVariantId(art.variants[0].id);
     } else {
       setSelectedVariantId(null);

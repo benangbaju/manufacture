@@ -148,11 +148,14 @@ export default function ProduksiPage() {
   }, []);
 
   const activeArticle = articles.find(a => a.id === selectedArticleId);
-  const activeVariant = activeArticle?.variants.find(v => v.id === selectedVariantId);
+  const activeVariant = activeArticle?.variants?.find((v: any) => v.id === selectedVariantId) || null;
 
   useEffect(() => {
     if (activeArticle && activeVariant) {
-      const map = mappings.find(m => m.article_id === activeArticle.id && m.variant_color.toLowerCase() === activeVariant.color.toLowerCase());
+      const map = mappings.find(
+        m => m.article_id === activeArticle.id && 
+        (m.variant_color || '').toLowerCase() === (activeVariant.color || '').toLowerCase()
+      );
       if (map) {
         setSelectedFabricId(map.fabric_stock_id);
       } else if (fabrics.length > 0 && !selectedFabricId) {
@@ -173,7 +176,7 @@ export default function ProduksiPage() {
   const handleArticleSelect = (id: number) => {
     setSelectedArticleId(id);
     const art = articles.find(a => a.id === id);
-    if (art && art.variants.length > 0) {
+    if (art && art.variants && art.variants.length > 0) {
       setSelectedVariantId(art.variants[0].id);
     } else {
       setSelectedVariantId(null);

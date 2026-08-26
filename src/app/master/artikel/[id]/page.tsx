@@ -171,7 +171,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                     <tbody className="divide-y divide-[#1e2330]">
                       {variants.map((v) => (
                         <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="p-3.5 font-bold text-white">{v.color}</td>
+                          <td className="p-3.5 font-bold text-[#e2e6ed]">{v.color}</td>
                           <td className="p-3.5">
                             <span className="inline-flex items-center gap-1 font-bold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3040]">
                               <CheckCircle2 className="w-3 h-3" />
