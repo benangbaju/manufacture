@@ -114,10 +114,10 @@ export default function MasterDataPage() {
         {menuSections.map((section, sectionIdx) => (
           <div key={sectionIdx} className="space-y-3">
             <div className="flex items-center gap-2 border-b border-[#1e2330] pb-2">
-              <span className="px-2.5 py-0.5 rounded-md bg-[#1a2030] text-slate-300 text-[0.65rem] font-extrabold uppercase tracking-wider border border-[#2a3040]">
+              <span className="px-2.5 py-0.5 rounded-md bg-[#1a2838] text-[#7eb3db] text-[0.65rem] font-extrabold uppercase tracking-wider border border-[#2a3848]">
                 {section.step}
               </span>
-              <h2 className="text-xs sm:text-sm font-bold text-slate-200 tracking-tight">
+              <h2 className="text-xs sm:text-sm font-bold text-[#e2e6ed] tracking-tight">
                 {section.sectionTitle}
               </h2>
             </div>
@@ -129,18 +129,18 @@ export default function MasterDataPage() {
                   <Link 
                     key={item.href} 
                     href={item.href}
-                    className={`glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between group relative overflow-hidden transition-all duration-200 border ${
-                      item.highlight ? 'border-[#2a3a30] bg-[#151a24]' : 'border-[#1e2330]'
+                    className={`glass-card rounded-2xl p-4 sm:p-5 flex flex-col justify-between group relative overflow-hidden transition-all duration-200 border hover:border-[#2a3c50] ${
+                      item.highlight ? 'border-[#233548] bg-[#121822]' : 'border-[#1e2330]'
                     }`}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#1a2030] border border-[#2a3040] text-[#8899aa] group-hover:text-[#3d5a80] group-hover:scale-105 transition-all">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] group-hover:bg-[#121822] group-hover:scale-105 transition-all">
                           <Icon className="w-5 h-5" />
                         </div>
-                        <ArrowRight className="w-4 h-4 text-[#5a6270] group-hover:text-[#3d5a80] group-hover:translate-x-1 transition-all" />
+                        <ArrowRight className="w-4 h-4 text-[#5a6270] group-hover:text-[#7eb3db] group-hover:translate-x-1 transition-all" />
                       </div>
-                      <h3 className="text-sm sm:text-base font-bold text-[#e2e6ed] group-hover:text-[#3d5a80] tracking-tight transition-colors">
+                      <h3 className="text-sm sm:text-base font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] tracking-tight transition-colors">
                         {item.title}
                       </h3>
                       <p className="text-xs text-[#8899aa] mt-1 line-clamp-2 leading-relaxed transition-colors">

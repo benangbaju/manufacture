@@ -123,27 +123,27 @@ export default function SetupPage() {
             </p>
 
             <div className="grid sm:grid-cols-2 gap-3 text-xs">
-              <Link href="/master/artikel" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#4a6d8c] rounded-xl block transition-all group">
-                <span className="text-[0.65rem] text-[#7a8a9a] font-bold">Langkah 1</span>
-                <p className="font-bold text-[#e2e6ed] group-hover:text-[#aab8c8] mt-0.5">Master Artikel & Varian &rarr;</p>
+              <Link href="/master/artikel" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#2a3c50] rounded-xl block transition-all group">
+                <span className="text-[0.65rem] text-[#7eb3db] font-bold">Langkah 1</span>
+                <p className="font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] mt-0.5">Master Artikel & Varian &rarr;</p>
                 <p className="text-[0.7rem] text-[#5a6270] mt-1">Daftarkan nama produk dan varian warna.</p>
               </Link>
 
-              <Link href="/master/kain" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#4a6d8c] rounded-xl block transition-all group">
-                <span className="text-[0.65rem] text-[#7a8a9a] font-bold">Langkah 2</span>
-                <p className="font-bold text-[#e2e6ed] group-hover:text-[#aab8c8] mt-0.5">Master Stok Kain &rarr;</p>
+              <Link href="/master/kain" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#2a3c50] rounded-xl block transition-all group">
+                <span className="text-[0.65rem] text-[#7eb3db] font-bold">Langkah 2</span>
+                <p className="font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] mt-0.5">Master Stok Kain &rarr;</p>
                 <p className="text-[0.7rem] text-[#5a6270] mt-1">Catat roll kain per warna atau jenis kain.</p>
               </Link>
 
-              <Link href="/master/bahan-baku" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#4a6d8c] rounded-xl block transition-all group">
-                <span className="text-[0.65rem] text-[#7a8a9a] font-bold">Langkah 3</span>
-                <p className="font-bold text-[#e2e6ed] group-hover:text-[#aab8c8] mt-0.5">Bahan Baku & Aksesoris &rarr;</p>
+              <Link href="/master/bahan-baku" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#2a3c50] rounded-xl block transition-all group">
+                <span className="text-[0.65rem] text-[#7eb3db] font-bold">Langkah 3</span>
+                <p className="font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] mt-0.5">Bahan Baku & Aksesoris &rarr;</p>
                 <p className="text-[0.7rem] text-[#5a6270] mt-1">Kancing, resleting, label, hangtag, dsb.</p>
               </Link>
 
-              <Link href="/produksi" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#4a6d8c] rounded-xl block transition-all group">
-                <span className="text-[0.65rem] text-[#7a8a9a] font-bold">Langkah 4</span>
-                <p className="font-bold text-[#e2e6ed] group-hover:text-[#aab8c8] mt-0.5">Catat Produksi & Reject &rarr;</p>
+              <Link href="/produksi" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#2a3c50] rounded-xl block transition-all group">
+                <span className="text-[0.65rem] text-[#7eb3db] font-bold">Langkah 4</span>
+                <p className="font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] mt-0.5">Catat Produksi & Reject &rarr;</p>
                 <p className="text-[0.7rem] text-[#5a6270] mt-1">Stok Grade A & Reject terpisah otomatis.</p>
               </Link>
             </div>
