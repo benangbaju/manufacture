@@ -401,6 +401,34 @@ export default function ProduksiPage() {
         }
       />
 
+      {/* Top Stat Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Output Grade A</span>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
+            {batches.reduce((a, b) => a + (b.qty_produced || 0), 0).toLocaleString('id-ID')} <span className="text-xs font-normal text-[#5a6270]">pcs</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Output Reject</span>
+          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">
+            {batches.reduce((a, b) => a + (b.qty_reject || 0), 0).toLocaleString('id-ID')} <span className="text-xs font-normal text-[#5a6270]">pcs</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Kain Terpotong</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
+            {batches.reduce((a, b) => a + Number(b.fabric_used || 0), 0).toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">meter</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Hutang Ongkos Jahit</span>
+          <p className="text-xl sm:text-2xl font-black text-[#c87070] font-mono">
+            Rp {(batches.filter(b => !b.is_paid).reduce((a, b) => a + (b.total_sewing_cost || 0), 0) / 1000).toFixed(0)}k
+          </p>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-card rounded-2xl p-5 md:p-6 border-[#1e2330]">
           {articles.length === 0 && !loading ? (
@@ -418,11 +446,11 @@ export default function ProduksiPage() {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="w-5 h-5 rounded-full bg-[#1a2838] text-[#7a8a9a] font-bold text-xs flex items-center justify-center">1</span>
-                    <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Pilih Artikel</label>
+                    <span className="w-5 h-5 rounded-full bg-[#121822] text-[#7eb3db] font-bold text-xs flex items-center justify-center border border-[#233548]">1</span>
+                    <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Pilih Artikel Produk</label>
                   </div>
                   <select
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                     value={selectedArticleId || ''}
                     onChange={(e) => handleArticleSelect(Number(e.target.value))}
                     required
@@ -434,22 +462,22 @@ export default function ProduksiPage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="w-5 h-5 rounded-full bg-[#1a2838] text-[#7a8a9a] font-bold text-xs flex items-center justify-center">2</span>
-                    <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Tanggal Batch</label>
+                    <span className="w-5 h-5 rounded-full bg-[#121822] text-[#7eb3db] font-bold text-xs flex items-center justify-center border border-[#233548]">2</span>
+                    <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Tanggal Potong / Batch</label>
                   </div>
                   <input 
                     type="date"
                     required
                     value={batchDate}
                     onChange={(e) => setBatchDate(e.target.value)}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium"
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
                   />
                 </div>
               </div>
 
               {activeArticle && (
                 <div>
-                  <label className="block text-xs font-semibold text-[#8899aa] mb-2">Pilih Varian Warna</label>
+                  <label className="block text-xs font-semibold text-[#8899aa] mb-2">Pilih Varian Warna yang Diproduksi</label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {activeArticle.variants.map(v => (
                       <button
@@ -458,17 +486,17 @@ export default function ProduksiPage() {
                         onClick={() => setSelectedVariantId(v.id)}
                         className={`p-3 rounded-xl text-left transition-all border ${
                           selectedVariantId === v.id 
-                            ? 'bg-[#1a2838] text-[#e2e6ed] border-[#4a6d8c] shadow-sm' 
+                            ? 'bg-[#121822] text-[#e2e6ed] border-[#233548] ring-1 ring-[#7eb3db] shadow-sm' 
                             : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <p className="font-bold text-sm">{v.color}</p>
-                          {selectedVariantId === v.id && <Check className="w-4 h-4 text-[#8ab896]" />}
+                          {selectedVariantId === v.id && <Check className="w-4 h-4 text-[#7eb3db]" />}
                         </div>
                         <div className="flex items-center justify-between text-[0.65rem] text-[#7a8a9a] mt-2 pt-1 border-t border-[#1e2330]">
-                          <span>Grade A: {v.stock_qty}</span>
-                          <span>Reject: {v.stock_reject_qty || 0}</span>
+                          <span>Grade A: <strong className="text-[#8ab896]">{v.stock_qty}</strong></span>
+                          <span>Reject: <strong className="text-[#c8a870]">{v.stock_reject_qty || 0}</strong></span>
                         </div>
                       </button>
                     ))}
@@ -480,11 +508,11 @@ export default function ProduksiPage() {
                 <div className="space-y-4 pt-2 border-t border-[#1e2330]">
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Roll Kain yang Dipotong *</label>
+                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Roll Kain yang Dipotong <span className="text-[#c87070]">*</span></label>
                       <select
                         value={selectedFabricId || ''}
                         onChange={(e) => setSelectedFabricId(Number(e.target.value))}
-                        className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                        className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                         required
                       >
                         {fabrics.map(f => (
@@ -493,14 +521,14 @@ export default function ProduksiPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan Pemakaian</label>
+                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan Input Kain</label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setFabricInputUnit('meter')}
                           className={`p-2 rounded-xl text-xs font-semibold border transition-all ${
                             fabricInputUnit === 'meter'
-                              ? 'bg-[#1a2838] border-[#4a6d8c] text-[#e2e6ed]'
+                              ? 'bg-[#3d5a80] border-[#3d5a80] text-white'
                               : 'bg-[#0c0f17] border-[#2a3040] text-[#5a6270]'
                           }`}
                         >
@@ -511,7 +539,7 @@ export default function ProduksiPage() {
                           onClick={() => setFabricInputUnit('yard')}
                           className={`p-2 rounded-xl text-xs font-semibold border transition-all ${
                             fabricInputUnit === 'yard'
-                              ? 'bg-[#1a2838] border-[#4a6d8c] text-[#e2e6ed]'
+                              ? 'bg-[#3d5a80] border-[#3d5a80] text-white'
                               : 'bg-[#0c0f17] border-[#2a3040] text-[#5a6270]'
                           }`}
                         >
@@ -521,73 +549,44 @@ export default function ProduksiPage() {
                     </div>
                   </div>
 
-                  {activeRecipes.length > 0 && (
-                    <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl text-xs space-y-1">
-                      <p className="font-semibold text-[#7a8a9a] flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[#b89860]" />
-                        <span>Bahan Resep BOM per {totalCutPieces} pcs potong:</span>
-                      </p>
-                      <div className="grid sm:grid-cols-2 gap-1 text-[0.7rem] text-[#8899aa]">
-                        {activeRecipes.map(r => (
-                          <span key={r.id}>• {r.raw_materials?.name}: <strong className="text-[#e2e6ed]">{(totalCutPieces * r.qty_per_piece).toFixed(1)} {r.raw_materials?.unit}</strong></span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {isFabricInsufficient && (
-                    <div className="p-3 bg-[#241a1a] border border-[#3a2020] rounded-xl text-xs text-[#c87070] flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>Peringatan: Pemakaian kain ({effectiveFabricUsed} m) melebihi stok gudang ({activeFabric?.stock_qty || 0} m).</span>
-                    </div>
-                  )}
-
-                  {insufficientMaterials.length > 0 && (
-                    <div className="p-3 bg-[#241a1a] border border-[#3a2020] rounded-xl text-xs text-[#c87070] flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>
-                        Peringatan Stok Bahan Baku Kurang: {insufficientMaterials.map(m => `${m.name} (butuh ${m.needed.toFixed(1)} ${m.unit}, sisa ${m.available} ${m.unit})`).join(', ')}.
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    <div className="p-3 bg-[#0e141a] border border-[#1e2a30] rounded-xl">
-                      <label className="block text-xs font-bold text-[#8ab896] mb-1.5 text-center">Hasil Bagus (Grade A) *</label>
+                  {/* 3 Metric Inputs */}
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-[#0e1219] border border-[#1e2330] rounded-xl">
+                      <label className="block text-xs font-bold text-[#8ab896] mb-1.5 text-center">Output Grade A (Pcs) *</label>
                       <input
                         type="number"
                         required
                         min={0}
                         placeholder="0"
-                        className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#2a3a30] rounded-xl text-[#8ab896] focus:border-[#6ea87a] outline-none"
+                        className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#8ab896] focus:border-[#7eb3db] outline-none font-mono"
                         value={qty || ''}
                         onChange={(e) => setQty(Number(e.target.value))}
                       />
-                      <p className="text-[0.65rem] text-[#5a6270] text-center mt-1">Stok Grade A</p>
+                      <p className="text-[0.65rem] text-[#5a6270] text-center mt-1">Siap Jual</p>
                     </div>
 
-                    <div className="p-3 bg-[#181510] border border-[#30281e] rounded-xl">
-                      <label className="block text-xs font-bold text-[#c8a870] mb-1.5 text-center">Hasil Reject (Afkir)</label>
+                    <div className="p-3 bg-[#0e1219] border border-[#1e2330] rounded-xl">
+                      <label className="block text-xs font-bold text-[#c8a870] mb-1.5 text-center">Output Reject (Pcs)</label>
                       <input
                         type="number"
                         min={0}
                         placeholder="0"
-                        className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#3a3020] rounded-xl text-[#c8a870] focus:border-[#b89860] outline-none"
+                        className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c8a870] focus:border-[#7eb3db] outline-none font-mono"
                         value={qtyReject || ''}
                         onChange={(e) => setQtyReject(Number(e.target.value))}
                       />
-                      <p className="text-[0.65rem] text-[#7a8a9a] text-center mt-1">Stok Reject</p>
+                      <p className="text-[0.65rem] text-[#5a6270] text-center mt-1">Cacat Produksi</p>
                     </div>
 
                     <div className="p-3 bg-[#0e1219] border border-[#1e2330] rounded-xl">
-                      <label className="block text-xs font-bold text-[#8899aa] mb-1.5 text-center">Kain ({fabricInputUnit}) *</label>
+                      <label className="block text-xs font-bold text-[#7eb3db] mb-1.5 text-center">Kain ({fabricInputUnit}) *</label>
                       <input
                         type="number"
                         required
                         min={0.1}
                         step={0.1}
                         placeholder="0.0"
-                        className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none"
+                        className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#7eb3db] focus:border-[#7eb3db] outline-none font-mono"
                         value={fabricUsed || ''}
                         onChange={(e) => setFabricUsed(Number(e.target.value))}
                       />
@@ -597,8 +596,8 @@ export default function ProduksiPage() {
 
                   <div className="p-3.5 bg-[#0e1219] border border-[#1e2330] rounded-xl space-y-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#8899aa]">Total Potongan: <strong className="text-[#e2e6ed]">{totalCutPieces} pcs</strong></span>
-                      <span className="text-[#8ab896] font-bold">Yield: {currentYield} pcs/m</span>
+                      <span className="text-[#8899aa]">Total Potongan Fisik: <strong className="text-[#e2e6ed] font-mono">{totalCutPieces} pcs</strong></span>
+                      <span className="text-[#8ab896] font-bold font-mono">Yield Kain: {currentYield} pcs/meter</span>
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3 items-center pt-2 border-t border-[#1e2330]">
@@ -612,7 +611,7 @@ export default function ProduksiPage() {
                           min={0}
                           value={costPerPcs}
                           onChange={(e) => setCostPerPcs(Number(e.target.value))}
-                          className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
+                          className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm font-bold font-mono focus:border-[#7eb3db] outline-none"
                         />
                       </div>
 
@@ -622,7 +621,7 @@ export default function ProduksiPage() {
                             type="checkbox"
                             checked={isPaidDirectly}
                             onChange={(e) => setIsPaidDirectly(e.target.checked)}
-                            className="w-4 h-4 rounded text-[#6ea87a] bg-[#1a2030] border-[#2a3040] cursor-pointer"
+                            className="w-4 h-4 rounded text-[#8ab896] bg-[#1a2030] border-[#2a3040] cursor-pointer"
                           />
                           <span className="text-xs font-semibold text-[#b0b8c4]">
                             {isPaidDirectly ? 'Status: Sudah Dibayar Tunai' : 'Status: Belum Dibayar (Hutang)'}
@@ -639,15 +638,15 @@ export default function ProduksiPage() {
                       </div>
                       <div className="flex justify-between text-[#8899aa]">
                         <span>• Total Ongkos Jahit ({totalCutPieces} pcs @ Rp {costPerPcs.toLocaleString('id-ID')}):</span>
-                        <span className="font-mono text-[#6ea87a]">Rp {totalCost.toLocaleString('id-ID')}</span>
+                        <span className="font-mono text-[#8ab896]">Rp {totalCost.toLocaleString('id-ID')}</span>
                       </div>
                       <div className="flex justify-between pt-1.5 border-t border-[#1e2330] font-bold">
                         <span className="text-[#e2e6ed]">Estimasi Total Biaya Batch:</span>
                         <span className="font-mono text-[#e2e6ed]">Rp {estimatedTotalCost.toLocaleString('id-ID')}</span>
                       </div>
-                      <div className="flex justify-between p-2 bg-[#15202b] border border-[#233548] rounded-lg items-center mt-2">
+                      <div className="flex justify-between p-2.5 bg-[#121822] border border-[#233548] rounded-xl items-center mt-2">
                         <span className="font-extrabold text-[#7eb3db] text-xs uppercase tracking-wider">Estimasi HPP Satuan:</span>
-                        <span className="font-black text-sm font-mono text-[#7eb3db]">
+                        <span className="font-black text-sm sm:text-base font-mono text-[#7eb3db]">
                           Rp {estimatedHppPerPcs.toLocaleString('id-ID')} / pcs
                         </span>
                       </div>
@@ -657,7 +656,7 @@ export default function ProduksiPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
                   >
                     <Plus className="w-4 h-4" />
                     <span>{isSubmitting ? 'Menyimpan...' : `Simpan Hasil Produksi (+${qty} Bagus, +${qtyReject} Reject)`}</span>
@@ -672,20 +671,20 @@ export default function ProduksiPage() {
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#7a8a9a]" />
+                <Clock className="w-4 h-4 text-[#7eb3db]" />
                 <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Batch</h2>
               </div>
-              <span className="text-[0.7rem] text-[#5a6270] font-medium">{filteredBatches.length} Batch</span>
+              <span className="text-[0.7rem] text-[#8899aa] font-medium">{filteredBatches.length} Batch</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Total Potong:</span>
-                <span className="font-extrabold text-[#e2e6ed] text-xs">{totalFilteredCutPieces} pcs</span>
+                <span className="font-extrabold text-[#e2e6ed] text-xs font-mono">{totalFilteredCutPieces} pcs</span>
               </div>
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Hutang Jahit:</span>
-                <span className="font-extrabold text-[#c8a870] text-xs">Rp {totalUnpaidNominal.toLocaleString('id-ID')}</span>
+                <span className="font-extrabold text-[#c87070] text-xs font-mono">Rp {totalUnpaidNominal.toLocaleString('id-ID')}</span>
               </div>
             </div>
 
@@ -694,7 +693,7 @@ export default function ProduksiPage() {
                 type="button"
                 onClick={() => setDateFilter('ALL')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'ALL' ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                  dateFilter === 'ALL' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
                 Semua
@@ -703,7 +702,7 @@ export default function ProduksiPage() {
                 type="button"
                 onClick={() => setDateFilter('TODAY')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'TODAY' ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                  dateFilter === 'TODAY' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
                 Hari Ini
@@ -743,9 +742,9 @@ export default function ProduksiPage() {
 
                   <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
                     <span className="text-[#8899aa]">
-                      Kain: <strong className="text-[#e2e6ed]">{b.fabric_used} m</strong> (Rp {(b.fabric_cost || 0).toLocaleString('id-ID')})
+                      Kain: <strong className="text-[#e2e6ed] font-mono">{b.fabric_used} m</strong> (Rp {(b.fabric_cost || 0).toLocaleString('id-ID')})
                     </span>
-                    <span className="px-1.5 py-0.5 bg-[#15202b] text-[#7eb3db] border border-[#233548] rounded font-mono font-bold">
+                    <span className="px-1.5 py-0.5 bg-[#121822] text-[#7eb3db] border border-[#233548] rounded font-mono font-bold">
                       HPP: Rp {(b.unit_cost || 0).toLocaleString('id-ID')}/pcs
                     </span>
                   </div>

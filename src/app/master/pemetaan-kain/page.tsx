@@ -11,7 +11,7 @@ import {
   saveDbFabricMapping, 
   deleteDbFabricMapping 
 } from "@/lib/services/db";
-import { Link2, Plus, Trash2, Scissors } from 'lucide-react';
+import { Link2, Plus, Trash2, Scissors, Search, ArrowRight, Shirt } from 'lucide-react';
 
 interface MappingRecord {
   id: number;
@@ -38,6 +38,7 @@ export default function PemetaanKainPage() {
   const [articles, setArticles] = useState<ArticleOption[]>([]);
   const [fabrics, setFabrics] = useState<FabricOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [selectedArticleId, setSelectedArticleId] = useState<number | ''>('');
   const [variantColor, setVariantColor] = useState('');
@@ -120,6 +121,19 @@ export default function PemetaanKainPage() {
     }
   };
 
+  // Filtered mappings
+  const filteredMappings = mappings.filter(m => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const artName = (m.articles?.name || '').toLowerCase();
+    const color = (m.variant_color || '').toLowerCase();
+    const fabName = (m.fabric_stock?.name || '').toLowerCase();
+    return artName.includes(q) || color.includes(q) || fabName.includes(q);
+  });
+
+  const uniqueArticlesMapped = new Set(mappings.map(m => m.article_id)).size;
+  const uniqueFabricsMapped = new Set(mappings.map(m => m.fabric_stock_id)).size;
+
   return (
     <div>
       <PageHeader 
@@ -127,49 +141,87 @@ export default function PemetaanKainPage() {
         description="Hubungkan varian warna artikel ke jenis roll kain yang otomatis dipotong saat produksi berlangsung" 
       />
 
+      {/* Top Stat Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Pemetaan Aktif</span>
+          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{mappings.length} <span className="text-xs font-normal text-[#5a6270]">Relasi</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Artikel Terpetakan</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{uniqueArticlesMapped} <span className="text-xs font-normal text-[#5a6270]">dari {articles.length} Model</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330] col-span-2 sm:col-span-1">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Kain Roll Terhubung</span>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{uniqueFabricsMapped} <span className="text-xs font-normal text-[#5a6270]">dari {fabrics.length} Jenis</span></p>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330]">
-          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex items-center justify-between text-xs text-[#5a6270]">
-            <span className="font-semibold text-[#8899aa]">Total: {mappings.length} Pemetaan Aktif</span>
+        {/* Table Container */}
+        <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
+          {/* Header with Search */}
+          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari artikel, warna, atau kain..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+              />
+            </div>
+            <span className="text-xs text-[#8899aa] font-semibold shrink-0">
+              {filteredMappings.length} dari {mappings.length} Pemetaan
+            </span>
           </div>
 
           {loading ? (
             <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data pemetaan dari database...</div>
-          ) : mappings.length === 0 ? (
+          ) : filteredMappings.length === 0 ? (
             <div className="p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Link2 className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-[#e2e6ed]">Belum ada pemetaan kain ke varian</p>
+              <p className="text-sm font-semibold text-[#e2e6ed]">
+                {searchQuery ? 'Tidak ada pemetaan yang cocok' : 'Belum ada pemetaan kain'}
+              </p>
               <p className="text-xs text-[#5a6270] mt-1 max-w-xs mx-auto">
-                Silakan hubungkan varian artikel dengan stok kain yang sesuai pada form di samping.
+                Silakan hubungkan warna baju ke roll kain melalui formulir di samping kanan.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto flex-1">
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-[#0e1219] text-[#5a6270] text-[0.7rem] uppercase tracking-wider border-b border-[#1e2330]">
-                    <th className="p-3.5">Artikel Produk</th>
-                    <th className="p-3.5">Varian Warna</th>
-                    <th className="p-3.5">Roll Kain yang Dipotong</th>
+                    <th className="p-3.5">Artikel & Warna</th>
+                    <th className="p-3.5 text-center">Koneksi</th>
+                    <th className="p-3.5">Kain Roll Terpotong</th>
                     <th className="p-3.5 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1e2330]">
-                  {mappings.map(m => (
+                  {filteredMappings.map(m => (
                     <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-3.5 font-bold text-[#e2e6ed]">{m.articles?.name || `#${m.article_id}`}</td>
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-md bg-[#1a2030] text-[#8899aa] font-semibold border border-[#2a3040] text-xs">
+                        <span className="font-bold text-[#e2e6ed] block">{m.articles?.name}</span>
+                        <span className="inline-flex items-center gap-1 text-[0.7rem] text-[#7eb3db] font-semibold mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db]"></span>
                           {m.variant_color}
                         </span>
                       </td>
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-1.5 text-[#6ea87a] font-medium">
-                          <Scissors className="w-3.5 h-3.5 opacity-70" />
-                          <span>{m.fabric_stock?.name || `#${m.fabric_stock_id}`}</span>
+                      <td className="p-3.5 text-center">
+                        <div className="w-6 h-6 rounded-full bg-[#121822] border border-[#233548] text-[#7eb3db] flex items-center justify-center mx-auto">
+                          <ArrowRight className="w-3 h-3" />
                         </div>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3828] text-xs">
+                          <Scissors className="w-3 h-3 text-[#6ea87a]" />
+                          {m.fabric_stock?.name}
+                        </span>
                       </td>
                       <td className="p-3.5 text-right">
                         <button
@@ -188,21 +240,21 @@ export default function PemetaanKainPage() {
           )}
         </div>
 
-        {/* Form Tambah Pemetaan */}
+        {/* Add Mapping Form */}
         <div className="glass-card rounded-2xl p-5 border-[#1e2330] h-fit">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7a8a9a] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7eb3db] flex items-center justify-center">
               <Link2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Hubungkan Kain ke Varian</h2>
-              <p className="text-[0.7rem] text-[#5a6270]">Otomatisasi pemotongan stok kain</p>
+              <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Hubungkan Kain</h2>
+              <p className="text-[0.7rem] text-[#5a6270]">Petakan warna varian ke stok roll kain</p>
             </div>
           </div>
 
           {articles.length === 0 || fabrics.length === 0 ? (
             <p className="text-xs text-[#5a6270] p-4 bg-[#0e1219] rounded-xl border border-[#1e2330]">
-              Pastikan Anda sudah membuat minimal 1 Artikel dan 1 Stok Kain terlebih dahulu.
+              Pastikan Anda sudah memiliki minimal 1 Artikel dan 1 Stok Kain terlebih dahulu.
             </p>
           ) : (
             <form className="space-y-4" onSubmit={handleAdd}>
@@ -213,7 +265,7 @@ export default function PemetaanKainPage() {
                 <select
                   value={selectedArticleId}
                   onChange={(e) => setSelectedArticleId(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                   required
                 >
                   {articles.map(a => (
@@ -229,25 +281,25 @@ export default function PemetaanKainPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Putih, Navy, Sage Green"
+                  placeholder="Contoh: Putih, Hitam, Navy"
                   value={variantColor}
                   onChange={(e) => setVariantColor(e.target.value)}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium placeholder-[#3a4454]"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
                 />
               </div>
 
               <div>
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Roll Kain yang Digunakan <span className="text-[#c87070]">*</span>
+                  Pilih Roll Kain yang Terpotong <span className="text-[#c87070]">*</span>
                 </label>
                 <select
                   value={selectedFabricId}
                   onChange={(e) => setSelectedFabricId(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                   required
                 >
                   {fabrics.map(f => (
-                    <option key={f.id} value={f.id}>{f.name} ({f.unit})</option>
+                    <option key={f.id} value={f.id}>{f.name}</option>
                   ))}
                 </select>
               </div>
@@ -255,7 +307,7 @@ export default function PemetaanKainPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pemetaan Kain'}</span>
@@ -269,7 +321,7 @@ export default function PemetaanKainPage() {
       <DeleteConfirmModal
         isOpen={Boolean(deletingMap)}
         title="Hapus Pemetaan Kain"
-        message={`Apakah Anda yakin ingin menghapus pemetaan kain untuk ${deletingMap?.articles?.name} - ${deletingMap?.variant_color}?`}
+        message={`Apakah Anda yakin ingin menghapus relasi untuk "${deletingMap?.articles?.name} - ${deletingMap?.variant_color}"?`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingMap(null)}
       />

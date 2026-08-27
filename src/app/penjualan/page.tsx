@@ -23,7 +23,8 @@ import {
   Tag,
   Plus,
   ShoppingBag,
-  TrendingUp
+  TrendingUp,
+  Search
 } from 'lucide-react';
 
 interface VariantItem {
@@ -81,6 +82,7 @@ export default function PenjualanPage() {
   const [saleDate, setBatchDate] = useState<string>(getTodayDateString());
 
   // Filters (Default: ALL)
+  const [salesSearchQuery, setSalesSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
   const [gradeFilter, setGradeFilter] = useState<GradeFilterOption>('ALL');
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -233,9 +235,18 @@ export default function PenjualanPage() {
     }
   };
 
-  // Date & Grade Filtering Logic
+  // Date, Grade & Search Filtering Logic
   const todayStr = getTodayDateString();
   const filteredSales = sales.filter(s => {
+    // Search Query
+    if (salesSearchQuery) {
+      const q = salesSearchQuery.toLowerCase().trim();
+      const artName = (s.articles?.name || '').toLowerCase();
+      const color = (s.variants?.color || '').toLowerCase();
+      const channel = (s.channels?.name || '').toLowerCase();
+      if (!artName.includes(q) && !color.includes(q) && !channel.includes(q)) return false;
+    }
+
     // Grade Filter
     if (gradeFilter === 'GRADE_A' && s.item_grade !== 'grade_a') return false;
     if (gradeFilter === 'REJECT' && s.item_grade !== 'reject') return false;
@@ -252,13 +263,6 @@ export default function PenjualanPage() {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       return new Date(s.sale_date) >= thirtyDaysAgo;
     }
-    if (dateFilter === 'CUSTOM') {
-      if (!customStartDate && !customEndDate) return true;
-      const sDate = new Date(s.sale_date);
-      if (customStartDate && sDate < new Date(customStartDate)) return false;
-      if (customEndDate && sDate > new Date(customEndDate)) return false;
-      return true;
-    }
     return true;
   });
 
@@ -271,6 +275,34 @@ export default function PenjualanPage() {
         title="Catat Penjualan Produk" 
         description="Pencatatan kas masuk dari transaksi penjualan produk Grade A maupun obral barang reject per channel marketplace" 
       />
+
+      {/* Top Stat Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Omzet Penjualan</span>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
+            Rp {(sales.reduce((a, b) => a + (b.total_price || 0), 0) / 1000000).toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">Juta</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Pcs Terjual</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
+            {sales.reduce((a, b) => a + (b.qty || 0), 0).toLocaleString('id-ID')} <span className="text-xs font-normal text-[#5a6270]">pcs</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Transaksi</span>
+          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">
+            {sales.length} <span className="text-xs font-normal text-[#5a6270]">Pesanan</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Penjualan Reject</span>
+          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">
+            {sales.filter(s => s.item_grade === 'reject').reduce((a, b) => a + (b.qty || 0), 0)} <span className="text-xs font-normal text-[#5a6270]">pcs</span>
+          </p>
+        </div>
+      </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Form Container */}
@@ -290,7 +322,7 @@ export default function PenjualanPage() {
               {/* Step 1: Grade Selector */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="w-5 h-5 rounded-full bg-[#1a2838] text-[#7a8a9a] font-bold text-xs flex items-center justify-center">1</span>
+                  <span className="w-5 h-5 rounded-full bg-[#121822] text-[#7eb3db] font-bold text-xs flex items-center justify-center border border-[#233548]">1</span>
                   <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Kategori Kualitas Barang yang Dijual</label>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -300,19 +332,14 @@ export default function PenjualanPage() {
                       setItemGrade('grade_a');
                       setQty(0);
                     }}
-                    className={`p-3.5 rounded-xl text-left transition-all border flex items-center gap-3 ${
+                    className={`p-3 rounded-xl border text-left transition-all ${
                       itemGrade === 'grade_a'
-                        ? 'bg-[#1a2a20] border-[#2a3a30] text-[#8ab896] shadow-sm'
-                        : 'bg-[#0e1219] border-[#1e2330] text-[#5a6270] hover:text-[#8899aa]'
+                        ? 'bg-[#1a2a20] border-[#2a3828] text-[#8ab896] ring-1 ring-[#8ab896]'
+                        : 'bg-[#0c0f17] border-[#1e2330] text-[#5a6270] hover:text-[#8899aa]'
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[#203428] flex items-center justify-center text-[#8ab896] font-bold">
-                      A
-                    </div>
-                    <div>
-                      <p className="font-bold text-xs sm:text-sm">Barang Normal (Grade A)</p>
-                      <p className="text-[0.65rem] text-[#5a6270]">Penjualan reguler harga standar</p>
-                    </div>
+                    <p className="font-bold text-xs sm:text-sm text-[#8ab896]">Baju Jadi Grade A</p>
+                    <p className="text-[0.65rem] text-[#5a6270] mt-0.5">Penjualan standar reguler (memotong stok Grade A)</p>
                   </button>
 
                   <button
@@ -321,32 +348,39 @@ export default function PenjualanPage() {
                       setItemGrade('reject');
                       setQty(0);
                     }}
-                    className={`p-3.5 rounded-xl text-left transition-all border flex items-center gap-3 ${
+                    className={`p-3 rounded-xl border text-left transition-all ${
                       itemGrade === 'reject'
-                        ? 'bg-[#201e1a] border-[#3a3020] text-[#c8a870] shadow-sm'
-                        : 'bg-[#0e1219] border-[#1e2330] text-[#5a6270] hover:text-[#8899aa]'
+                        ? 'bg-[#201e1a] border-[#3a3020] text-[#c8a870] ring-1 ring-[#c8a870]'
+                        : 'bg-[#0c0f17] border-[#1e2330] text-[#5a6270] hover:text-[#8899aa]'
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[#30281e] flex items-center justify-center text-[#c8a870] font-bold">
-                      <AlertTriangle className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-xs sm:text-sm">Barang Reject (Afkir)</p>
-                      <p className="text-[0.65rem] text-[#5a6270]">Cuci gudang / diskon cacat produksi</p>
-                    </div>
+                    <p className="font-bold text-xs sm:text-sm text-[#c8a870]">Barang Reject / Cuci Gudang</p>
+                    <p className="text-[0.65rem] text-[#5a6270] mt-0.5">Obral cacat produksi (memotong stok Reject)</p>
                   </button>
                 </div>
               </div>
 
-              {/* Step 2: Pilih Artikel & Tanggal */}
-              <div className="grid sm:grid-cols-2 gap-4">
+              {/* Step 2: Date, Article, Channel */}
+              <div className="grid sm:grid-cols-3 gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-5 h-5 rounded-full bg-[#1a2838] text-[#7a8a9a] font-bold text-xs flex items-center justify-center">2</span>
-                    <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Pilih Artikel</label>
-                  </div>
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                    Tanggal Transaksi <span className="text-[#c87070]">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={saleDate}
+                    onChange={(e) => setBatchDate(e.target.value)}
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                    Pilih Artikel <span className="text-[#c87070]">*</span>
+                  </label>
                   <select
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                     value={selectedArticleId || ''}
                     onChange={(e) => handleArticleSelect(Number(e.target.value))}
                     required
@@ -358,66 +392,56 @@ export default function PenjualanPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-5 h-5 rounded-full bg-[#1a2838] text-[#7a8a9a] font-bold text-xs flex items-center justify-center">3</span>
-                    <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Tanggal Transaksi</label>
-                  </div>
-                  <input 
-                    type="date"
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                    Channel Penjualan <span className="text-[#c87070]">*</span>
+                  </label>
+                  <select
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
+                    value={selectedChannelId || ''}
+                    onChange={(e) => setSelectedChannelId(Number(e.target.value))}
                     required
-                    value={saleDate}
-                    onChange={(e) => setBatchDate(e.target.value)}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium"
-                  />
+                  >
+                    {channels.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Step 3: Pilih Varian Warna & Channel */}
+              {/* Step 3: Variant Selection */}
               {activeArticle && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#8899aa] mb-2">Pilih Varian Warna</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {activeArticle.variants.map(v => {
-                        const stockVal = itemGrade === 'grade_a' ? v.stock_qty : (v.stock_reject_qty || 0);
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => setSelectedVariantId(v.id)}
-                            className={`p-3 rounded-xl text-left transition-all border ${
-                              selectedVariantId === v.id 
-                                ? (itemGrade === 'grade_a' ? 'bg-[#1a2a20] text-[#8ab896] border-[#2a3a30]' : 'bg-[#201e1a] text-[#c8a870] border-[#3a3020]')
-                                : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <p className="font-bold text-sm">{v.color}</p>
-                              {selectedVariantId === v.id && <Check className="w-4 h-4" />}
-                            </div>
-                            <p className="text-[0.7rem] text-[#5a6270] mt-1">
-                              Stok {itemGrade === 'grade_a' ? 'Grade A' : 'Reject'}: <strong className={stockVal > 0 ? (itemGrade === 'grade_a' ? 'text-[#8ab896]' : 'text-[#c8a870]') : 'text-[#c87070]'}>{stockVal} pcs</strong>
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-[#8899aa]">Pilih Varian Warna</label>
+                    <span className="text-[0.7rem] text-[#5a6270]">
+                      Stok {itemGrade === 'grade_a' ? 'Grade A' : 'Reject'}: <strong className="text-[#8ab896]">{currentAvailableStock} pcs</strong>
+                    </span>
                   </div>
-
-                  <div>
-                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                      Pilih Channel Penjualan <span className="text-[#c87070]">*</span>
-                    </label>
-                    <select
-                      value={selectedChannelId || ''}
-                      onChange={(e) => setSelectedChannelId(Number(e.target.value))}
-                      className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
-                      required
-                    >
-                      {channels.map(c => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {activeArticle.variants.map(v => {
+                      const avail = itemGrade === 'grade_a' ? v.stock_qty : (v.stock_reject_qty || 0);
+                      const isSel = selectedVariantId === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setSelectedVariantId(v.id)}
+                          className={`p-3 rounded-xl text-left transition-all border ${
+                            isSel
+                              ? 'bg-[#121822] text-[#e2e6ed] border-[#233548] ring-1 ring-[#7eb3db] shadow-sm'
+                              : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-sm">{v.color}</p>
+                            {isSel && <Check className="w-4 h-4 text-[#7eb3db]" />}
+                          </div>
+                          <p className="text-[0.65rem] text-[#5a6270] mt-2">
+                            Stok: <strong className={avail > 0 ? (itemGrade === 'grade_a' ? 'text-[#8ab896]' : 'text-[#c8a870]') : 'text-[#c87070]'}>{avail} pcs</strong>
+                          </p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -443,7 +467,7 @@ export default function PenjualanPage() {
                         min={1}
                         value={qty || ''}
                         onChange={(e) => setQty(Number(e.target.value))}
-                        className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none"
+                        className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
                         placeholder="0"
                       />
                     </div>
@@ -458,7 +482,7 @@ export default function PenjualanPage() {
                         min={1}
                         value={unitPrice || ''}
                         onChange={(e) => setUnitPrice(Number(e.target.value))}
-                        className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none"
+                        className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
                         placeholder="0"
                       />
                     </div>
@@ -466,7 +490,7 @@ export default function PenjualanPage() {
 
                   {/* Real-time Margin & Profit Preview */}
                   {unitPrice > 0 && activeVariant && (
-                    <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl space-y-1.5 text-xs">
+                    <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl space-y-1.5 text-xs">
                       <div className="flex justify-between text-[#8899aa]">
                         <span>HPP Satuan ({activeVariant.color}):</span>
                         <span className="font-mono text-[#e2e6ed]">Rp {activeVariantHpp.toLocaleString('id-ID')} / pcs</span>
@@ -495,7 +519,7 @@ export default function PenjualanPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting || isStockInsufficient}
-                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
                   >
                     <Plus className="w-4 h-4" />
                     <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Penjualan'}</span>
@@ -511,21 +535,21 @@ export default function PenjualanPage() {
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#7a8a9a]" />
+                <Clock className="w-4 h-4 text-[#7eb3db]" />
                 <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Penjualan</h2>
               </div>
-              <span className="text-[0.7rem] text-[#5a6270] font-medium">{filteredSales.length} Transaksi</span>
+              <span className="text-[0.7rem] text-[#8899aa] font-medium">{filteredSales.length} Transaksi</span>
             </div>
 
             {/* Summary Widget */}
             <div className="grid grid-cols-3 gap-2">
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Terjual:</span>
-                <span className="font-extrabold text-[#e2e6ed] text-xs">{totalFilteredQty} pcs</span>
+                <span className="font-extrabold text-[#e2e6ed] text-xs font-mono">{totalFilteredQty} pcs</span>
               </div>
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Omset:</span>
-                <span className="font-extrabold text-[#8ab896] text-xs">Rp {(totalFilteredNominal / 1000).toFixed(0)}k</span>
+                <span className="font-extrabold text-[#8ab896] text-xs font-mono">Rp {(totalFilteredNominal / 1000).toFixed(0)}k</span>
               </div>
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Laba Kotor:</span>
@@ -537,14 +561,26 @@ export default function PenjualanPage() {
               </div>
             </div>
 
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari artikel, warna, atau channel..."
+                value={salesSearchQuery}
+                onChange={e => setSalesSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+              />
+            </div>
+
             {/* Filter Tabs */}
-            <div className="grid grid-cols-3 gap-1 pt-1">
+            <div className="grid grid-cols-3 gap-1 pt-0.5">
               <button
                 type="button"
                 onClick={() => setGradeFilter('ALL')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
                   gradeFilter === 'ALL'
-                    ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
+                    ? 'bg-[#3d5a80] text-white'
                     : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
@@ -555,7 +591,7 @@ export default function PenjualanPage() {
                 onClick={() => setGradeFilter('GRADE_A')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
                   gradeFilter === 'GRADE_A'
-                    ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3a30]'
+                    ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3828]'
                     : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >

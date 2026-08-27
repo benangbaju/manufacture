@@ -19,7 +19,11 @@ import {
   CalendarDays, 
   Calendar,
   Clock,
-  Plus
+  Plus,
+  Search,
+  CheckCircle2,
+  Store,
+  Layers
 } from 'lucide-react';
 
 interface MaterialItem {
@@ -41,7 +45,7 @@ interface PurchaseRecord {
   fabric_stock?: { name: string; unit: string };
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'CUSTOM';
+type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
@@ -50,6 +54,9 @@ export default function PembelianPage() {
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Material selection & search
+  const [materialFilterTab, setMaterialFilterTab] = useState<'ALL' | 'FABRIC' | 'RAW'>('ALL');
+  const [materialSearchQuery, setMaterialSearchQuery] = useState('');
   const [selectedMaterialKey, setSelectedMaterialKey] = useState<string>(''); // e.g. "fabric-1" or "raw-2"
   const [inputUnit, setInputUnit] = useState<'meter' | 'yard'>('meter');
   const [qty, setQty] = useState<number>(0);
@@ -57,11 +64,10 @@ export default function PembelianPage() {
   const [supplier, setSupplier] = useState<string>('');
   const [purchaseDate, setPurchaseDate] = useState<string>(getTodayDateString());
 
-  // Filters (Default: ALL)
+  // History Filters
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
   const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
-  const [customStartDate, setCustomStartDate] = useState<string>('');
-  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [historySearchQuery, setHistorySearchQuery] = useState('');
 
   // Modals & State
   const [showModal, setShowModal] = useState(false);
@@ -174,10 +180,26 @@ export default function PembelianPage() {
     }
   };
 
+  // Filtered materials for selection
+  const filteredMaterials = materials.filter(m => {
+    if (materialFilterTab === 'FABRIC' && m.type !== 'fabric') return false;
+    if (materialFilterTab === 'RAW' && m.type !== 'raw') return false;
+    const q = materialSearchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return m.name.toLowerCase().includes(q);
+  });
+
   // Date & Supplier Filtering Logic
   const today = getTodayDateString();
   const filteredPurchases = purchases.filter(p => {
     if (supplierFilter !== 'ALL' && p.supplier !== supplierFilter) return false;
+
+    if (historySearchQuery) {
+      const q = historySearchQuery.toLowerCase().trim();
+      const name = (p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name) || '';
+      const supp = p.supplier || '';
+      if (!name.toLowerCase().includes(q) && !supp.toLowerCase().includes(q)) return false;
+    }
 
     if (dateFilter === 'ALL') return true;
     if (dateFilter === 'TODAY') return p.purchase_date === today;
@@ -191,17 +213,11 @@ export default function PembelianPage() {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       return new Date(p.purchase_date) >= thirtyDaysAgo;
     }
-    if (dateFilter === 'CUSTOM') {
-      if (!customStartDate && !customEndDate) return true;
-      const pDate = new Date(p.purchase_date);
-      if (customStartDate && pDate < new Date(customStartDate)) return false;
-      if (customEndDate && pDate > new Date(customEndDate)) return false;
-      return true;
-    }
     return true;
   });
 
   const totalFilteredSpending = filteredPurchases.reduce((a, b) => a + (b.qty * b.unit_price), 0);
+  const totalAllSpending = purchases.reduce((a, b) => a + (b.qty * b.unit_price), 0);
 
   return (
     <div>
@@ -210,26 +226,59 @@ export default function PembelianPage() {
         description="Catat pembelian kain roll atau bahan baku rasio-tetap untuk menambah stok gudang secara otomatis"
       />
 
+      {/* Top Stat Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Pengeluaran Belanja</span>
+          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">
+            Rp {(totalAllSpending / 1000000).toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">Juta</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Transaksi Masuk</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
+            {purchases.length} <span className="text-xs font-normal text-[#5a6270]">Faktur</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Supplier Terdaftar</span>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
+            {existingSuppliers.length} <span className="text-xs font-normal text-[#5a6270]">Vendor</span>
+          </p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Pilihan Bahan Tersedia</span>
+          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">
+            {materials.length} <span className="text-xs font-normal text-[#5a6270]">SKU Bahan</span>
+          </p>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Left Column: Form Pembelian */}
         <div className="lg:col-span-2 glass-card rounded-2xl p-5 border-[#1e2330]">
-          <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider mb-4 flex items-center gap-2">
-            <PackagePlus className="w-4 h-4 text-[#8ab896]" />
-            <span>Form Restock Bahan Masuk</span>
-          </h2>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#8ab896] flex items-center justify-center">
+              <PackagePlus className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Form Restock Bahan Masuk</h2>
+              <p className="text-[0.7rem] text-[#5a6270]">Stok fisik gudang otomatis bertambah setelah disimpan</p>
+            </div>
+          </div>
 
           <form onSubmit={handleSavePurchase} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Tanggal Pembelian
+                  Tanggal Pembelian <span className="text-[#c87070]">*</span>
                 </label>
                 <input
                   type="date"
                   required
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs focus:border-[#4a6d8c] outline-none font-medium"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
                 />
               </div>
 
@@ -243,7 +292,7 @@ export default function PembelianPage() {
                   value={supplier}
                   onChange={(e) => setSupplier(e.target.value)}
                   placeholder="Contoh: Toko Kain Mitra Jaya..."
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs focus:border-[#4a6d8c] outline-none font-medium"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
                 />
                 <datalist id="supplier-options">
                   {existingSuppliers.map((s, idx) => (
@@ -253,35 +302,94 @@ export default function PembelianPage() {
               </div>
             </div>
 
+            {/* Material Selection with Category Tabs & Search */}
             <div>
-              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                Pilih Bahan Baku / Kain yang Dibeli <span className="text-[#c87070]">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[160px] overflow-y-auto p-1 bg-[#0c0f17] rounded-xl border border-[#1e2330]">
-                {materials.map(m => {
-                  const key = `${m.type}-${m.id}`;
-                  const isSelected = selectedMaterialKey === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setSelectedMaterialKey(key)}
-                      className={`p-2.5 rounded-lg text-left transition-all border ${
-                        isSelected 
-                          ? 'bg-[#1a2838] text-[#aab8c8] border-[#2a3848]' 
-                          : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs truncate">{m.name}</span>
-                        {isSelected && <Tag className="w-3 h-3 text-[#8ab896] shrink-0" />}
-                      </div>
-                      <p className="text-[0.65rem] text-[#5a6270] mt-0.5">
-                        Stok: <strong className="text-[#8ab896]">{m.currentStock} {m.unit}</strong>
-                      </p>
-                    </button>
-                  );
-                })}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                  Pilih Bahan Baku / Roll Kain <span className="text-[#c87070]">*</span>
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setMaterialFilterTab('ALL')}
+                    className={`px-2.5 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all ${
+                      materialFilterTab === 'ALL' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    }`}
+                  >
+                    Semua ({materials.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMaterialFilterTab('FABRIC')}
+                    className={`px-2.5 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all ${
+                      materialFilterTab === 'FABRIC' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    }`}
+                  >
+                    Kain Roll
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMaterialFilterTab('RAW')}
+                    className={`px-2.5 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all ${
+                      materialFilterTab === 'RAW' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    }`}
+                  >
+                    Aksesoris BOM
+                  </button>
+                </div>
+              </div>
+
+              {/* Material Search Input */}
+              <div className="relative mb-2">
+                <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Cari bahan..."
+                  value={materialSearchQuery}
+                  onChange={e => setMaterialSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto p-1 bg-[#0c0f17] rounded-xl border border-[#1e2330]">
+                {filteredMaterials.length === 0 ? (
+                  <div className="col-span-full p-4 text-center text-xs text-[#5a6270]">
+                    Tidak ada bahan yang cocok dengan pencarian.
+                  </div>
+                ) : (
+                  filteredMaterials.map(m => {
+                    const key = `${m.type}-${m.id}`;
+                    const isSelected = selectedMaterialKey === key;
+                    const isFab = m.type === 'fabric';
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSelectedMaterialKey(key)}
+                        className={`p-2.5 rounded-xl text-left transition-all border ${
+                          isSelected 
+                            ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]' 
+                            : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {isFab ? (
+                              <Scissors className="w-3 h-3 text-[#7eb3db] shrink-0" />
+                            ) : (
+                              <Tag className="w-3 h-3 text-[#c8a870] shrink-0" />
+                            )}
+                            <span className="font-bold text-xs truncate">{m.name}</span>
+                          </div>
+                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />}
+                        </div>
+                        <p className="text-[0.65rem] text-[#5a6270] mt-1">
+                          Stok saat ini: <strong className="text-[#8ab896] font-mono">{m.currentStock} {m.unit}</strong>
+                        </p>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -289,15 +397,15 @@ export default function PembelianPage() {
               <div className="space-y-4 pt-2 border-t border-[#1e2330]">
                 {isFabric && (
                   <div className="flex items-center justify-between p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs">
-                    <span className="text-[#8899aa]">Satuan Beli Kain:</span>
-                    <div className="flex gap-1.5">
+                    <span className="text-[#8899aa] font-medium">Satuan Input Pembelian:</span>
+                    <div className="flex gap-1 bg-[#12161f] p-0.5 rounded-lg border border-[#2a3040]">
                       <button
                         type="button"
                         onClick={() => setInputUnit('meter')}
-                        className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
+                        className={`px-3 py-1 rounded-md font-bold text-xs transition-all ${
                           inputUnit === 'meter'
-                            ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
-                            : 'bg-[#12161f] text-[#5a6270] hover:text-[#8899aa]'
+                            ? 'bg-[#3d5a80] text-white'
+                            : 'text-[#5a6270] hover:text-[#8899aa]'
                         }`}
                       >
                         Meter
@@ -305,13 +413,13 @@ export default function PembelianPage() {
                       <button
                         type="button"
                         onClick={() => setInputUnit('yard')}
-                        className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
+                        className={`px-3 py-1 rounded-md font-bold text-xs transition-all ${
                           inputUnit === 'yard'
-                            ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
-                            : 'bg-[#12161f] text-[#5a6270] hover:text-[#8899aa]'
+                            ? 'bg-[#3d5a80] text-white'
+                            : 'text-[#5a6270] hover:text-[#8899aa]'
                         }`}
                       >
-                        Yard (Konversi)
+                        Yard (Konversi Auto)
                       </button>
                     </div>
                   </div>
@@ -329,14 +437,19 @@ export default function PembelianPage() {
                       step={0.1}
                       value={qty || ''}
                       onChange={(e) => setQty(Number(e.target.value))}
-                      className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none font-mono"
+                      className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
                       placeholder="0"
                     />
+                    {isFabric && inputUnit === 'yard' && qty > 0 && (
+                      <p className="text-[0.65rem] text-[#7eb3db] mt-1 font-mono">
+                        {qty} yard = <strong>{effectiveQty} meter</strong> masuk stok
+                      </p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                      Harga Satuan / Per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
+                      Harga Beli per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
                     </label>
                     <input
                       type="number"
@@ -344,26 +457,26 @@ export default function PembelianPage() {
                       min={1}
                       value={unitPrice || ''}
                       onChange={(e) => setUnitPrice(Number(e.target.value))}
-                      className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none font-mono"
+                      className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
                       placeholder="0"
                     />
                   </div>
                 </div>
 
                 {totalPrice > 0 && (
-                  <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-[#8899aa]">Total Pembayaran:</span>
-                    <span className="text-base font-black text-[#6ea87a] font-mono">Rp {totalPrice.toLocaleString('id-ID')}</span>
+                  <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-[#8899aa]">Total Pengeluaran Restock:</span>
+                    <span className="text-base font-black text-[#8ab896] font-mono">Rp {totalPrice.toLocaleString('id-ID')}</span>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                  className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian Bahan'}</span>
+                  <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian & Tambah Stok'}</span>
                 </button>
               </div>
             )}
@@ -375,15 +488,27 @@ export default function PembelianPage() {
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#7a8a9a]" />
-                <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Pembelian</h2>
+                <Clock className="w-4 h-4 text-[#7eb3db]" />
+                <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Pengadaan</h2>
               </div>
-              <span className="text-[0.7rem] text-[#5a6270] font-medium">{filteredPurchases.length} Transaksi</span>
+              <span className="text-[0.7rem] text-[#8899aa] font-medium">{filteredPurchases.length} Faktur</span>
             </div>
 
             <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
-              <span className="text-[#5a6270]">Total Belanja:</span>
-              <span className="font-extrabold text-[#e2e6ed] font-mono">Rp {totalFilteredSpending.toLocaleString('id-ID')}</span>
+              <span className="text-[#5a6270]">Total Belanja Terfilter:</span>
+              <span className="font-extrabold text-[#7eb3db] font-mono">Rp {totalFilteredSpending.toLocaleString('id-ID')}</span>
+            </div>
+
+            {/* History Search */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari bahan atau supplier..."
+                value={historySearchQuery}
+                onChange={e => setHistorySearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+              />
             </div>
 
             {/* Supplier Filter */}
@@ -409,7 +534,7 @@ export default function PembelianPage() {
                 onClick={() => setDateFilter('ALL')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
                   dateFilter === 'ALL'
-                    ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
+                    ? 'bg-[#3d5a80] text-white'
                     : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
@@ -420,7 +545,7 @@ export default function PembelianPage() {
                 onClick={() => setDateFilter('TODAY')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
                   dateFilter === 'TODAY'
-                    ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
+                    ? 'bg-[#3d5a80] text-white'
                     : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
@@ -431,7 +556,7 @@ export default function PembelianPage() {
                 onClick={() => setDateFilter('30_DAYS')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
                   dateFilter === '30_DAYS'
-                    ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
+                    ? 'bg-[#3d5a80] text-white'
                     : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >

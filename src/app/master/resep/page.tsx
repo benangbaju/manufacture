@@ -11,7 +11,7 @@ import {
   saveDbRecipe, 
   deleteDbRecipe 
 } from "@/lib/services/db";
-import { Layers, Plus, Trash2 } from 'lucide-react';
+import { Layers, Plus, Trash2, Search, Shirt, Tag, CheckCircle2 } from 'lucide-react';
 
 interface RecipeItem {
   id: number;
@@ -38,6 +38,7 @@ export default function ResepPage() {
   const [articles, setArticles] = useState<ArticleOption[]>([]);
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [selectedArticleId, setSelectedArticleId] = useState<number | ''>('');
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | ''>('');
@@ -123,6 +124,15 @@ export default function ResepPage() {
     };
   }).filter(group => group.items.length > 0);
 
+  // Filtered groups by search
+  const filteredGroups = groupedRecipes.filter(g => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const artMatch = g.article.name.toLowerCase().includes(q);
+    const matMatch = g.items.some(i => (i.raw_materials?.name || '').toLowerCase().includes(q));
+    return artMatch || matMatch;
+  });
+
   const selectedMatObj = materials.find(m => m.id === Number(selectedMaterialId));
 
   return (
@@ -132,43 +142,80 @@ export default function ResepPage() {
         description="Aturan pemakaian bahan baku rasio-tetap per 1 pcs baju (kancing, label, resleting, benang)" 
       />
 
+      {/* Top Stat Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Artikel Ter-Resep</span>
+          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{groupedRecipes.length} <span className="text-xs font-normal text-[#5a6270]">dari {articles.length} Model</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Formulasi Komponen</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{recipes.length} <span className="text-xs font-normal text-[#5a6270]">Komponen</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330] col-span-2 sm:col-span-1">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Bahan Baku Siap Pakai</span>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{materials.length} <span className="text-xs font-normal text-[#5a6270]">Pilihan Bahan</span></p>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
+          {/* Search bar */}
+          <div className="glass-card rounded-2xl p-3 border-[#1e2330] flex items-center gap-2">
+            <Search className="w-4 h-4 text-[#5a6270] ml-2" />
+            <input
+              type="text"
+              placeholder="Cari artikel atau bahan dalam resep..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent border-none text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none"
+            />
+          </div>
+
           {loading ? (
             <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data resep dari database...</div>
-          ) : groupedRecipes.length === 0 ? (
+          ) : filteredGroups.length === 0 ? (
             <div className="p-12 text-center glass-card rounded-2xl border-[#1e2330]">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Layers className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-[#e2e6ed]">Belum ada resep BOM yang dikonfigurasi</p>
+              <p className="text-sm font-semibold text-[#e2e6ed]">
+                {searchQuery ? 'Tidak ada resep yang cocok' : 'Belum ada resep BOM yang dikonfigurasi'}
+              </p>
               <p className="text-xs text-[#5a6270] mt-1 max-w-xs mx-auto">
                 Silakan pilih artikel dan bahan baku di sebelah kanan untuk menetapkan takaran konsumsi per pcs.
               </p>
             </div>
           ) : (
-            groupedRecipes.map(({ article, items }) => (
+            filteredGroups.map(({ article, items }) => (
               <div key={article.id} className="glass-card rounded-2xl overflow-hidden border-[#1e2330]">
                 <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-[#1a2030] text-[#7a8a9a] flex items-center justify-center">
-                      <Layers className="w-3.5 h-3.5" />
+                    <div className="w-7 h-7 rounded-lg bg-[#1a2030] text-[#7eb3db] flex items-center justify-center">
+                      <Shirt className="w-3.5 h-3.5" />
                     </div>
                     <h3 className="font-bold text-[#e2e6ed] text-sm">{article.name}</h3>
                   </div>
-                  <span className="text-[0.7rem] text-[#5a6270]">{items.length} Komponen</span>
+                  <span className="text-[0.7rem] text-[#7eb3db] font-semibold bg-[#121822] px-2.5 py-0.5 rounded-lg border border-[#233548]">
+                    {items.length} Komponen BOM
+                  </span>
                 </div>
 
                 <div className="divide-y divide-[#1e2330]">
                   {items.map(item => (
                     <div key={item.id} className="p-3.5 flex items-center justify-between hover:bg-white/[0.01] transition-colors">
-                      <div>
-                        <p className="font-semibold text-xs text-[#e2e6ed]">{item.raw_materials?.name}</p>
-                        <p className="text-[0.65rem] text-[#5a6270]">Kebutuhan: <span className="text-[#8ab896] font-bold">{item.qty_per_piece} {item.raw_materials?.unit || 'pcs'}</span> per pcs baju</p>
+                      <div className="flex items-center gap-3">
+                        <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
+                        <div>
+                          <p className="font-semibold text-xs text-[#e2e6ed]">{item.raw_materials?.name}</p>
+                          <p className="text-[0.65rem] text-[#5a6270]">
+                            Takaran: <strong className="text-[#8ab896] font-mono">{item.qty_per_piece} {item.raw_materials?.unit || 'pcs'}</strong> per 1 pcs baju
+                          </p>
+                        </div>
                       </div>
                       <button
                         onClick={() => setDeletingItem(item)}
-                        className="p-1.5 rounded-lg bg-[#241a1a] hover:bg-[#341e1e] text-[#c87070] transition-colors"
+                        className="p-1.5 rounded-lg bg-[#241a1a] hover:bg-[#341e1e] text-[#c87070] border border-[#3a2020] transition-colors"
                         title="Hapus dari Resep"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -184,7 +231,7 @@ export default function ResepPage() {
         {/* Form Tambah Bahan ke Resep */}
         <div className="glass-card rounded-2xl p-5 border-[#1e2330] h-fit">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7a8a9a] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7eb3db] flex items-center justify-center">
               <Layers className="w-4 h-4" />
             </div>
             <div>
@@ -206,7 +253,7 @@ export default function ResepPage() {
                 <select
                   value={selectedArticleId}
                   onChange={(e) => setSelectedArticleId(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                   required
                 >
                   {articles.map(a => (
@@ -222,7 +269,7 @@ export default function ResepPage() {
                 <select
                   value={selectedMaterialId}
                   onChange={(e) => setSelectedMaterialId(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                   required
                 >
                   {materials.map(m => (
@@ -242,7 +289,7 @@ export default function ResepPage() {
                   required
                   value={qty}
                   onChange={(e) => setQty(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm font-mono font-bold focus:border-[#7eb3db] outline-none"
                 />
                 <p className="text-[0.65rem] text-[#5a6270] mt-1">
                   Contoh: Kemeja butuh 6 kancing, celana butuh 0.8 meter karet
@@ -252,7 +299,7 @@ export default function ResepPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSubmitting ? 'Menyimpan...' : 'Simpan ke Resep'}</span>

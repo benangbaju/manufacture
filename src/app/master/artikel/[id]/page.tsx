@@ -22,6 +22,10 @@ interface VariantItem {
   variant_fabric_mapping?: { fabric_stock?: { name: string } }[];
 }
 
+const POPULAR_COLORS = [
+  'Hitam', 'Putih', 'Navy', 'Sage Green', 'Mocca', 'Maroon', 'Cream', 'Khaki', 'Charcoal', 'Lilac'
+];
+
 export default function ArticleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const articleId = Number(resolvedParams.id);
@@ -128,6 +132,26 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
         }
       />
 
+      {/* Top Article Metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Varian Warna</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{variants.length} <span className="text-xs font-normal text-[#5a6270]">SKU</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Siap Jual</span>
+          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{totalGoodStock} <span className="text-xs font-normal text-[#5a6270]">pcs</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Reject</span>
+          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">{totalRejectStock} <span className="text-xs font-normal text-[#5a6270]">pcs</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Resep Bahan (BOM)</span>
+          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{recipes.length} <span className="text-xs font-normal text-[#5a6270]">Item</span></p>
+        </div>
+      </div>
+
       {loading ? (
         <div className="glass-card rounded-2xl p-12 text-center text-xs text-[#5a6270]">
           Memuat data artikel dan varian dari database...
@@ -144,7 +168,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
             <div className="glass-card rounded-2xl overflow-hidden border-[#1e2330]">
               <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-[#7a8a9a]" />
+                  <Palette className="w-4 h-4 text-[#7eb3db]" />
                   <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Daftar Varian Warna ({variants.length} SKU)</h2>
                 </div>
                 <div className="flex items-center gap-3 text-[0.7rem] font-medium">
@@ -171,15 +195,18 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                     <tbody className="divide-y divide-[#1e2330]">
                       {variants.map((v) => (
                         <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="p-3.5 font-bold text-[#e2e6ed]">{v.color}</td>
+                          <td className="p-3.5 font-bold text-[#e2e6ed] flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
+                            <span>{v.color}</span>
+                          </td>
                           <td className="p-3.5">
-                            <span className="inline-flex items-center gap-1 font-bold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3040]">
+                            <span className="inline-flex items-center gap-1 font-bold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3040] font-mono">
                               <CheckCircle2 className="w-3 h-3" />
                               {v.stock_qty || 0} pcs
                             </span>
                           </td>
                           <td className="p-3.5">
-                            <span className="inline-flex items-center gap-1 font-bold text-[#c8a870] bg-[#201e1a] px-2.5 py-1 rounded-lg border border-[#3a3020]">
+                            <span className="inline-flex items-center gap-1 font-bold text-[#c8a870] bg-[#201e1a] px-2.5 py-1 rounded-lg border border-[#3a3020] font-mono">
                               <AlertTriangle className="w-3 h-3 text-[#b89860]" />
                               {v.stock_reject_qty || 0} pcs
                             </span>
@@ -212,9 +239,14 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
 
             {/* Recipe / BOM */}
             <div className="glass-card rounded-2xl p-5 border-[#1e2330]">
-              <div className="flex items-center gap-2 mb-3">
-                <Layers className="w-4 h-4 text-[#7a8a9a]" />
-                <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Resep Bahan Rasio-Tetap (BOM Per 1 Pcs)</h2>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#7eb3db]" />
+                  <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Resep Bahan Rasio-Tetap (BOM Per 1 Pcs)</h2>
+                </div>
+                <Link href="/master/resep" className="text-xs text-[#7eb3db] hover:underline">
+                  Kelola Resep &rarr;
+                </Link>
               </div>
               {recipes.length === 0 ? (
                 <p className="text-xs text-[#5a6270] py-2">
@@ -223,13 +255,13 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
               ) : (
                 <div className="divide-y divide-[#1e2330] text-xs sm:text-sm">
                   {recipes.map((r: any) => (
-                    <div key={r.id} className="flex items-center justify-between py-3">
-                      <span className="text-[#8899aa] flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#4a6d8c]"></span>
+                    <div key={r.id} className="flex items-center justify-between py-2.5">
+                      <span className="text-[#8899aa] flex items-center gap-2 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db]"></span>
                         <span>{r.raw_materials?.name || 'Bahan Baku'}</span>
                       </span>
-                      <span className="font-bold text-[#e2e6ed] bg-[#0c0f17] px-3 py-1 rounded-lg border border-[#2a3040]">
-                        {r.qty_per_unit} {r.raw_materials?.unit || 'pcs'}
+                      <span className="font-bold text-[#e2e6ed] bg-[#0c0f17] px-3 py-1 rounded-lg border border-[#2a3040] font-mono text-xs">
+                        {r.qty_per_unit} {r.raw_materials?.unit || 'pcs'} / pcs baju
                       </span>
                     </div>
                   ))}
@@ -241,7 +273,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
           {/* Right Column: Add New Variant Form */}
           <div className="glass-card rounded-2xl p-5 border-[#1e2330] h-fit">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7a8a9a] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7eb3db] flex items-center justify-center">
                 <Plus className="w-4 h-4" />
               </div>
               <div>
@@ -255,13 +287,32 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
                   Nama Warna (SKU) <span className="text-[#c87070]">*</span>
                 </label>
+                
+                {/* Popular Color Chips */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {POPULAR_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewColor(c)}
+                      className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-medium transition-all ${
+                        newColor === c 
+                          ? 'bg-[#1a2838] text-[#7eb3db] border border-[#2a3848]' 
+                          : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
                 <input
                   type="text"
                   required
                   placeholder="Contoh: Maroon, Sage Green, Mustard"
                   value={newColor}
                   onChange={(e) => setNewColor(e.target.value)}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium placeholder-[#3a4454]"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
                 />
               </div>
 
@@ -275,7 +326,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                     min="0"
                     value={initialStock}
                     onChange={(e) => setInitialStock(Number(e.target.value))}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-bold"
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#8ab896] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-mono font-bold"
                   />
                 </div>
                 <div>
@@ -287,7 +338,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                     min="0"
                     value={initialRejectStock}
                     onChange={(e) => setInitialRejectStock(Number(e.target.value))}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c8a870] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-bold"
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c8a870] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-mono font-bold"
                   />
                 </div>
               </div>
@@ -295,7 +346,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Varian Warna'}</span>

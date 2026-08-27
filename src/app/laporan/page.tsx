@@ -290,7 +290,7 @@ export default function LaporanPage() {
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs sm:text-sm font-semibold text-[#e2e6ed] focus:border-[#4a6d8c] outline-none cursor-pointer"
+                className="p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs sm:text-sm font-semibold text-[#e2e6ed] focus:border-[#7eb3db] outline-none cursor-pointer"
               >
                 {availableMonths.map(m => (
                   <option key={m} value={m}>{m}</option>
@@ -301,7 +301,7 @@ export default function LaporanPage() {
             <button
               onClick={handleExport}
               disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#3d5a80] hover:bg-[#b89860] text-[#e2e6ed] rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50"
             >
               <Download className="w-4 h-4" />
               <span>{isExporting ? 'Mengunduh...' : 'Download Excel (.xlsx)'}</span>
@@ -312,7 +312,7 @@ export default function LaporanPage() {
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
           <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Total Pendapatan</p>
           <p className="text-xl sm:text-2xl font-black text-[#8ab896] mt-1 font-mono">
             Rp {revenue.toLocaleString('id-ID')}
@@ -323,8 +323,8 @@ export default function LaporanPage() {
           </div>
         </div>
 
-        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
-          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">HPP Barang Terjual (COGS)</p>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">HPP Terjual (COGS)</p>
           <p className="text-xl sm:text-2xl font-black text-[#c8a870] mt-1 font-mono">
             Rp {cogs.toLocaleString('id-ID')}
           </p>
@@ -333,7 +333,7 @@ export default function LaporanPage() {
           </p>
         </div>
 
-        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
           <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Biaya Operasional (Opex)</p>
           <p className="text-xl sm:text-2xl font-black text-[#c87070] mt-1 font-mono">
             Rp {expenses.toLocaleString('id-ID')}
@@ -343,7 +343,7 @@ export default function LaporanPage() {
           </p>
         </div>
 
-        <div className="p-4 bg-[#0e1219] border border-[#1e2330] rounded-2xl">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
           <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Laba Bersih (Net Profit)</p>
           <p className={`text-xl sm:text-2xl font-black mt-1 font-mono ${netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
             Rp {netProfit.toLocaleString('id-ID')}
@@ -358,33 +358,33 @@ export default function LaporanPage() {
       <div className="grid lg:grid-cols-3 gap-6 mb-6">
         <div className="glass-card rounded-2xl p-5 border-[#1e2330] space-y-4">
           <div className="flex items-center gap-2">
-            <Scissors className="w-4 h-4 text-[#7a8a9a]" />
+            <Scissors className="w-4 h-4 text-[#7eb3db]" />
             <h3 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Statistik Mutu Produksi Bulan Ini</h3>
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
               <span className="text-[0.65rem] text-[#5a6270]">Total Potong:</span>
-              <p className="text-base font-extrabold text-[#e2e6ed]">{totalMonthCut} pcs</p>
+              <p className="text-base font-extrabold text-[#e2e6ed] font-mono">{totalMonthCut} pcs</p>
             </div>
             <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
               <span className="text-[0.65rem] text-[#8ab896]">Grade A:</span>
-              <p className="text-base font-extrabold text-[#8ab896]">{totalMonthGood} pcs</p>
+              <p className="text-base font-extrabold text-[#8ab896] font-mono">{totalMonthGood} pcs</p>
             </div>
             <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
               <span className="text-[0.65rem] text-[#c8a870]">Reject:</span>
-              <p className="text-base font-extrabold text-[#c8a870]">{totalMonthReject} pcs</p>
+              <p className="text-base font-extrabold text-[#c8a870] font-mono">{totalMonthReject} pcs</p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
+            <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#8899aa]">Persentase Reject:</span>
-              <span className={`font-bold font-mono text-sm ${Number(monthRejectRatePct) > 5 ? 'text-[#c87070]' : 'text-[#6ea87a]'}`}>
+              <span className={`font-bold font-mono text-sm ${Number(monthRejectRatePct) > 5 ? 'text-[#c87070]' : 'text-[#8ab896]'}`}>
                 {monthRejectRatePct}%
               </span>
             </div>
-            <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
+            <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#8899aa]">Rata-rata HPP Produksi:</span>
               <span className="font-bold font-mono text-sm text-[#e2e6ed]">
                 Rp {avgHppPerUnitProduced.toLocaleString('id-ID')} / pcs
@@ -396,7 +396,7 @@ export default function LaporanPage() {
         {/* Channel Breakdown */}
         <div className="lg:col-span-2 glass-card rounded-2xl p-5 border-[#1e2330] space-y-4">
           <div className="flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-[#7a8a9a]" />
+            <ShoppingBag className="w-4 h-4 text-[#7eb3db]" />
             <h3 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Performa Penjualan per Channel</h3>
           </div>
 

@@ -5,7 +5,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import { getDbRawMaterials, createDbRawMaterial, updateDbRawMaterial, deleteDbRawMaterial } from "@/lib/services/db";
-import { Tag, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Tag, Plus, Pencil, Trash2, X, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface BahanItem {
   id: number;
@@ -14,9 +14,20 @@ interface BahanItem {
   stock_qty: number;
 }
 
+const ACCESSORY_SUGGESTIONS = [
+  { name: 'Kancing Kemeja 4 Lubang', unit: 'pcs' },
+  { name: 'Label Brand Woven', unit: 'pcs' },
+  { name: 'Label Care & Washing', unit: 'pcs' },
+  { name: 'Resleting YKK 15cm', unit: 'pcs' },
+  { name: 'Benang Jahit No.40', unit: 'cone' },
+  { name: 'Polybag Plastik Sablon', unit: 'pcs' },
+  { name: 'Hangtag Baju + Tali', unit: 'pcs' },
+];
+
 export default function BahanBakuPage() {
   const [data, setData] = useState<BahanItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('pcs');
   const [stock, setStock] = useState<number>(0);
@@ -89,141 +100,212 @@ export default function BahanBakuPage() {
     }
   };
 
+  // Filtered raw materials
+  const filteredData = data.filter(r => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return r.name.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
+  });
+
+  const totalStockCount = data.reduce((a, b) => a + Number(b.stock_qty || 0), 0);
+  const lowStockCount = data.filter(r => Number(r.stock_qty || 0) < 100).length;
+
   return (
     <div>
       <PageHeader 
-        title="Bahan Baku Rasio-Tetap" 
+        title="Bahan Baku Rasio-Tetap (BOM)" 
         description="Master komponen non-kain (kancing, label, resleting, benang) yang dikonsumsi per pcs produk" 
       />
 
+      {/* Top Stat Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Jenis Aksesoris BOM</span>
+          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{data.length} <span className="text-xs font-normal text-[#5a6270]">Bahan</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Stok Keseluruhan</span>
+          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{totalStockCount.toLocaleString('id-ID')} <span className="text-xs font-normal text-[#5a6270]">unit</span></p>
+        </div>
+        <div className="glass-card rounded-2xl p-4 border-[#1e2330] col-span-2 sm:col-span-1">
+          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Menipis (&lt;100)</span>
+          <p className={`text-xl sm:text-2xl font-black font-mono ${lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8ab896]'}`}>
+            {lowStockCount} <span className="text-xs font-normal text-[#5a6270]">Bahan</span>
+          </p>
+        </div>
+      </div>
+
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330]">
-          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex items-center justify-between text-xs text-[#5a6270]">
-            <span className="font-semibold text-[#8899aa]">Total: {data.length} Jenis Bahan</span>
+        {/* Table Container */}
+        <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
+          {/* Header with Search */}
+          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari bahan baku, kancing, label..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+              />
+            </div>
+            <span className="text-xs text-[#8899aa] font-semibold shrink-0">
+              {filteredData.length} dari {data.length} Bahan
+            </span>
           </div>
 
           {loading ? (
             <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data bahan baku dari database...</div>
-          ) : data.length === 0 ? (
+          ) : filteredData.length === 0 ? (
             <div className="p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Tag className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-[#e2e6ed]">Belum ada data bahan baku</p>
+              <p className="text-sm font-semibold text-[#e2e6ed]">
+                {searchQuery ? 'Tidak ada bahan yang cocok' : 'Belum ada data bahan baku'}
+              </p>
               <p className="text-xs text-[#5a6270] mt-1 max-w-xs mx-auto">
-                Silakan daftarkan bahan aksesoris pertama Anda melalui form di sebelah kanan.
+                {searchQuery ? 'Coba gunakan kata kunci pencarian yang lain.' : 'Silakan daftarkan bahan aksesoris pertama Anda melalui form di sebelah kanan.'}
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto flex-1">
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead>
                   <tr className="bg-[#0e1219] text-[#5a6270] text-[0.7rem] uppercase tracking-wider border-b border-[#1e2330]">
                     <th className="p-3.5">Nama Bahan</th>
-                    <th className="p-3.5">Satuan</th>
-                    <th className="p-3.5">Stok Saat Ini</th>
+                    <th className="p-3.5 text-center">Satuan</th>
+                    <th className="p-3.5 text-center">Stok Fisik Gudang</th>
                     <th className="p-3.5 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1e2330]">
-                  {data.map(d => (
-                    <tr key={d.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-3.5 font-bold text-[#e2e6ed] flex items-center gap-2">
-                        <Tag className="w-3.5 h-3.5 text-[#7a8a9a] opacity-80" />
-                        <span>{d.name}</span>
-                      </td>
-                      <td className="p-3.5 text-[#5a6270] text-xs">{d.unit}</td>
-                      <td className="p-3.5">
-                        <span className={`font-bold px-2 py-0.5 rounded text-xs ${d.stock_qty < 100 ? 'bg-[#201e1a] text-[#b89860] border border-[#3a3020]' : 'bg-[#1a2a20] text-[#6ea87a] border border-[#2a3a30]'}`}>
-                          {d.stock_qty} {d.unit}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setEditingItem(d)}
-                            className="p-1.5 rounded-lg bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] hover:text-[#e2e6ed] border border-[#2a3040] transition-colors"
-                            title="Edit Bahan"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeletingItem(d)}
-                            className="p-1.5 rounded-lg bg-[#241a1a] hover:bg-[#341e1e] text-[#c87070] border border-[#3a2020] transition-colors"
-                            title="Hapus Bahan"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredData.map(d => {
+                    const isLow = Number(d.stock_qty || 0) < 100;
+                    return (
+                      <tr key={d.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-3.5 font-bold text-[#e2e6ed]">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
+                            <span>{d.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-center text-[#8899aa] font-mono text-xs">{d.unit}</td>
+                        <td className="p-3.5 text-center">
+                          <span className={`inline-flex items-center gap-1 font-bold font-mono px-2.5 py-1 rounded-lg border text-xs ${
+                            isLow 
+                              ? 'bg-[#201e1a] text-[#c8a870] border-[#3a3020]' 
+                              : 'bg-[#1a2a20] text-[#8ab896] border-[#2a3828]'
+                          }`}>
+                            {Number(d.stock_qty || 0).toLocaleString('id-ID')} {d.unit}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setEditingItem(d)}
+                              className="p-1.5 rounded-lg bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] hover:text-[#e2e6ed] border border-[#2a3040] transition-colors"
+                              title="Edit Bahan"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingItem(d)}
+                              className="p-1.5 rounded-lg bg-[#241a1a] hover:bg-[#341e1e] text-[#c87070] border border-[#3a2020] transition-colors"
+                              title="Hapus Bahan"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
 
-        {/* Form Tambah Bahan Baku */}
+        {/* Add Material Form */}
         <div className="glass-card rounded-2xl p-5 border-[#1e2330] h-fit">
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7a8a9a] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-[#1a2030] text-[#7eb3db] flex items-center justify-center">
               <Tag className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Tambah Bahan Baku Baru</h2>
-              <p className="text-[0.7rem] text-[#5a6270]">Kancing, label woven, resleting, dsb</p>
+              <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Tambah Bahan Baku</h2>
+              <p className="text-[0.7rem] text-[#5a6270]">Kancing, label, resleting, benang, dll.</p>
             </div>
           </div>
 
-          <form className="space-y-4" onSubmit={handleAdd}>
+          <form onSubmit={handleAdd} className="space-y-4">
             <div>
               <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
                 Nama Bahan Baku <span className="text-[#c87070]">*</span>
               </label>
+
+              {/* Preset Chips */}
+              <div className="flex flex-wrap gap-1 mb-2">
+                {ACCESSORY_SUGGESTIONS.map(s => (
+                  <button
+                    key={s.name}
+                    type="button"
+                    onClick={() => {
+                      setName(s.name);
+                      setUnit(s.unit);
+                    }}
+                    className="px-2 py-0.5 rounded-lg text-[0.65rem] font-medium bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa] transition-all"
+                  >
+                    + {s.name}
+                  </button>
+                ))}
+              </div>
+
               <input 
                 type="text" 
-                required 
-                placeholder="Contoh: Kancing Kemeja Putih"
+                required
+                placeholder="Contoh: Kancing 4 Lubang Hitam"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium placeholder-[#3a4454]"
+                onChange={e => setName(e.target.value)}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
               />
             </div>
 
-            <div>
-              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                Satuan Ukuran
-              </label>
-              <select 
-                value={unit}
-                onChange={(e) => setUnit(e.target.value)}
-                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none cursor-pointer"
-              >
-                <option value="pcs">pcs (Kancing, Label, Resleting)</option>
-                <option value="meter">meter (Karet Pinggang, Tali)</option>
-                <option value="roll">roll (Benang Jahit)</option>
-                <option value="pack">pack</option>
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                  Satuan
+                </label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="pcs / pack / roll"
+                  value={unit}
+                  onChange={e => setUnit(e.target.value)}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
+                />
+              </div>
+              <div>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                  Stok Awal
+                </label>
+                <input 
+                  type="number" 
+                  min="0"
+                  placeholder="0"
+                  value={stock || ''}
+                  onChange={e => setStock(Number(e.target.value))}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-mono font-bold"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                Stok Awal
-              </label>
-              <input 
-                type="number" 
-                min={0}
-                value={stock}
-                onChange={(e) => setStock(Number(e.target.value))}
-                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-bold"
-              />
-            </div>
-
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               disabled={isSubmitting}
-              className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
               <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Bahan Baku'}</span>
@@ -232,9 +314,9 @@ export default function BahanBakuPage() {
         </div>
       </div>
 
-      {/* Edit Bahan Modal */}
+      {/* Edit Modal */}
       {editingItem && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#121620] border border-[#2a3040] rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#1e2330]">
               <h3 className="text-sm font-bold text-[#e2e6ed]">Edit Bahan Baku #{editingItem.id}</h3>
@@ -244,34 +326,36 @@ export default function BahanBakuPage() {
             </div>
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Bahan Baku</label>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Bahan</label>
                 <input
                   type="text"
                   required
                   value={editingItem.name}
-                  onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none"
+                  onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan</label>
-                <input
-                  type="text"
-                  required
-                  value={editingItem.unit}
-                  onChange={(e) => setEditingItem({ ...editingItem, unit: e.target.value })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={editingItem.stock_qty || 0}
-                  onChange={(e) => setEditingItem({ ...editingItem, stock_qty: Number(e.target.value) })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingItem.unit}
+                    onChange={e => setEditingItem({ ...editingItem, unit: e.target.value })}
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editingItem.stock_qty}
+                    onChange={e => setEditingItem({ ...editingItem, stock_qty: Number(e.target.value) })}
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#7eb3db] text-xs sm:text-sm font-mono font-bold focus:border-[#7eb3db] outline-none"
+                  />
+                </div>
               </div>
               <div className="flex gap-2 justify-end pt-2">
                 <button
@@ -297,17 +381,17 @@ export default function BahanBakuPage() {
       <DeleteConfirmModal
         isOpen={Boolean(deletingItem)}
         title="Hapus Bahan Baku"
-        message={`Apakah Anda yakin ingin menghapus "${deletingItem?.name}"? Data resep terkait dapat terpengaruh.`}
+        message={`Apakah Anda yakin ingin menghapus "${deletingItem?.name}"? Resep produk (BOM) yang menggunakan bahan ini dapat terpengaruh.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingItem(null)}
       />
 
       {/* Success Notification Modal */}
       <ConfirmModal 
-        isOpen={showModal} 
-        title="Bahan Baku Disimpan!" 
-        lines={modalLines} 
-        onClose={() => setShowModal(false)} 
+        isOpen={showModal}
+        title="Bahan Baku Berhasil Ditambahkan"
+        lines={modalLines}
+        onClose={() => setShowModal(false)}
       />
     </div>
   );
