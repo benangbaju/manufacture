@@ -10,6 +10,11 @@ export interface ProductionBatchReportItem {
   fabricUsed: number;
   yieldRate: number;
   rejectRatePct: number;
+  fabricCost?: number;
+  laborCost?: number;
+  accessoriesCost?: number;
+  totalCost?: number;
+  unitCost?: number;
 }
 
 export interface SalesChannelReportItem {
@@ -37,9 +42,16 @@ export interface ReportData {
   regularQtySold: number;
   rejectQtySold: number;
   cogs: number;
+  regularCogs?: number;
+  rejectCogs?: number;
+  regularGrossProfit?: number;
+  rejectGrossProfit?: number;
   grossProfit: number;
   expenses: number;
   netProfit: number;
+  totalMaterialPurchased?: number;
+  totalSewingPaid?: number;
+  avgHppPerUnit?: number;
   salesByChannel: SalesChannelReportItem[];
   productionBatches: ProductionBatchReportItem[];
   purchases: { date: string; material: string; qty: number; unit: string; totalCost: number }[];
@@ -52,12 +64,12 @@ export async function generateExcelReport(data: ReportData) {
   workbook.creator = 'Manufaktur & Cashflow App';
   workbook.created = new Date();
 
-  // 1. SHEET RINGKASAN P&L (LABA RUGI DENGAN PEMISAHAN REJECT)
+  // 1. SHEET RINGKASAN P&L (LABA RUGI DENGAN PEMISAHAN REJECT & HPP RIIL)
   const summarySheet = workbook.addWorksheet('Laporan Laba Rugi');
   summarySheet.columns = [
-    { header: 'Keterangan', key: 'item', width: 45 },
+    { header: 'Keterangan', key: 'item', width: 48 },
     { header: 'Jumlah (Rp)', key: 'amount', width: 25 },
-    { header: 'Catatan Akuntansi', key: 'notes', width: 35 },
+    { header: 'Catatan Akuntansi & Unit Cost', key: 'notes', width: 45 },
   ];
 
   // Header styling
@@ -66,20 +78,28 @@ export async function generateExcelReport(data: ReportData) {
 
   summarySheet.addRows([
     { item: `LAPORAN KEUANGAN & MANUFAKTUR - ${data.month.toUpperCase()}`, amount: '', notes: '' },
-    { item: 'Total Pendapatan (Total Revenue)', amount: data.revenue, notes: 'Semua penjualan (Reguler + Reject)' },
+    { item: 'A. PENDAPATAN PENJUALAN (REVENUE)', amount: data.revenue, notes: 'Total omset penjualan kotor' },
     { item: '  • Penjualan Reguler (Grade A / Barang Bagus)', amount: data.regularRevenue, notes: `${data.regularQtySold} pcs terjual normal` },
     { item: '  • Penjualan Cuci Gudang (Barang Reject / Afkir)', amount: data.rejectRevenue, notes: `${data.rejectQtySold} pcs obral/clearance` },
-    { item: 'Harga Pokok Penjualan (HPP / COGS)', amount: data.cogs, notes: 'Menyerap biaya potong & bahan reject' },
-    { item: 'Laba Kotor (Gross Profit)', amount: data.grossProfit, notes: 'Revenue - HPP' },
-    { item: 'Total Pengeluaran Operasional', amount: data.expenses, notes: 'Ads, gaji, listrik, sewa workshop' },
-    { item: 'Laba Bersih (Net Profit)', amount: data.netProfit, notes: 'Gross Profit - Operasional' },
+    { item: 'B. HARGA POKOK PENJUALAN (HPP / COGS)', amount: data.cogs, notes: 'Beban pokok barang terjual (Unit Cost Based)' },
+    { item: '  • HPP Barang Reguler (Grade A)', amount: data.regularCogs || 0, notes: `Beban pokok untuk ${data.regularQtySold} pcs Grade A` },
+    { item: '  • HPP Barang Reject (Afkir)', amount: data.rejectCogs || 0, notes: `Beban pokok untuk ${data.rejectQtySold} pcs Reject` },
+    { item: 'C. LABA KOTOR (GROSS PROFIT)', amount: data.grossProfit, notes: 'Revenue - HPP' },
+    { item: '  • Margin Laba Kotor Grade A', amount: data.regularGrossProfit || (data.regularRevenue - (data.regularCogs || 0)), notes: 'Laba kotor dari produk Grade A' },
+    { item: '  • Margin Laba Kotor Reject', amount: data.rejectGrossProfit || (data.rejectRevenue - (data.rejectCogs || 0)), notes: 'Laba kotor (atau selisih) penjualan reject' },
+    { item: 'D. TOTAL BEBAN OPERASIONAL (OPEX)', amount: data.expenses, notes: 'Ads, gaji, listrik, sewa workshop, dll' },
+    { item: 'E. LABA BERSIH (NET PROFIT)', amount: data.netProfit, notes: 'Gross Profit - Beban Operasional' },
+    { item: '', amount: '', notes: '' },
+    { item: '--- INFORMASI ARUS KAS KELUAR BULAN INI ---', amount: '', notes: 'Uang keluar riil (Cash Outflow)' },
+    { item: '  • Pembelian Bahan Baku (Kain & Aksesoris)', amount: data.totalMaterialPurchased || 0, notes: 'Pengeluaran uang untuk stok bahan' },
+    { item: '  • Total Ongkos Jahit & Potong Batch', amount: data.totalSewingPaid || 0, notes: 'Biaya tenaga kerja produksi batch' },
   ]);
 
-  // Format currency
-  [3, 4, 5, 6, 7, 8, 9].forEach(rowNum => {
+  // Format currency on summary rows
+  [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 16, 17].forEach(rowNum => {
     const row = summarySheet.getRow(rowNum);
     row.getCell(2).numFmt = '"Rp" #,##0';
-    if (rowNum === 3 || rowNum === 7 || rowNum === 9) {
+    if ([3, 6, 9, 12, 13, 15].includes(rowNum)) {
       row.font = { bold: true };
     }
   });
@@ -105,18 +125,22 @@ export async function generateExcelReport(data: ReportData) {
     row.getCell(7).numFmt = '"Rp" #,##0';
   });
 
-  // 3. SHEET PRODUKSI DENGAN KONTROL KUALITAS & REJECT RATE
+  // 3. SHEET PRODUKSI DENGAN KONTROL KUALITAS & HPP PER PCS
   const prodSheet = workbook.addWorksheet('Riwayat Produksi');
   prodSheet.columns = [
-    { header: 'Tanggal', key: 'date', width: 15 },
-    { header: 'Artikel', key: 'article', width: 25 },
-    { header: 'Warna Varian', key: 'variant', width: 18 },
-    { header: 'Qty Bagus / Grade A', key: 'qtyGood', width: 20 },
-    { header: 'Qty Reject / Afkir', key: 'qtyReject', width: 18 },
-    { header: 'Total Potong (Pcs)', key: 'totalCut', width: 18 },
+    { header: 'Tanggal', key: 'date', width: 14 },
+    { header: 'Artikel', key: 'article', width: 22 },
+    { header: 'Warna Varian', key: 'variant', width: 16 },
+    { header: 'Qty Bagus', key: 'qtyGood', width: 14 },
+    { header: 'Qty Reject', key: 'qtyReject', width: 14 },
+    { header: 'Total Potong', key: 'totalCut', width: 15 },
     { header: 'Reject Rate (%)', key: 'rejectRatePct', width: 16 },
-    { header: 'Kain Terpakai (Meter)', key: 'fabricUsed', width: 22 },
-    { header: 'Yield (Pcs/Meter)', key: 'yieldRate', width: 18 },
+    { header: 'Kain (Mtr)', key: 'fabricUsed', width: 14 },
+    { header: 'Yield (Pcs/Mtr)', key: 'yieldRate', width: 16 },
+    { header: 'Biaya Kain (Rp)', key: 'fabricCost', width: 18 },
+    { header: 'Ongkos Jahit (Rp)', key: 'laborCost', width: 18 },
+    { header: 'Total Biaya (Rp)', key: 'totalCost', width: 20 },
+    { header: 'HPP / Pcs (Rp)', key: 'unitCost', width: 18 },
   ];
   prodSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   prodSheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF16A34A' } };
@@ -125,6 +149,10 @@ export async function generateExcelReport(data: ReportData) {
     const row = prodSheet.addRow(p);
     row.getCell(7).numFmt = '0.0"%"';
     row.getCell(9).numFmt = '0.0';
+    row.getCell(10).numFmt = '"Rp" #,##0';
+    row.getCell(11).numFmt = '"Rp" #,##0';
+    row.getCell(12).numFmt = '"Rp" #,##0';
+    row.getCell(13).numFmt = '"Rp" #,##0';
   });
 
   // 4. SHEET PEMBELIAN

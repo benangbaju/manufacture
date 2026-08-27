@@ -59,6 +59,7 @@ export default function PembelianPage() {
 
   // Filters (Default: ALL)
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
+  const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
 
@@ -110,6 +111,10 @@ export default function PembelianPage() {
     loadData();
   }, []);
 
+  const existingSuppliers = Array.from(
+    new Set(purchases.map(p => p.supplier?.trim()).filter(Boolean))
+  ) as string[];
+
   const [activeType, activeIdStr] = selectedMaterialKey ? selectedMaterialKey.split('-') : ['', ''];
   const activeMat = materials.find(m => m.type === activeType && m.id === Number(activeIdStr));
 
@@ -140,6 +145,7 @@ export default function PembelianPage() {
         `Bahan: ${activeMat.name}`,
         `Jumlah Masuk: +${effectiveQty} ${effectiveUnit}` + (inputUnit === 'yard' ? ` (dari ${qty} yard)` : ''),
         `Harga Satuan: Rp ${unitPrice.toLocaleString('id-ID')}`,
+        `Supplier: ${supplier.trim() || 'Tanpa Supplier'}`,
         `Total Pengeluaran: Rp ${totalPrice.toLocaleString('id-ID')}`,
         `Stok di gudang otomatis bertambah.`,
       ];
@@ -168,9 +174,11 @@ export default function PembelianPage() {
     }
   };
 
-  // Date Filtering Logic
+  // Date & Supplier Filtering Logic
   const today = getTodayDateString();
   const filteredPurchases = purchases.filter(p => {
+    if (supplierFilter !== 'ALL' && p.supplier !== supplierFilter) return false;
+
     if (dateFilter === 'ALL') return true;
     if (dateFilter === 'TODAY') return p.purchase_date === today;
     if (dateFilter === '7_DAYS') {
@@ -198,183 +206,173 @@ export default function PembelianPage() {
   return (
     <div>
       <PageHeader 
-        title="Catat Pembelian Bahan" 
-        description="Input belanja kain roll atau bahan baku aksesoris (otomatis menambah stok fisik di database)" 
+        title="Pembelian & Restock Bahan" 
+        description="Catat pembelian kain roll atau bahan baku rasio-tetap untuk menambah stok gudang secara otomatis"
       />
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Form Container */}
-        <div className="lg:col-span-2 glass-card rounded-2xl p-5 md:p-6 border-[#1e2330]">
-          {materials.length === 0 && !loading ? (
-            <div className="p-8 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
-                <PackagePlus className="w-6 h-6" />
-              </div>
-              <p className="text-sm font-semibold text-[#e2e6ed]">Belum ada data kain atau bahan baku</p>
-              <p className="text-xs text-[#5a6270] mt-1 max-w-xs mx-auto">
-                Silakan tambahkan data di menu <strong>Master Kain</strong> atau <strong>Master Bahan Baku</strong> terlebih dahulu.
-              </p>
-            </div>
-          ) : (
-            <form className="space-y-5" onSubmit={handleSavePurchase}>
-              {/* Step 1: Pilih Bahan */}
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-5 h-5 rounded-full bg-[#1a2030] text-[#8899aa] font-bold text-xs flex items-center justify-center">1</span>
-                  <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Pilih Bahan yang Dibeli</label>
-                </div>
-                <select
-                  className="w-full p-3 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none font-medium cursor-pointer"
-                  value={selectedMaterialKey}
-                  onChange={(e) => {
-                    setSelectedMaterialKey(e.target.value);
-                    setInputUnit('meter');
-                  }}
-                  required
-                >
-                  <optgroup label="🧵 Stok Kain (Per Roll / Warna)">
-                    {materials.filter(m => m.type === 'fabric').map(m => (
-                      <option key={`fabric-${m.id}`} value={`fabric-${m.id}`}>
-                        {m.name} (Stok saat ini: {m.currentStock.toFixed(1)} {m.unit})
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="🏷️ Bahan Rasio-Tetap (Kancing, Label, Resleting)">
-                    {materials.filter(m => m.type === 'raw').map(m => (
-                      <option key={`raw-${m.id}`} value={`raw-${m.id}`}>
-                        {m.name} (Stok saat ini: {m.currentStock} {m.unit})
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
+        {/* Left Column: Form Pembelian */}
+        <div className="lg:col-span-2 glass-card rounded-2xl p-5 border-[#1e2330]">
+          <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider mb-4 flex items-center gap-2">
+            <PackagePlus className="w-4 h-4 text-[#8ab896]" />
+            <span>Form Restock Bahan Masuk</span>
+          </h2>
 
-                {activeMat && (
-                  <div className="mt-2.5 p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs text-[#b0b8c4]">
-                    <span className="flex items-center gap-1.5">
-                      {activeMat.type === 'fabric' ? <Scissors className="w-3.5 h-3.5 text-[#7a8a9a]" /> : <Tag className="w-3.5 h-3.5 text-[#7a8a9a]" />}
-                      <span>Stok di Gudang: <strong className="text-[#8ab896]">{activeMat.currentStock} {activeMat.unit}</strong></span>
-                    </span>
+          <form onSubmit={handleSavePurchase} className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                  Tanggal Pembelian
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs focus:border-[#4a6d8c] outline-none font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                  Nama Supplier / Toko (Opsional)
+                </label>
+                <input
+                  type="text"
+                  list="supplier-options"
+                  value={supplier}
+                  onChange={(e) => setSupplier(e.target.value)}
+                  placeholder="Contoh: Toko Kain Mitra Jaya..."
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs focus:border-[#4a6d8c] outline-none font-medium"
+                />
+                <datalist id="supplier-options">
+                  {existingSuppliers.map((s, idx) => (
+                    <option key={idx} value={s} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                Pilih Bahan Baku / Kain yang Dibeli <span className="text-[#c87070]">*</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[160px] overflow-y-auto p-1 bg-[#0c0f17] rounded-xl border border-[#1e2330]">
+                {materials.map(m => {
+                  const key = `${m.type}-${m.id}`;
+                  const isSelected = selectedMaterialKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedMaterialKey(key)}
+                      className={`p-2.5 rounded-lg text-left transition-all border ${
+                        isSelected 
+                          ? 'bg-[#1a2838] text-[#aab8c8] border-[#2a3848]' 
+                          : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs truncate">{m.name}</span>
+                        {isSelected && <Tag className="w-3 h-3 text-[#8ab896] shrink-0" />}
+                      </div>
+                      <p className="text-[0.65rem] text-[#5a6270] mt-0.5">
+                        Stok: <strong className="text-[#8ab896]">{m.currentStock} {m.unit}</strong>
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {activeMat && (
+              <div className="space-y-4 pt-2 border-t border-[#1e2330]">
+                {isFabric && (
+                  <div className="flex items-center justify-between p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs">
+                    <span className="text-[#8899aa]">Satuan Beli Kain:</span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setInputUnit('meter')}
+                        className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
+                          inputUnit === 'meter'
+                            ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
+                            : 'bg-[#12161f] text-[#5a6270] hover:text-[#8899aa]'
+                        }`}
+                      >
+                        Meter
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setInputUnit('yard')}
+                        className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
+                          inputUnit === 'yard'
+                            ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
+                            : 'bg-[#12161f] text-[#5a6270] hover:text-[#8899aa]'
+                        }`}
+                      >
+                        Yard (Konversi)
+                      </button>
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Step 2: Form Detail Pembelian */}
-              {activeMat && (
-                <div className="space-y-4 pt-2 border-t border-[#1e2330]">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                        Tanggal Pembelian
-                      </label>
-                      <input 
-                        type="date"
-                        required
-                        value={purchaseDate}
-                        onChange={e => setPurchaseDate(e.target.value)}
-                        className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                        Nama Supplier / Toko (Opsional)
-                      </label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: Toko Kain Berkah"
-                        value={supplier}
-                        onChange={e => setSupplier(e.target.value)}
-                        className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none placeholder-[#3a4454]"
-                      />
-                    </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                      Jumlah Dibeli ({isFabric ? inputUnit : activeMat.unit}) <span className="text-[#c87070]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={0.1}
+                      step={0.1}
+                      value={qty || ''}
+                      onChange={(e) => setQty(Number(e.target.value))}
+                      className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none font-mono"
+                      placeholder="0"
+                    />
                   </div>
 
-                  {isFabric && (
-                    <div className="flex items-center justify-between p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs">
-                      <span className="text-[#8899aa] font-semibold">Satuan Pembelian:</span>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setInputUnit('meter')}
-                          className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
-                            inputUnit === 'meter'
-                              ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
-                              : 'bg-[#12161f] text-[#5a6270] hover:text-[#8899aa]'
-                          }`}
-                        >
-                          Meter
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInputUnit('yard')}
-                          className={`px-3 py-1 rounded-lg font-bold text-xs transition-all ${
-                            inputUnit === 'yard'
-                              ? 'bg-[#1a2838] text-[#aab8c8] border border-[#2a3848]'
-                              : 'bg-[#12161f] text-[#5a6270] hover:text-[#8899aa]'
-                          }`}
-                        >
-                          Yard (Konversi)
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                        Jumlah Dibeli ({isFabric ? inputUnit : activeMat.unit}) <span className="text-[#c87070]">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min={0.1}
-                        step={0.1}
-                        value={qty || ''}
-                        onChange={(e) => setQty(Number(e.target.value))}
-                        className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none"
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                        Harga Satuan / Per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        value={unitPrice || ''}
-                        onChange={(e) => setUnitPrice(Number(e.target.value))}
-                        className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none"
-                        placeholder="0"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                      Harga Satuan / Per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      value={unitPrice || ''}
+                      onChange={(e) => setUnitPrice(Number(e.target.value))}
+                      className="w-full p-3 text-xl font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#4a6d8c] outline-none font-mono"
+                      placeholder="0"
+                    />
                   </div>
-
-                  {totalPrice > 0 && (
-                    <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
-                      <span className="text-[#8899aa]">Total Pembayaran:</span>
-                      <span className="text-base font-black text-[#6ea87a]">Rp {totalPrice.toLocaleString('id-ID')}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian Bahan'}</span>
-                  </button>
                 </div>
-              )}
-            </form>
-          )}
+
+                {totalPrice > 0 && (
+                  <div className="p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-[#8899aa]">Total Pembayaran:</span>
+                    <span className="text-base font-black text-[#6ea87a] font-mono">Rp {totalPrice.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-3 bg-[#3d5a80] hover:bg-[#b89860] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian Bahan'}</span>
+                </button>
+              </div>
+            )}
+          </form>
         </div>
 
         {/* Right Column: Riwayat Pembelian */}
         <div className="glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col h-fit">
-          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2">
+          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#7a8a9a]" />
@@ -385,11 +383,27 @@ export default function PembelianPage() {
 
             <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#5a6270]">Total Belanja:</span>
-              <span className="font-extrabold text-[#e2e6ed]">Rp {totalFilteredSpending.toLocaleString('id-ID')}</span>
+              <span className="font-extrabold text-[#e2e6ed] font-mono">Rp {totalFilteredSpending.toLocaleString('id-ID')}</span>
             </div>
 
+            {/* Supplier Filter */}
+            {existingSuppliers.length > 0 && (
+              <div>
+                <select
+                  value={supplierFilter}
+                  onChange={(e) => setSupplierFilter(e.target.value)}
+                  className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-[0.7rem] text-[#e2e6ed] outline-none font-medium cursor-pointer"
+                >
+                  <option value="ALL">Semua Supplier ({existingSuppliers.length})</option>
+                  {existingSuppliers.map((s, i) => (
+                    <option key={i} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Filter Tabs */}
-            <div className="grid grid-cols-3 gap-1 pt-1">
+            <div className="grid grid-cols-3 gap-1 pt-0.5">
               <button
                 type="button"
                 onClick={() => setDateFilter('ALL')}
@@ -438,17 +452,23 @@ export default function PembelianPage() {
                 const totalItemCost = p.qty * p.unit_price;
 
                 return (
-                  <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1">
+                  <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-[#e2e6ed]">{matName || 'Bahan'}</span>
                       <span className="font-mono text-[#5a6270] text-[0.7rem]">{p.purchase_date}</span>
                     </div>
                     <div className="flex items-center justify-between text-[0.7rem]">
-                      <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit}</span>
-                      <span className="font-bold text-[#e2e6ed]">Rp {totalItemCost.toLocaleString('id-ID')}</span>
+                      <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit} @ Rp {p.unit_price.toLocaleString('id-ID')}</span>
+                      <span className="font-bold text-[#e2e6ed] font-mono">Rp {totalItemCost.toLocaleString('id-ID')}</span>
                     </div>
                     <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] pt-1">
-                      <span>{p.supplier ? `Supplier: ${p.supplier}` : 'Tanpa supplier'}</span>
+                      {p.supplier ? (
+                        <span className="px-1.5 py-0.5 bg-[#15202b] text-[#7eb3db] border border-[#233548] rounded font-medium">
+                          🏪 {p.supplier}
+                        </span>
+                      ) : (
+                        <span>-</span>
+                      )}
                       <button
                         onClick={() => setDeletingPurchase(p)}
                         className="text-[#c87070] hover:underline"
@@ -468,7 +488,7 @@ export default function PembelianPage() {
       <DeleteConfirmModal
         isOpen={Boolean(deletingPurchase)}
         title="Hapus Catatan Pembelian"
-        message={`Apakah Anda yakin ingin menghapus catatan pembelian ini?`}
+        message={`Apakah Anda yakin ingin menghapus data pembelian bahan ini?`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingPurchase(null)}
       />
@@ -476,11 +496,10 @@ export default function PembelianPage() {
       {/* Success Modal */}
       <ConfirmModal 
         isOpen={showModal} 
-        title="Pembelian Berhasil Disimpan!" 
+        title="Pembelian Berhasil Dicatat!" 
         lines={modalLines} 
         onClose={() => setShowModal(false)} 
       />
     </div>
   );
 }
-

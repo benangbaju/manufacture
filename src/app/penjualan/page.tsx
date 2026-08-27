@@ -8,6 +8,7 @@ import {
   getDbArticles, 
   getDbChannels, 
   getDbSales, 
+  getDbProductionBatches,
   createDbSale, 
   deleteDbSale 
 } from "@/lib/services/db";
@@ -21,7 +22,8 @@ import {
   DollarSign, 
   Tag,
   Plus,
-  ShoppingBag
+  ShoppingBag,
+  TrendingUp
 } from 'lucide-react';
 
 interface VariantItem {
@@ -50,6 +52,7 @@ interface SaleRecord {
   channel_id: number;
   item_grade: 'grade_a' | 'reject';
   qty: number;
+  unit_price: number;
   total_price: number;
   articles?: { name: string };
   variants?: { color: string };
@@ -65,6 +68,7 @@ export default function PenjualanPage() {
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [channels, setChannels] = useState<ChannelItem[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form State
@@ -91,15 +95,17 @@ export default function PenjualanPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [artList, chList, saleList] = await Promise.all([
+      const [artList, chList, saleList, batchList] = await Promise.all([
         getDbArticles(),
         getDbChannels(),
         getDbSales(),
+        getDbProductionBatches(),
       ]);
 
       setArticles(artList || []);
       setChannels(chList || []);
       setSales(saleList || []);
+      setBatches(batchList || []);
 
       if (artList && artList.length > 0 && !selectedArticleId) {
         setSelectedArticleId(artList[0].id);
@@ -121,6 +127,29 @@ export default function PenjualanPage() {
     loadData();
   }, []);
 
+  // Compute variant unit cost (HPP) map from batches
+  const variantCostMap = new Map<number, { totalCost: number; totalQty: number }>();
+  batches.forEach(b => {
+    const vId = b.variant_id;
+    const cut = Number(b.total_cut || (b.qty_produced + b.qty_reject) || 0);
+    const prodCost = Number(b.total_production_cost || (b.fabric_cost + b.total_sewing_cost + (b.accessories_cost || 0)) || 0);
+    if (vId && cut > 0) {
+      const cur = variantCostMap.get(vId) || { totalCost: 0, totalQty: 0 };
+      variantCostMap.set(vId, {
+        totalCost: cur.totalCost + prodCost,
+        totalQty: cur.totalQty + cut,
+      });
+    }
+  });
+
+  const getVariantHpp = (variantId?: number | null) => {
+    if (variantId && variantCostMap.has(variantId)) {
+      const v = variantCostMap.get(variantId)!;
+      if (v.totalQty > 0) return Math.round(v.totalCost / v.totalQty);
+    }
+    return 38000;
+  };
+
   const activeArticle = articles.find(a => a.id === selectedArticleId);
   const activeVariant = activeArticle?.variants?.find((v: any) => v.id === selectedVariantId) || null;
   const activeChannel = channels.find(c => c.id === selectedChannelId);
@@ -131,6 +160,12 @@ export default function PenjualanPage() {
 
   const isStockInsufficient = qty > currentAvailableStock;
   const totalPrice = qty * unitPrice;
+
+  // Margin estimation for active form
+  const activeVariantHpp = getVariantHpp(activeVariant?.id);
+  const estimatedUnitMargin = unitPrice > 0 ? unitPrice - activeVariantHpp : 0;
+  const estimatedUnitMarginPct = unitPrice > 0 ? Number(((estimatedUnitMargin / unitPrice) * 100).toFixed(1)) : 0;
+  const estimatedTotalMargin = estimatedUnitMargin * qty;
 
   const handleArticleSelect = (id: number) => {
     setSelectedArticleId(id);
@@ -155,6 +190,7 @@ export default function PenjualanPage() {
         channel_id: activeChannel.id,
         item_grade: itemGrade,
         qty,
+        sale_price: unitPrice,
         total_price: totalPrice,
       });
 
@@ -166,7 +202,10 @@ export default function PenjualanPage() {
         `Channel: ${activeChannel.name}`,
         `Jumlah Terjual: ${qty} pcs`,
         `Harga Satuan: Rp ${unitPrice.toLocaleString('id-ID')}`,
+        `Estimasi HPP Satuan: Rp ${activeVariantHpp.toLocaleString('id-ID')}`,
+        `Estimasi Margin: ${estimatedUnitMargin >= 0 ? '+' : ''}Rp ${estimatedUnitMargin.toLocaleString('id-ID')} / pcs (${estimatedUnitMarginPct}%)`,
         `Total Pemasukan: Rp ${totalPrice.toLocaleString('id-ID')}`,
+        `Total Laba Kotor: Rp ${estimatedTotalMargin.toLocaleString('id-ID')}`,
         `Sisa Stok ${gradeLabel}: ${currentAvailableStock - qty} pcs`,
       ];
 
@@ -425,10 +464,31 @@ export default function PenjualanPage() {
                     </div>
                   </div>
 
+                  {/* Real-time Margin & Profit Preview */}
+                  {unitPrice > 0 && activeVariant && (
+                    <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl space-y-1.5 text-xs">
+                      <div className="flex justify-between text-[#8899aa]">
+                        <span>HPP Satuan ({activeVariant.color}):</span>
+                        <span className="font-mono text-[#e2e6ed]">Rp {activeVariantHpp.toLocaleString('id-ID')} / pcs</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-[#1e2330]">
+                        <span className="font-bold text-[#8899aa]">Estimasi Margin Satuan:</span>
+                        <span className={`font-mono font-bold ${estimatedUnitMargin >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
+                          {estimatedUnitMargin >= 0 ? '+' : ''}Rp {estimatedUnitMargin.toLocaleString('id-ID')} ({estimatedUnitMarginPct}%)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {totalPrice > 0 && (
                     <div className="p-3.5 bg-[#0e1219] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
                       <span className="text-[#8899aa]">Total Pemasukan Kas:</span>
-                      <span className="text-base font-black text-[#8ab896]">Rp {totalPrice.toLocaleString('id-ID')}</span>
+                      <div className="text-right">
+                        <span className="text-base font-black text-[#8ab896] block font-mono">Rp {totalPrice.toLocaleString('id-ID')}</span>
+                        <span className={`text-[0.65rem] font-mono ${estimatedTotalMargin >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
+                          Estimasi Laba: {estimatedTotalMargin >= 0 ? '+' : ''}Rp {estimatedTotalMargin.toLocaleString('id-ID')}
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -458,14 +518,22 @@ export default function PenjualanPage() {
             </div>
 
             {/* Summary Widget */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
-                <span className="text-[0.65rem] text-[#5a6270]">Total Terjual:</span>
+                <span className="text-[0.65rem] text-[#5a6270]">Terjual:</span>
                 <span className="font-extrabold text-[#e2e6ed] text-xs">{totalFilteredQty} pcs</span>
               </div>
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
-                <span className="text-[0.65rem] text-[#5a6270]">Total Omset:</span>
-                <span className="font-extrabold text-[#8ab896] text-xs">Rp {totalFilteredNominal.toLocaleString('id-ID')}</span>
+                <span className="text-[0.65rem] text-[#5a6270]">Omset:</span>
+                <span className="font-extrabold text-[#8ab896] text-xs">Rp {(totalFilteredNominal / 1000).toFixed(0)}k</span>
+              </div>
+              <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
+                <span className="text-[0.65rem] text-[#5a6270]">Laba Kotor:</span>
+                <span className={`font-extrabold font-mono text-xs ${
+                  filteredSales.reduce((acc, s) => acc + (s.total_price - (s.qty * getVariantHpp(s.variant_id))), 0) >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'
+                }`}>
+                  Rp {(filteredSales.reduce((acc, s) => acc + (s.total_price - (s.qty * getVariantHpp(s.variant_id))), 0) / 1000).toFixed(0)}k
+                </span>
               </div>
             </div>
 
@@ -513,33 +581,51 @@ export default function PenjualanPage() {
                 Belum ada transaksi penjualan dicatat.
               </div>
             ) : (
-              filteredSales.map(s => (
-                <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[#e2e6ed]">{s.articles?.name} - {s.variants?.color}</span>
-                    <span className="font-mono text-[#5a6270] text-[0.7rem]">{s.sale_date}</span>
-                  </div>
+              filteredSales.map(s => {
+                const saleHpp = getVariantHpp(s.variant_id);
+                const saleMargin = (s.unit_price || Math.round(s.total_price / s.qty)) - saleHpp;
+                const saleMarginPct = s.unit_price > 0 ? Number(((saleMargin / s.unit_price) * 100).toFixed(1)) : 0;
+                return (
+                  <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#e2e6ed]">{s.articles?.name} - {s.variants?.color}</span>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{s.sale_date}</span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-[0.7rem]">
-                    <span className="text-[#8899aa]">{s.channels?.name} ({s.qty} pcs)</span>
-                    <span className="font-bold text-[#8ab896]">Rp {(s.total_price || 0).toLocaleString('id-ID')}</span>
-                  </div>
+                    <div className="flex items-center justify-between text-[0.7rem]">
+                      <span className="text-[#8899aa]">{s.channels?.name} ({s.qty} pcs @ Rp {(s.unit_price || Math.round(s.total_price / s.qty)).toLocaleString('id-ID')})</span>
+                      <span className="font-bold text-[#8ab896] font-mono">Rp {(s.total_price || 0).toLocaleString('id-ID')}</span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-[0.65rem] pt-1">
-                    <span className={`px-2 py-0.5 rounded font-semibold ${
-                      s.item_grade === 'grade_a' ? 'bg-[#1a2a20] text-[#8ab896]' : 'bg-[#201e1a] text-[#c8a870]'
-                    }`}>
-                      {s.item_grade === 'grade_a' ? 'Grade A' : 'Reject'}
-                    </span>
-                    <button
-                      onClick={() => setDeletingSale(s)}
-                      className="text-[#c87070] hover:underline"
-                    >
-                      Hapus
-                    </button>
+                    <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
+                      <span className="text-[#8899aa]">
+                        HPP: <strong className="text-[#e2e6ed]">Rp {saleHpp.toLocaleString('id-ID')}</strong>
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
+                        saleMargin >= 0 
+                          ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3a30]' 
+                          : 'bg-[#2a1a1a] text-[#c87070] border border-[#3a2020]'
+                      }`}>
+                        Margin: {saleMargin >= 0 ? '+' : ''}Rp {saleMargin.toLocaleString('id-ID')}/pcs ({saleMarginPct}%)
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[0.65rem] pt-1">
+                      <span className={`px-2 py-0.5 rounded font-semibold ${
+                        s.item_grade === 'grade_a' ? 'bg-[#1a2a20] text-[#8ab896]' : 'bg-[#201e1a] text-[#c8a870]'
+                      }`}>
+                        {s.item_grade === 'grade_a' ? 'Grade A' : 'Reject'}
+                      </span>
+                      <button
+                        onClick={() => setDeletingSale(s)}
+                        className="text-[#c87070] hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

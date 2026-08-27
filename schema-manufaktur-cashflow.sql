@@ -337,6 +337,7 @@ left join batch_overhead bo       on bo.batch_id  = pb.id
 group by 1, 2;
 
 
+drop view if exists v_monthly_pl cascade;
 create or replace view v_monthly_pl as
 with regular_revenue as (
   select date_trunc('month', sale_date)::date as month,
@@ -356,12 +357,15 @@ reject_revenue as (
 ),
 cogs as (
   select date_trunc('month', s.sale_date)::date as month,
-         sum(s.qty * coalesce(mc.avg_hpp_per_unit, 0)) as total_cogs
+         sum(case when s.item_grade = 'grade_a' 
+             then s.qty * coalesce(mc.avg_cost_per_processed_unit, 0) else 0 end) as regular_cogs,
+         sum(case when s.item_grade = 'reject' 
+             then s.qty * coalesce(mc.avg_cost_per_processed_unit, 0) else 0 end) as reject_cogs,
+         sum(s.qty * coalesce(mc.avg_cost_per_processed_unit, 0)) as total_cogs
   from sales s
   left join v_monthly_production_cost mc
     on mc.variant_id = s.variant_id
    and mc.month = date_trunc('month', s.sale_date)::date
-  where s.item_grade = 'grade_a'
   group by 1
 ),
 opex as (
@@ -378,13 +382,14 @@ select
   coalesce(rj.reject_qty_sold, 0)                as reject_qty_sold,
   (coalesce(rr.regular_revenue, 0) 
     + coalesce(rj.reject_revenue, 0))            as total_revenue,
+  coalesce(c.regular_cogs, 0)                    as regular_cogs,
+  coalesce(c.reject_cogs, 0)                     as reject_cogs,
   coalesce(c.total_cogs, 0)                      as cogs,
-  (coalesce(rr.regular_revenue, 0) - coalesce(c.total_cogs, 0)) as regular_gross_profit,
-  ((coalesce(rr.regular_revenue, 0) - coalesce(c.total_cogs, 0)) 
-    + coalesce(rj.reject_revenue, 0))            as gross_profit,
+  (coalesce(rr.regular_revenue, 0) - coalesce(c.regular_cogs, 0)) as regular_gross_profit,
+  (coalesce(rj.reject_revenue, 0) - coalesce(c.reject_cogs, 0))  as reject_gross_profit,
+  ((coalesce(rr.regular_revenue, 0) + coalesce(rj.reject_revenue, 0)) - coalesce(c.total_cogs, 0)) as gross_profit,
   coalesce(e.total_expenses, 0)                  as expenses,
-  (((coalesce(rr.regular_revenue, 0) - coalesce(c.total_cogs, 0)) 
-    + coalesce(rj.reject_revenue, 0)) 
+  (((coalesce(rr.regular_revenue, 0) + coalesce(rj.reject_revenue, 0)) - coalesce(c.total_cogs, 0)) 
     - coalesce(e.total_expenses, 0))             as net_profit
 from regular_revenue rr
 full outer join reject_revenue rj on rj.month = rr.month
