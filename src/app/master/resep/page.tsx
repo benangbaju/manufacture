@@ -11,7 +11,7 @@ import {
   saveDbRecipe, 
   deleteDbRecipe 
 } from "@/lib/services/db";
-import { Layers, Plus, Trash2, Search, Shirt, Tag, CheckCircle2 } from 'lucide-react';
+import { Layers, Plus, Trash2, Search, Shirt, Tag, CheckCircle2, ArrowUpDown } from 'lucide-react';
 
 interface RecipeItem {
   id: number;
@@ -39,6 +39,7 @@ export default function ResepPage() {
   const [materials, setMaterials] = useState<MaterialOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'components-desc' | 'components-asc' | 'newest'>('name-asc');
 
   const [selectedArticleId, setSelectedArticleId] = useState<number | ''>('');
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | ''>('');
@@ -124,14 +125,23 @@ export default function ResepPage() {
     };
   }).filter(group => group.items.length > 0);
 
-  // Filtered groups by search
-  const filteredGroups = groupedRecipes.filter(g => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    const artMatch = g.article.name.toLowerCase().includes(q);
-    const matMatch = g.items.some(i => (i.raw_materials?.name || '').toLowerCase().includes(q));
-    return artMatch || matMatch;
-  });
+  // Filtered & Sorted groups
+  const filteredGroups = groupedRecipes
+    .filter(g => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      const artMatch = g.article.name.toLowerCase().includes(q);
+      const matMatch = g.items.some(i => (i.raw_materials?.name || '').toLowerCase().includes(q));
+      return artMatch || matMatch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name-asc') return a.article.name.localeCompare(b.article.name, 'id');
+      if (sortBy === 'name-desc') return b.article.name.localeCompare(a.article.name, 'id');
+      if (sortBy === 'components-desc') return b.items.length - a.items.length;
+      if (sortBy === 'components-asc') return a.items.length - b.items.length;
+      if (sortBy === 'newest') return b.article.id - a.article.id;
+      return a.article.name.localeCompare(b.article.name, 'id');
+    });
 
   const selectedMatObj = materials.find(m => m.id === Number(selectedMaterialId));
 
@@ -177,25 +187,49 @@ export default function ResepPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Search bar */}
-          <div className="glass-card rounded-2xl p-3 border-[#1e2330] flex items-center gap-2 relative">
-            <Search className="w-4 h-4 text-[#5a6270] ml-2" />
-            <input
-              type="text"
-              placeholder="Cari artikel atau bahan dalam resep..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent border-none text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none pr-6"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold mr-2"
-              >
-                ✕
-              </button>
-            )}
+          {/* Search bar & Sort Filter */}
+          <div className="glass-card rounded-2xl p-3 border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 relative flex-1">
+              <Search className="w-4 h-4 text-[#5a6270] ml-2 shrink-0" />
+              <input
+                type="text"
+                placeholder="Cari artikel atau bahan dalam resep..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent border-none text-xs text-[var(--color-text-main)] placeholder-[#4a5568] focus:outline-none pr-6"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-[#5a6270] hover:text-[var(--color-text-main)] text-xs font-bold mr-2 shrink-0"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Sorting Dropdown & Counter */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl px-2.5 py-1 text-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />
+                <span className="text-[0.68rem] text-[#8899aa] font-medium hidden sm:inline">Urutan:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-transparent border-none text-xs font-semibold text-[#e2e6ed] outline-none cursor-pointer pr-1"
+                >
+                  <option value="name-asc">Nama Artikel (A - Z)</option>
+                  <option value="name-desc">Nama Artikel (Z - A)</option>
+                  <option value="components-desc">Komponen Terbanyak (↓)</option>
+                  <option value="components-asc">Komponen Tersedikit (↑)</option>
+                  <option value="newest">Artikel Terbaru</option>
+                </select>
+              </div>
+              <span className="text-xs text-[#8899aa] font-semibold hidden md:inline">
+                {filteredGroups.length} dari {groupedRecipes.length} Resep
+              </span>
+            </div>
           </div>
 
           {filteredGroups.length === 0 ? (

@@ -5,7 +5,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import { getDbRawMaterials, createDbRawMaterial, updateDbRawMaterial, deleteDbRawMaterial } from "@/lib/services/db";
-import { Tag, Plus, Pencil, Trash2, X, Search, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Tag, Plus, Pencil, Trash2, X, Search, CheckCircle2, AlertCircle, ArrowUpDown } from 'lucide-react';
 
 interface BahanItem {
   id: number;
@@ -28,6 +28,7 @@ export default function BahanBakuPage() {
   const [data, setData] = useState<BahanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'newest' | 'oldest'>('name-asc');
   const [name, setName] = useState('');
   const [unit, setUnit] = useState('pcs');
   const [stock, setStock] = useState<number>(0);
@@ -100,12 +101,22 @@ export default function BahanBakuPage() {
     }
   };
 
-  // Filtered raw materials
-  const filteredData = data.filter(r => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return r.name.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
-  });
+  // Filtered & Sorted raw materials
+  const filteredData = data
+    .filter(r => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return r.name.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name, 'id');
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name, 'id');
+      if (sortBy === 'stock-desc') return Number(b.stock_qty || 0) - Number(a.stock_qty || 0);
+      if (sortBy === 'stock-asc') return Number(a.stock_qty || 0) - Number(b.stock_qty || 0);
+      if (sortBy === 'newest') return b.id - a.id;
+      if (sortBy === 'oldest') return a.id - b.id;
+      return a.name.localeCompare(b.name, 'id');
+    });
 
   const totalStockCount = data.reduce((a, b) => a + Number(b.stock_qty || 0), 0);
   const lowStockCount = data.filter(r => Number(r.stock_qty || 0) < 100).length;
@@ -155,7 +166,7 @@ export default function BahanBakuPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Table Container */}
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
-          {/* Header with Search */}
+          {/* Header with Search & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -176,9 +187,29 @@ export default function BahanBakuPage() {
                 </button>
               )}
             </div>
-            <span className="text-xs text-[#8899aa] font-semibold shrink-0">
-              {filteredData.length} dari {data.length} Bahan
-            </span>
+
+            {/* Sorting Dropdown & Counter */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl px-2.5 py-1 text-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />
+                <span className="text-[0.68rem] text-[#8899aa] font-medium hidden sm:inline">Urutan:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-transparent border-none text-xs font-semibold text-[#e2e6ed] outline-none cursor-pointer pr-1"
+                >
+                  <option value="name-asc">Nama Bahan (A - Z)</option>
+                  <option value="name-desc">Nama Bahan (Z - A)</option>
+                  <option value="stock-desc">Stok Terbanyak (Unit ↓)</option>
+                  <option value="stock-asc">Stok Kritis / Menipis (↑)</option>
+                  <option value="newest">Terbaru Ditambahkan</option>
+                  <option value="oldest">Terlama</option>
+                </select>
+              </div>
+              <span className="text-xs text-[#8899aa] font-semibold hidden md:inline">
+                {filteredData.length} dari {data.length} Bahan
+              </span>
+            </div>
           </div>
 
           {filteredData.length === 0 ? (

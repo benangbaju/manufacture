@@ -11,7 +11,7 @@ import {
   saveDbFabricMapping, 
   deleteDbFabricMapping 
 } from "@/lib/services/db";
-import { Link2, Plus, Trash2, Scissors, Search, ArrowRight, Shirt } from 'lucide-react';
+import { Link2, Plus, Trash2, Scissors, Search, ArrowRight, Shirt, ArrowUpDown } from 'lucide-react';
 
 interface MappingRecord {
   id: number;
@@ -40,6 +40,7 @@ export default function PemetaanKainPage() {
   const [fabrics, setFabrics] = useState<FabricOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'article-asc' | 'article-desc' | 'fabric-asc' | 'color-asc' | 'newest' | 'oldest'>('article-asc');
 
   const [selectedArticleId, setSelectedArticleId] = useState<number | ''>('');
   const [variantColor, setVariantColor] = useState('');
@@ -137,15 +138,25 @@ export default function PemetaanKainPage() {
     }
   };
 
-  // Filtered mappings
-  const filteredMappings = mappings.filter(m => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    const artName = (m.articles?.name || '').toLowerCase();
-    const color = (m.variant_color || '').toLowerCase();
-    const fabName = (m.fabric_stock?.name || '').toLowerCase();
-    return artName.includes(q) || color.includes(q) || fabName.includes(q);
-  });
+  // Filtered & Sorted mappings
+  const filteredMappings = mappings
+    .filter(m => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      const artName = (m.articles?.name || '').toLowerCase();
+      const color = (m.variant_color || '').toLowerCase();
+      const fabName = (m.fabric_stock?.name || '').toLowerCase();
+      return artName.includes(q) || color.includes(q) || fabName.includes(q);
+    })
+    .sort((a, b) => {
+      if (sortBy === 'article-asc') return (a.articles?.name || '').localeCompare(b.articles?.name || '', 'id');
+      if (sortBy === 'article-desc') return (b.articles?.name || '').localeCompare(a.articles?.name || '', 'id');
+      if (sortBy === 'fabric-asc') return (a.fabric_stock?.name || '').localeCompare(b.fabric_stock?.name || '', 'id');
+      if (sortBy === 'color-asc') return (a.variant_color || '').localeCompare(b.variant_color || '', 'id');
+      if (sortBy === 'newest') return b.id - a.id;
+      if (sortBy === 'oldest') return a.id - b.id;
+      return (a.articles?.name || '').localeCompare(b.articles?.name || '', 'id');
+    });
 
   const uniqueArticlesMapped = new Set(mappings.map(m => m.article_id)).size;
   const uniqueFabricsMapped = new Set(mappings.map(m => m.fabric_stock_id)).size;
@@ -233,7 +244,7 @@ export default function PemetaanKainPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Table Container */}
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
-          {/* Header with Search */}
+          {/* Header with Search & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -254,9 +265,29 @@ export default function PemetaanKainPage() {
                 </button>
               )}
             </div>
-            <span className="text-xs text-[#8899aa] font-semibold shrink-0">
-              {filteredMappings.length} dari {mappings.length} Pemetaan
-            </span>
+
+            {/* Sorting Dropdown & Counter */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl px-2.5 py-1 text-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />
+                <span className="text-[0.68rem] text-[#8899aa] font-medium hidden sm:inline">Urutan:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-transparent border-none text-xs font-semibold text-[#e2e6ed] outline-none cursor-pointer pr-1"
+                >
+                  <option value="article-asc">Nama Artikel (A - Z)</option>
+                  <option value="article-desc">Nama Artikel (Z - A)</option>
+                  <option value="fabric-asc">Jenis Kain (A - Z)</option>
+                  <option value="color-asc">Warna Varian (A - Z)</option>
+                  <option value="newest">Terbaru Ditambahkan</option>
+                  <option value="oldest">Terlama</option>
+                </select>
+              </div>
+              <span className="text-xs text-[#8899aa] font-semibold hidden md:inline">
+                {filteredMappings.length} dari {mappings.length} Pemetaan
+              </span>
+            </div>
           </div>
 
           {filteredMappings.length === 0 ? (

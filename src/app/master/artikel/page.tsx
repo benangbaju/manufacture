@@ -6,7 +6,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import Link from "next/link";
 import { getDbArticles, createDbArticle, updateDbArticle, deleteDbArticle } from "@/lib/services/db";
-import { Shirt, Plus, ArrowRight, Sparkles, Pencil, Trash2, X, Search, Layers, Check, Palette } from 'lucide-react';
+import { Shirt, Plus, ArrowRight, Sparkles, Pencil, Trash2, X, Search, Layers, Check, Palette, ArrowUpDown } from 'lucide-react';
 
 interface ArticleItem {
   id: number;
@@ -23,6 +23,7 @@ export default function ArtikelPage() {
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name-asc' | 'name-desc' | 'stock-desc' | 'stock-asc' | 'variants-desc'>('newest');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [initialColors, setInitialColors] = useState('Putih, Hitam, Navy');
@@ -107,15 +108,36 @@ export default function ArtikelPage() {
     }
   };
 
-  // Filter articles
-  const filteredArticles = articles.filter(a => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return true;
-    const nameMatch = a.name.toLowerCase().includes(q);
-    const descMatch = (a.description || '').toLowerCase().includes(q);
-    const variantMatch = (a.product_variants || []).some(v => v.color.toLowerCase().includes(q));
-    return nameMatch || descMatch || variantMatch;
-  });
+  // Filter & Sort articles
+  const filteredArticles = articles
+    .filter(a => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      const nameMatch = a.name.toLowerCase().includes(q);
+      const descMatch = (a.description || '').toLowerCase().includes(q);
+      const variantMatch = (a.product_variants || []).some(v => v.color.toLowerCase().includes(q));
+      return nameMatch || descMatch || variantMatch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name, 'id');
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name, 'id');
+      if (sortBy === 'oldest') return a.id - b.id;
+      if (sortBy === 'stock-desc') {
+        const stockA = (a.product_variants || []).reduce((acc, v) => acc + (v.stock_qty || 0), 0);
+        const stockB = (b.product_variants || []).reduce((acc, v) => acc + (v.stock_qty || 0), 0);
+        return stockB - stockA;
+      }
+      if (sortBy === 'stock-asc') {
+        const stockA = (a.product_variants || []).reduce((acc, v) => acc + (v.stock_qty || 0), 0);
+        const stockB = (b.product_variants || []).reduce((acc, v) => acc + (v.stock_qty || 0), 0);
+        return stockA - stockB;
+      }
+      if (sortBy === 'variants-desc') {
+        return (b.product_variants?.length || 0) - (a.product_variants?.length || 0);
+      }
+      // default: newest (ID descending)
+      return b.id - a.id;
+    });
 
   // Calculate aggregates
   const totalVariants = articles.reduce((acc, a) => acc + (a.product_variants?.length || 0), 0);
@@ -173,7 +195,7 @@ export default function ArtikelPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Table Container */}
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
-          {/* Table Header & Search Bar */}
+          {/* Table Header & Search Bar & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -194,8 +216,29 @@ export default function ArtikelPage() {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-[#8899aa] shrink-0">
-              <span className="font-semibold">{filteredArticles.length} dari {articles.length} Model</span>
+            
+            {/* Sorting Dropdown & Item Counter */}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl px-2.5 py-1 text-xs">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />
+                <span className="text-[0.68rem] text-[#8899aa] font-medium hidden sm:inline">Urutan:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-transparent border-none text-xs font-semibold text-[#e2e6ed] outline-none cursor-pointer pr-1"
+                >
+                  <option value="newest">Terbaru (ID ↓)</option>
+                  <option value="oldest">Terlama (ID ↑)</option>
+                  <option value="name-asc">Nama Artikel (A - Z)</option>
+                  <option value="name-desc">Nama Artikel (Z - A)</option>
+                  <option value="stock-desc">Stok Siap Jual (Tertinggi)</option>
+                  <option value="stock-asc">Stok Siap Jual (Terendah)</option>
+                  <option value="variants-desc">Varian Terbanyak</option>
+                </select>
+              </div>
+              <span className="text-xs text-[#8899aa] font-semibold hidden md:inline">
+                {filteredArticles.length} dari {articles.length} Model
+              </span>
             </div>
           </div>
           
@@ -248,10 +291,11 @@ export default function ArtikelPage() {
                               a.product_variants.map(v => (
                                 <span 
                                   key={v.id} 
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[0.65rem] bg-[#141a24] border border-[#233042] text-[#c8d4e0]"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[0.68rem] bg-[#121822] border border-[#233548] text-[#7eb3db]"
                                 >
-                                  <span className="font-semibold">{v.color}</span>
-                                  <span className="text-[#8ab896] font-mono font-bold">({v.stock_qty})</span>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db]" />
+                                  <span className="font-bold text-[#e2e6ed]">{v.color}</span>
+                                  <span className="text-[#8ab896] font-mono font-bold">({v.stock_qty} pcs)</span>
                                 </span>
                               ))
                             ) : (

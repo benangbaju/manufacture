@@ -198,15 +198,19 @@ html.light .glass-card:hover {
 }
 
 /* Background Utility Classes in Light Mode */
+html.light .bg-\[\#0a0d14\],
 html.light .bg-\[\#0c0f17\],
 html.light .bg-\[\#0c1017\],
 html.light .bg-\[\#0e1219\],
 html.light .bg-\[\#12161f\],
-html.light .bg-\[\#121620\] {
+html.light .bg-\[\#121620\],
+html.light .bg-\[\#121824\],
+html.light .bg-\[\#161c28\] {
   background-color: #ffffff !important;
 }
 
 html.light .bg-\[\#121822\],
+html.light .bg-\[\#141a24\],
 html.light .bg-\[\#1a2838\] {
   background-color: #eff6ff !important;
   border-color: #bfdbfe !important;
@@ -219,17 +223,28 @@ html.light .bg-\[\#182030\] {
   background-color: #f1f5f9 !important;
 }
 
-/* Status Badges & Category Box Backgrounds in Light Mode */
+/* Status Badges & Step Cards in Light Mode */
+html.light .bg-\[\#0f1712\],
 html.light .bg-\[\#1a2a20\],
 html.light .bg-\[\#203428\],
 html.light .bg-\[\#0e141a\] {
   background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
 }
 
+html.light .bg-\[\#15120f\],
+html.light .bg-\[\#1f1a14\],
 html.light .bg-\[\#201e1a\],
 html.light .bg-\[\#30281e\],
 html.light .bg-\[\#181510\] {
   background-color: #fefce8 !important;
+  border-color: #fef08a !important;
+}
+
+html.light .bg-\[\#12100d\] {
+  background-color: #ffffff !important;
+  border-color: #fed7aa !important;
+  color: #9a3412 !important;
 }
 
 html.light .bg-\[\#241a1a\],
@@ -237,6 +252,7 @@ html.light .bg-\[\#2a1a1a\],
 html.light .bg-\[\#341e1e\],
 html.light .bg-\[\#3a2828\] {
   background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
 }
 
 /* Gradient Valuation Hub in Light Mode */
@@ -247,6 +263,7 @@ html.light .bg-gradient-to-r.from-\[\#121722\] {
 
 /* Borders in Light Mode */
 html.light .border-\[\#1e2330\],
+html.light .border-\[\#1e2838\],
 html.light .border-\[\#2a3040\],
 html.light .border-slate-500 {
   border-color: #e2e8f0 !important;
@@ -254,17 +271,22 @@ html.light .border-slate-500 {
 
 html.light .border-\[\#2a3848\],
 html.light .border-\[\#233548\],
+html.light .border-\[\#233042\],
 html.light .border-\[\#2a3c50\],
 html.light .border-\[\#1e2a38\] {
   border-color: #cbd5e1 !important;
 }
 
+html.light .border-\[\#1e3022\],
 html.light .border-\[\#2a3a30\],
 html.light .border-\[\#2a3828\],
 html.light .border-\[\#1e2a30\] {
   border-color: #bbf7d0 !important;
 }
 
+html.light .border-\[\#2c2018\],
+html.light .border-\[\#3a2c1a\],
+html.light .border-\[\#443218\],
 html.light .border-\[\#3a3020\],
 html.light .border-\[\#30281e\] {
   border-color: #fef08a !important;
@@ -273,6 +295,10 @@ html.light .border-\[\#30281e\] {
 html.light .border-\[\#3a2020\],
 html.light .border-\[\#3a2828\] {
   border-color: #fecaca !important;
+}
+
+html.light .divide-\[\#1e2330\] > * + * {
+  border-color: #e2e8f0 !important;
 }
 
 /* Text Colors in Light Mode (High Contrast) */
@@ -285,7 +311,8 @@ html.light .text-slate-300 {
 
 html.light .text-\[\#b0b8c4\],
 html.light .text-\[\#aab8c8\],
-html.light .text-\[\#c8d4e0\] {
+html.light .text-\[\#c8d4e0\],
+html.light .text-\[\#e2c088\] {
   color: #334155 !important;
 }
 
@@ -357,10 +384,23 @@ html.light textarea {
   color: #0f172a !important;
 }
 
+html.light input.bg-transparent {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: #0f172a !important;
+}
+
 html.light input:focus,
 html.light select:focus,
 html.light textarea:focus {
   border-color: #2563eb !important;
+}
+
+/* Keyboard Badges (kbd) in Light Mode */
+html.light kbd {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
 }
 
 /* Primary Action Buttons (preserve high-contrast white text) */
@@ -418,7 +458,8 @@ html.light .hover\:bg-\[\#233548\]:hover {
 html.light .hover\:bg-\[\#341e1e\]:hover {
   background-color: #fee2e2 !important;
 }
-html.light .hover\:bg-\[\#2e261a\]:hover {
+html.light .hover\:bg-\[\#2e261a\]:hover,
+html.light .hover\:bg-\[\#251e14\]:hover {
   background-color: #fef3c7 !important;
 }
 
@@ -463,8 +504,15 @@ html.light aside a.bg-\[\#1a2030\] {
 html.light aside a.bg-\[\#1a2030\] svg {
   color: #2563eb !important;
 }
+html.light aside nav a.text-\[\#7eb3db\] {
+  color: #2563eb !important;
+}
+html.light aside nav .bg-\[\#1a2030\] {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+}
 
-/* Modals in Light Mode */
+/* Modals & Dialogs in Light Mode */
 html.light .fixed .bg-\[\#121620\],
 html.light .fixed .bg-\[\#12161f\] {
   background-color: #ffffff !important;

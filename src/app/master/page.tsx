@@ -236,21 +236,21 @@ export default function MasterDataPage() {
               <Link 
                 key={i} 
                 href={step.href}
-                className={`p-2 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.02] ${
+                className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.02] shadow-sm ${
                   step.isDone 
                     ? 'bg-[#0f1712] border-[#1e3022] text-[#8ab896]' 
                     : 'bg-[#15120f] border-[#2c2018] text-[#c8a870]'
                 }`}
               >
-                <div className="flex items-center justify-between text-[0.65rem] mb-1 font-semibold">
+                <div className="flex items-center justify-between text-[0.68rem] mb-1.5 font-bold">
                   <span className="truncate">{step.label}</span>
                   {step.isDone ? (
-                    <CheckCircle2 className="w-3 h-3 text-[#8ab896] shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#8ab896] shrink-0" />
                   ) : (
-                    <AlertCircle className="w-3 h-3 text-[#c8a870] shrink-0" />
+                    <AlertCircle className="w-3.5 h-3.5 text-[#c8a870] shrink-0" />
                   )}
                 </div>
-                <span className="text-[0.6rem] font-mono text-[#e2e6ed]">
+                <span className="text-[0.65rem] font-mono font-bold text-[#e2e6ed]">
                   {loading ? '...' : step.isDone ? `${step.count} ${step.unit}` : 'Belum diisi'}
                 </span>
               </Link>
