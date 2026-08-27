@@ -7,16 +7,56 @@ import {
   Factory, 
   ShoppingBag, 
   Menu, 
-  Layers 
+  Layers,
+  PackagePlus,
+  Receipt,
+  FileSpreadsheet,
+  Database,
+  Shirt,
+  Scissors
 } from 'lucide-react';
 import PWAInstallButton from './PWAInstallButton';
 import ThemeToggle from './ThemeToggle';
 
-const navItems = [
+// Mobile Bottom Nav Items (Compact)
+const mobileNavItems = [
   { label: 'Beranda', path: '/', icon: LayoutDashboard },
   { label: 'Produksi', path: '/produksi', icon: Factory },
   { label: 'Jual', path: '/penjualan', icon: ShoppingBag },
+  { label: 'Laporan', path: '/laporan', icon: FileSpreadsheet },
   { label: 'Menu', path: '/master', icon: Menu },
+];
+
+// Desktop Categorized Nav Sections
+const desktopNavSections = [
+  {
+    category: 'Utama',
+    items: [
+      { label: 'Ringkasan Eksekutif', path: '/', icon: LayoutDashboard },
+    ]
+  },
+  {
+    category: 'Operasional Manufaktur',
+    items: [
+      { label: '1. Pembelian Bahan', path: '/pembelian', icon: PackagePlus },
+      { label: '2. Hasil Produksi', path: '/produksi', icon: Factory },
+      { label: '3. Penjualan & Margin', path: '/penjualan', icon: ShoppingBag },
+    ]
+  },
+  {
+    category: 'Finansial & Evaluasi',
+    items: [
+      { label: 'Pengeluaran Operasional', path: '/pengeluaran', icon: Receipt },
+      { label: 'Laporan P&L & Excel', path: '/laporan', icon: FileSpreadsheet, highlight: true },
+    ]
+  },
+  {
+    category: 'Master Data & Setup',
+    items: [
+      { label: 'Katalog & Resep BOM', path: '/master', icon: Layers },
+      { label: 'Setup Database', path: '/setup', icon: Database },
+    ]
+  }
 ];
 
 export default function Sidebar() {
@@ -28,26 +68,66 @@ export default function Sidebar() {
       bg-[#0e1219]/95 backdrop-blur-md border-t border-[#1e2330]
       flex items-center justify-around px-2
       shadow-[0_-4px_20px_rgba(0,0,0,0.4)]
-      md:top-0 md:bottom-auto md:w-64 md:h-screen md:flex-col md:justify-start md:border-t-0 md:border-r md:border-[#1e2330] md:bg-[#0c0f17] md:px-3.5 md:py-6
+      md:top-0 md:bottom-auto md:w-64 md:h-screen md:flex-col md:justify-between md:border-t-0 md:border-r md:border-[#1e2330] md:bg-[#0c0f17] md:px-3 md:py-5 overflow-y-auto
     ">
-      {/* Brand Logo Header (Desktop only) */}
-      <div className="hidden md:flex items-center justify-between px-2 pb-5 mb-5 border-b border-[#1e2330] w-full">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#1a2030] border border-[#2a3040] flex items-center justify-center text-[#8899aa] shadow-sm">
-            <Layers className="w-4 h-4" />
+      {/* Top Brand & Desktop Navigation */}
+      <div className="hidden md:flex flex-col w-full">
+        {/* Brand Logo Header (Desktop only) */}
+        <div className="flex items-center justify-between px-2 pb-4 mb-3 border-b border-[#1e2330] w-full">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-[#1a2030] border border-[#2a3040] flex items-center justify-center text-[#7eb3db] shadow-sm">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <h1 className="text-xs font-black text-[#e2e6ed] tracking-wider uppercase">MANUFAKTUR</h1>
+              <p className="text-[0.6rem] font-medium text-[#5a6270] tracking-wider">Garment & Cashflow</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xs font-bold text-[#e2e6ed] tracking-tight">MANUFAKTUR</h1>
-            <p className="text-[0.6rem] font-medium text-[#5a6270] tracking-wider uppercase">Internal App</p>
-          </div>
+          <ThemeToggle variant="compact" />
         </div>
-        <ThemeToggle variant="compact" />
+
+        {/* Desktop Categorized Navigation */}
+        <div className="flex flex-col gap-4">
+          {desktopNavSections.map((section, sIdx) => (
+            <div key={sIdx} className="space-y-1">
+              <span className="px-2.5 text-[0.62rem] font-extrabold text-[#5a6270] uppercase tracking-wider block">
+                {section.category}
+              </span>
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path));
+
+                  return (
+                    <Link
+                      key={item.path}
+                      href={item.path}
+                      className={`
+                        flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150
+                        ${isActive
+                          ? 'text-[#e2e6ed] font-bold bg-[#1a2030] border border-[#2a3848] shadow-sm'
+                          : item.highlight
+                            ? 'text-[#7eb3db] hover:bg-[#151a24] hover:text-[#e2e6ed]'
+                            : 'text-[#8899aa] hover:text-[#e2e6ed] hover:bg-[#151a24]'
+                        }
+                      `}
+                    >
+                      <div className={`p-1 rounded-lg transition-colors ${isActive ? 'text-[#7eb3db] bg-[#121822]' : 'text-[#5a6270]'}`}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-
-      {/* Navigation Items (4 Bottom Items) */}
-      <nav className="flex w-full justify-around md:flex-col md:justify-start md:gap-1.5">
-        {navItems.map((item) => {
+      {/* Mobile Navigation Items (Bottom Bar) */}
+      <nav className="flex w-full justify-around md:hidden">
+        {mobileNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path));
           
@@ -56,22 +136,21 @@ export default function Sidebar() {
               key={item.path}
               href={item.path}
               className={`
-                relative flex flex-col items-center justify-center gap-1 flex-1 py-1 rounded-xl text-[0.65rem] font-medium transition-all duration-150
-                md:flex-row md:justify-start md:gap-3 md:flex-initial md:px-3.5 md:py-2.5 md:text-xs md:font-semibold
+                relative flex flex-col items-center justify-center gap-0.5 flex-1 py-1 rounded-xl text-[0.62rem] font-medium transition-all duration-150
                 ${isActive
-                  ? 'text-[#c8d4e0] font-bold bg-[#1a2030] md:bg-[#1a2030] md:text-[#e2e6ed] md:border md:border-[#2a3040] md:shadow-sm'
-                  : 'text-[#5a6270] hover:text-[#8899aa] md:hover:bg-[#151a24]'
+                  ? 'text-[#7eb3db] font-bold'
+                  : 'text-[#5a6270] hover:text-[#8899aa]'
                 }
               `}
             >
-              <div className={`p-0.5 md:p-1 rounded-lg transition-colors ${isActive ? 'text-[#8899aa]' : 'text-[#5a6270]'}`}>
-                <Icon className={`w-5 h-5 md:w-4 md:h-4 ${isActive ? 'text-[#8899aa]' : 'text-[#5a6270]'}`} />
+              <div className={`p-1 rounded-lg transition-colors ${isActive ? 'text-[#7eb3db] bg-[#1a2030]' : 'text-[#5a6270]'}`}>
+                <Icon className="w-4 h-4" />
               </div>
               <span className="tracking-tight truncate">{item.label}</span>
 
               {/* Active Indicator Bar */}
               {isActive && (
-                <span className="md:hidden absolute -bottom-0.5 w-5 h-0.5 rounded-full bg-[#6b8aaf]"></span>
+                <span className="absolute -bottom-1 w-4 h-0.5 rounded-full bg-[#7eb3db]"></span>
               )}
             </Link>
           );
@@ -79,7 +158,9 @@ export default function Sidebar() {
       </nav>
 
       {/* PWA Install Button (Desktop Sidebar Bottom) */}
-      <PWAInstallButton variant="sidebar" />
+      <div className="hidden md:block w-full pt-3 border-t border-[#1e2330]">
+        <PWAInstallButton variant="sidebar" />
+      </div>
     </aside>
   );
 }
