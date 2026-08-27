@@ -427,9 +427,31 @@ export default function PembelianPage() {
 
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                      Jumlah Dibeli ({isFabric ? inputUnit : activeMat.unit}) <span className="text-[#c87070]">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                        Jumlah Dibeli ({isFabric ? inputUnit : activeMat.unit}) <span className="text-[#c87070]">*</span>
+                      </label>
+                      <span className="text-[0.65rem] text-[#5a6270]">Preset kuantiti</span>
+                    </div>
+
+                    {/* Quick Qty Chips */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {(isFabric ? [20, 50, 100, 200, 500] : [50, 100, 500, 1000, 5000]).map(n => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setQty(n)}
+                          className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
+                            qty === n
+                              ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]'
+                              : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                          }`}
+                        >
+                          {n >= 1000 ? `${n/1000}rb` : n}
+                        </button>
+                      ))}
+                    </div>
+
                     <input
                       type="number"
                       required
@@ -448,9 +470,31 @@ export default function PembelianPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                      Harga Beli per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                        Harga Beli per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
+                      </label>
+                      <span className="text-[0.65rem] text-[#5a6270]">Preset harga</span>
+                    </div>
+
+                    {/* Quick Price Chips */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {(isFabric ? [28000, 32000, 35000, 40000, 45000] : [200, 500, 1000, 2500, 5000]).map(pr => (
+                        <button
+                          key={pr}
+                          type="button"
+                          onClick={() => setUnitPrice(pr)}
+                          className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
+                            unitPrice === pr
+                              ? 'bg-[#121822] text-[#8ab896] border-[#233548] ring-1 ring-[#8ab896]'
+                              : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                          }`}
+                        >
+                          {pr >= 1000 ? `${(pr / 1000).toFixed(0)}k` : `${pr}`}
+                        </button>
+                      ))}
+                    </div>
+
                     <input
                       type="number"
                       required

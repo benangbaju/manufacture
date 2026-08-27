@@ -458,13 +458,49 @@ export default function PenjualanPage() {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                        Jumlah Terjual (Pcs) <span className="text-[#c87070]">*</span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                          Jumlah Terjual (Pcs) <span className="text-[#c87070]">*</span>
+                        </label>
+                        <span className="text-[0.65rem] text-[#5a6270]">Maks: {currentAvailableStock} pcs</span>
+                      </div>
+
+                      {/* Quick Qty Chips */}
+                      {currentAvailableStock > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {[1, 2, 5, 10, 20].filter(n => n <= currentAvailableStock).map(n => (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setQty(n)}
+                              className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border ${
+                                qty === n
+                                  ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]'
+                                  : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                              }`}
+                            >
+                              {n} pcs
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setQty(currentAvailableStock)}
+                            className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border ${
+                              qty === currentAvailableStock
+                                ? 'bg-[#121822] text-[#8ab896] border-[#233548] ring-1 ring-[#8ab896]'
+                                : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                            }`}
+                          >
+                            Semua ({currentAvailableStock})
+                          </button>
+                        </div>
+                      )}
+
                       <input
                         type="number"
                         required
                         min={1}
+                        max={currentAvailableStock || undefined}
                         value={qty || ''}
                         onChange={(e) => setQty(Number(e.target.value))}
                         className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
@@ -473,9 +509,31 @@ export default function PenjualanPage() {
                     </div>
 
                     <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                        Harga Jual Satuan per Pcs (Rp) <span className="text-[#c87070]">*</span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                          Harga Jual Satuan per Pcs (Rp) <span className="text-[#c87070]">*</span>
+                        </label>
+                        <span className="text-[0.65rem] text-[#5a6270]">Pilih preset</span>
+                      </div>
+
+                      {/* Quick Price Chips */}
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(itemGrade === 'grade_a' ? [75000, 85000, 95000, 120000, 150000] : [25000, 35000, 45000, 50000]).map(pr => (
+                          <button
+                            key={pr}
+                            type="button"
+                            onClick={() => setUnitPrice(pr)}
+                            className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
+                              unitPrice === pr
+                                ? 'bg-[#121822] text-[#8ab896] border-[#233548] ring-1 ring-[#8ab896]'
+                                : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                            }`}
+                          >
+                            {(pr / 1000).toFixed(0)}k
+                          </button>
+                        ))}
+                      </div>
+
                       <input
                         type="number"
                         required

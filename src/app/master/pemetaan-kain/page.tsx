@@ -25,6 +25,7 @@ interface MappingRecord {
 interface ArticleOption {
   id: number;
   name: string;
+  variants?: { id: number; color: string }[];
 }
 
 interface FabricOption {
@@ -64,6 +65,9 @@ export default function PemetaanKainPage() {
 
       if (artList && artList.length > 0 && !selectedArticleId) {
         setSelectedArticleId(artList[0].id);
+        if (artList[0].variants && artList[0].variants.length > 0) {
+          setVariantColor(artList[0].variants[0].color);
+        }
       }
       if (fabList && fabList.length > 0 && !selectedFabricId) {
         setSelectedFabricId(fabList[0].id);
@@ -78,6 +82,18 @@ export default function PemetaanKainPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const activeArticle = articles.find(a => a.id === Number(selectedArticleId));
+
+  const handleArticleSelect = (artId: number) => {
+    setSelectedArticleId(artId);
+    const art = articles.find(a => a.id === artId);
+    if (art && art.variants && art.variants.length > 0) {
+      setVariantColor(art.variants[0].color);
+    } else {
+      setVariantColor('');
+    }
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,7 +280,7 @@ export default function PemetaanKainPage() {
                 </label>
                 <select
                   value={selectedArticleId}
-                  onChange={(e) => setSelectedArticleId(Number(e.target.value))}
+                  onChange={(e) => handleArticleSelect(Number(e.target.value))}
                   className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
                   required
                 >
@@ -275,9 +291,33 @@ export default function PemetaanKainPage() {
               </div>
 
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Nama Warna Varian <span className="text-[#c87070]">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                    Nama Warna Varian <span className="text-[#c87070]">*</span>
+                  </label>
+                  <span className="text-[0.65rem] text-[#5a6270]">Pilih atau ketik warna</span>
+                </div>
+
+                {/* Varian Color Quick Chips */}
+                {activeArticle?.variants && activeArticle.variants.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {activeArticle.variants.map(v => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setVariantColor(v.color)}
+                        className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border ${
+                          variantColor.toLowerCase() === v.color.toLowerCase()
+                            ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]'
+                            : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                        }`}
+                      >
+                        {v.color}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <input
                   type="text"
                   required

@@ -279,9 +279,31 @@ export default function ResepPage() {
               </div>
 
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Takaran per 1 pcs ({selectedMatObj?.unit || 'pcs'}) <span className="text-[#c87070]">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                    Takaran per 1 pcs ({selectedMatObj?.unit || 'pcs'}) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <span className="text-[0.65rem] text-[#5a6270]">Kebutuhan 1 baju</span>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {[1, 2, 4, 6, 8, 10].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setQty(n)}
+                      className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border ${
+                        qty === n
+                          ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]'
+                          : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                      }`}
+                    >
+                      {n} {selectedMatObj?.unit || 'pcs'}
+                    </button>
+                  ))}
+                </div>
+
                 <input
                   type="number"
                   step="0.01"

@@ -244,9 +244,31 @@ export default function PengeluaranPage() {
               </div>
 
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Nominal Biaya (Rp) <span className="text-[#c87070]">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                    Nominal Biaya (Rp) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <span className="text-[0.65rem] text-[#5a6270]">Preset nominal</span>
+                </div>
+
+                {/* Quick Amount Chips */}
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {[50000, 100000, 250000, 500000, 1000000, 2500000].map(val => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setAmount(val)}
+                      className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
+                        amount === val
+                          ? 'bg-[#121822] text-[#c87070] border-[#233548] ring-1 ring-[#c87070]'
+                          : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
+                      }`}
+                    >
+                      {val >= 1000000 ? `${(val / 1000000).toFixed(1)}Jt` : `${(val / 1000).toFixed(0)}k`}
+                    </button>
+                  ))}
+                </div>
+
                 <input
                   type="number"
                   required
