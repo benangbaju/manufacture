@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import Pagination from "@/components/ui/Pagination";
 import { getDbExpenses, createDbExpense, deleteDbExpense } from "@/lib/services/db";
 import { 
   Receipt, 
@@ -24,14 +25,14 @@ interface ExpenseRecord {
   notes?: string;
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS';
+type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
 
 const categories = [
   'Ads (Iklan)', 
-  'Ongkir Kain', 
-  'Gaji Karyawan', 
-  'Listrik & Air', 
-  'Packaging & Lakban', 
+  'Ongkir & Ekspedisi', 
+  'Gaji & Upah Karyawan', 
+  'Packaging & Plastik', 
+  'Listrik & Air Pabrik', 
   'Sewa Tempat / Ruko',
   'Maintenance Mesin Jahit',
   'Konsumsi & Operasional',
@@ -48,16 +49,21 @@ export default function PengeluaranPage() {
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters
+  // Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modals & States
   const [showModal, setShowModal] = useState(false);
   const [modalLines, setModalLines] = useState<string[]>([]);
   const [deletingExpense, setDeletingExpense] = useState<ExpenseRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quickSuccessMsg, setQuickSuccessMsg] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -75,8 +81,7 @@ export default function PengeluaranPage() {
     loadData();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (continueEntry: boolean = false) => {
     if (!category || amount <= 0) return;
 
     setIsSubmitting(true);
@@ -88,14 +93,21 @@ export default function PengeluaranPage() {
         notes: notes.trim() || undefined,
       });
 
-      setModalLines([
+      const lines = [
         `Tanggal: ${expenseDate}`,
         `Kategori: ${category}`,
         `Jumlah Biaya: Rp ${amount.toLocaleString('id-ID')}`,
         notes ? `Keterangan: ${notes}` : 'Tanpa catatan',
         `Otomatis tercatat sebagai pengurang laba di laporan laba rugi.`,
-      ]);
-      setShowModal(true);
+      ];
+
+      if (continueEntry) {
+        setQuickSuccessMsg(`Pengeluaran dicatat: ${category} senilai Rp ${amount.toLocaleString('id-ID')}`);
+        setTimeout(() => setQuickSuccessMsg(null), 4000);
+      } else {
+        setModalLines(lines);
+        setShowModal(true);
+      }
 
       setAmount(0);
       setNotes('');
@@ -120,6 +132,7 @@ export default function PengeluaranPage() {
 
   // Date, Category & Search Filtering Logic
   const todayStr = getTodayDateString();
+  const now = new Date();
   const filteredExpenses = expenses.filter(e => {
     if (categoryFilter !== 'ALL' && e.category !== categoryFilter) return false;
 
@@ -130,16 +143,28 @@ export default function PengeluaranPage() {
       if (!cat.includes(q) && !note.includes(q)) return false;
     }
 
+    if (dateFilter === 'ALL') return true;
     if (dateFilter === 'TODAY') return e.expense_date === todayStr;
     if (dateFilter === '7_DAYS') {
       const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setDate(now.getDate() - 7);
       return new Date(e.expense_date) >= sevenDaysAgo;
     }
     if (dateFilter === '30_DAYS') {
       const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
       return new Date(e.expense_date) >= thirtyDaysAgo;
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      const eDate = new Date(e.expense_date);
+      return eDate.getMonth() === now.getMonth() && eDate.getFullYear() === now.getFullYear();
+    }
+    if (dateFilter === 'CUSTOM') {
+      if (!customStartDate && !customEndDate) return true;
+      const eDate = new Date(e.expense_date);
+      if (customStartDate && eDate < new Date(customStartDate)) return false;
+      if (customEndDate && eDate > new Date(customEndDate)) return false;
+      return true;
     }
     return true;
   });
@@ -205,7 +230,23 @@ export default function PengeluaranPage() {
             </div>
           </div>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          {quickSuccessMsg && (
+            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 shrink-0" />
+                <span>{quickSuccessMsg}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setQuickSuccessMsg(null)}
+                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }}>
             {/* Category Quick Chips */}
             <div>
               <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
@@ -248,29 +289,41 @@ export default function PengeluaranPage() {
                   <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
                     Nominal Biaya (Rp) <span className="text-[#c87070]">*</span>
                   </label>
-                  <span className="text-[0.65rem] text-[#5a6270]">Preset nominal</span>
+                  <span className="text-[0.65rem] text-[#5a6270]">Tambah cepat</span>
                 </div>
 
-                {/* Quick Amount Chips */}
+                {/* Quick Additive Chips */}
                 <div className="flex flex-wrap gap-1 mb-2">
-                  {[50000, 100000, 250000, 500000, 1000000, 2500000].map(val => (
+                  {[
+                    { label: '+10k', val: 10000 },
+                    { label: '+50k', val: 50000 },
+                    { label: '+100k', val: 100000 },
+                    { label: '+500k', val: 500000 },
+                    { label: '+1Jt', val: 1000000 },
+                  ].map(chip => (
                     <button
-                      key={val}
+                      key={chip.label}
                       type="button"
-                      onClick={() => setAmount(val)}
-                      className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
-                        amount === val
-                          ? 'bg-[#121822] text-[#c87070] border-[#233548] ring-1 ring-[#c87070]'
-                          : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
-                      }`}
+                      onClick={() => setAmount(prev => (prev || 0) + chip.val)}
+                      className="px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030] hover:text-[#e2e6ed]"
                     >
-                      {val >= 1000000 ? `${(val / 1000000).toFixed(1)}Jt` : `${(val / 1000).toFixed(0)}k`}
+                      {chip.label}
                     </button>
                   ))}
+                  {amount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAmount(0)}
+                      className="px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono bg-[#241a1a] text-[#c87070] border-[#3a2020] hover:bg-[#341e1e]"
+                    >
+                      Reset
+                    </button>
+                  )}
                 </div>
 
                 <input
                   type="number"
+                  inputMode="numeric"
                   required
                   min={1}
                   value={amount || ''}
@@ -278,6 +331,11 @@ export default function PengeluaranPage() {
                   className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c87070] focus:border-[#7eb3db] outline-none font-mono"
                   placeholder="0"
                 />
+                {amount > 0 && (
+                  <p className="text-[0.7rem] text-[#c87070] mt-1 font-mono font-semibold">
+                    Rp {amount.toLocaleString('id-ID')}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -294,14 +352,25 @@ export default function PengeluaranPage() {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pengeluaran Operasional'}</span>
-            </button>
+            <div className="grid sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pengeluaran'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleSubmit(true)}
+                className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>Simpan & Catat Lagi</span>
+              </button>
+            </div>
           </form>
         </div>
 
@@ -321,7 +390,7 @@ export default function PengeluaranPage() {
               <span className="font-extrabold text-[#c87070] text-sm font-mono">Rp {totalFilteredNominal.toLocaleString('id-ID')}</span>
             </div>
 
-            {/* Search Bar */}
+            {/* Search Bar with Instant Clear */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -329,80 +398,149 @@ export default function PengeluaranPage() {
                 placeholder="Cari kategori atau catatan..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                className="w-full pl-8 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
-            {/* Date Filters */}
-            <div className="grid grid-cols-3 gap-1 pt-0.5">
-              <button
-                type="button"
-                onClick={() => setDateFilter('ALL')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'ALL'
-                    ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
+            {/* Category Filter Dropdown */}
+            <div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] outline-none font-medium cursor-pointer"
               >
-                Semua
-              </button>
-              <button
-                type="button"
-                onClick={() => setDateFilter('TODAY')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'TODAY'
-                    ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
-              >
-                Hari Ini
-              </button>
-              <button
-                type="button"
-                onClick={() => setDateFilter('30_DAYS')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === '30_DAYS'
-                    ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
-              >
-                30 Hari
-              </button>
+                <option value="ALL">Semua Kategori Beban</option>
+                {categories.map((c, i) => (
+                  <option key={i} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
+
+            {/* Universal Date Filters */}
+            <div className="grid grid-cols-3 gap-1 pt-0.5">
+              {[
+                { label: 'Semua', val: 'ALL' as const },
+                { label: 'Hari Ini', val: 'TODAY' as const },
+                { label: '7 Hari', val: '7_DAYS' as const },
+                { label: '30 Hari', val: '30_DAYS' as const },
+                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
+                { label: 'Kustom', val: 'CUSTOM' as const },
+              ].map(tab => (
+                <button
+                  key={tab.val}
+                  type="button"
+                  onClick={() => setDateFilter(tab.val)}
+                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                    dateFilter === tab.val
+                      ? 'bg-[#3d5a80] text-white'
+                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Range Inputs */}
+            {dateFilter === 'CUSTOM' && (
+              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[420px]">
             {filteredExpenses.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#5a6270]">
-                Belum ada catatan pengeluaran operasional.
+                Belum ada catatan pengeluaran operasional sesuai filter.
               </div>
             ) : (
-              filteredExpenses.map(e => (
-                <div key={e.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[#e2e6ed]">{e.category}</span>
-                    <span className="font-mono text-[#5a6270] text-[0.7rem]">{e.expense_date}</span>
-                  </div>
+              filteredExpenses
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(e => (
+                  <div key={e.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#e2e6ed]">{e.category}</span>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{e.expense_date}</span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-[0.7rem]">
-                    <span className="text-[#8899aa]">{e.notes || 'Tanpa catatan'}</span>
-                    <span className="font-bold text-[#c87070] font-mono">Rp {(e.amount || 0).toLocaleString('id-ID')}</span>
-                  </div>
+                    <div className="flex items-center justify-between text-[0.7rem]">
+                      <span className="text-[#8899aa]">{e.notes || 'Tanpa catatan'}</span>
+                      <span className="font-bold text-[#c87070] font-mono">Rp {(e.amount || 0).toLocaleString('id-ID')}</span>
+                    </div>
 
-                  <div className="flex justify-end pt-0.5">
-                    <button
-                      onClick={() => setDeletingExpense(e)}
-                      className="text-[0.65rem] text-[#c87070] hover:underline"
-                    >
-                      Hapus
-                    </button>
+                    <div className="flex justify-end pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setDeletingExpense(e)}
+                        className="text-[#c87070] hover:text-[#e07070] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredExpenses.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
+
+      {/* Mobile Sticky Floating Summary & Submit Bar */}
+      {amount > 0 && (
+        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
+          <div className="min-w-0">
+            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
+              {category} {notes ? `(${notes})` : ''}
+            </span>
+            <span className="text-sm font-black text-[#c87070] font-mono">
+              Rp {amount.toLocaleString('id-ID')}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={isSubmitting || amount <= 0}
+            onClick={() => handleSubmit(false)}
+            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50"
+          >
+            {isSubmitting ? '...' : 'Simpan'}
+          </button>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

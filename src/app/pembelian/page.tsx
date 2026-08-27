@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import Pagination from "@/components/ui/Pagination";
 import { 
   getDbFabricStock, 
   getDbRawMaterials, 
@@ -45,7 +46,7 @@ interface PurchaseRecord {
   fabric_stock?: { name: string; unit: string };
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS';
+type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
@@ -64,16 +65,21 @@ export default function PembelianPage() {
   const [supplier, setSupplier] = useState<string>('');
   const [purchaseDate, setPurchaseDate] = useState<string>(getTodayDateString());
 
-  // History Filters
+  // History Filters & Pagination
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
   const [historySearchQuery, setHistorySearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modals & State
   const [showModal, setShowModal] = useState(false);
   const [modalLines, setModalLines] = useState<string[]>([]);
   const [deletingPurchase, setDeletingPurchase] = useState<PurchaseRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quickSuccessMsg, setQuickSuccessMsg] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -130,8 +136,7 @@ export default function PembelianPage() {
   const effectiveUnit = isFabric ? 'meter' : (activeMat?.unit || 'pcs');
   const totalPrice = qty * unitPrice;
 
-  const handleSavePurchase = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSavePurchase = async (continueEntry: boolean = false) => {
     if (!activeMat || effectiveQty <= 0 || unitPrice <= 0) return;
 
     setIsSubmitting(true);
@@ -155,12 +160,17 @@ export default function PembelianPage() {
         `Total Pengeluaran: Rp ${totalPrice.toLocaleString('id-ID')}`,
         `Stok di gudang otomatis bertambah.`,
       ];
-      setModalLines(lines);
-      setShowModal(true);
+
+      if (continueEntry) {
+        setQuickSuccessMsg(`Berhasil mencatat: ${activeMat.name} (+${effectiveQty} ${effectiveUnit}) senilai Rp ${totalPrice.toLocaleString('id-ID')}`);
+        setTimeout(() => setQuickSuccessMsg(null), 4000);
+      } else {
+        setModalLines(lines);
+        setShowModal(true);
+      }
 
       setQty(0);
       setUnitPrice(0);
-      setSupplier('');
       await loadData();
     } catch (err: any) {
       alert('Gagal mencatat pembelian: ' + err.message);
@@ -189,8 +199,9 @@ export default function PembelianPage() {
     return m.name.toLowerCase().includes(q);
   });
 
-  // Date & Supplier Filtering Logic
+  // Universal Date & Supplier Filtering Logic
   const today = getTodayDateString();
+  const now = new Date();
   const filteredPurchases = purchases.filter(p => {
     if (supplierFilter !== 'ALL' && p.supplier !== supplierFilter) return false;
 
@@ -205,13 +216,23 @@ export default function PembelianPage() {
     if (dateFilter === 'TODAY') return p.purchase_date === today;
     if (dateFilter === '7_DAYS') {
       const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setDate(now.getDate() - 7);
       return new Date(p.purchase_date) >= sevenDaysAgo;
     }
     if (dateFilter === '30_DAYS') {
       const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
       return new Date(p.purchase_date) >= thirtyDaysAgo;
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      const pDate = new Date(p.purchase_date);
+      return pDate.getMonth() === now.getMonth() && pDate.getFullYear() === now.getFullYear();
+    }
+    if (dateFilter === 'CUSTOM') {
+      const pDate = new Date(p.purchase_date);
+      if (customStartDate && pDate < new Date(customStartDate)) return false;
+      if (customEndDate && pDate > new Date(customEndDate)) return false;
+      return true;
     }
     return true;
   });
@@ -267,7 +288,23 @@ export default function PembelianPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSavePurchase} className="space-y-4">
+          {quickSuccessMsg && (
+            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{quickSuccessMsg}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setQuickSuccessMsg(null)}
+                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={(e) => { e.preventDefault(); handleSavePurchase(false); }} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
@@ -454,6 +491,7 @@ export default function PembelianPage() {
 
                     <input
                       type="number"
+                      inputMode="decimal"
                       required
                       min={0.1}
                       step={0.1}
@@ -463,9 +501,10 @@ export default function PembelianPage() {
                       placeholder="0"
                     />
                     {isFabric && inputUnit === 'yard' && qty > 0 && (
-                      <p className="text-[0.65rem] text-[#7eb3db] mt-1 font-mono">
-                        {qty} yard = <strong>{effectiveQty} meter</strong> masuk stok
-                      </p>
+                      <div className="p-2 bg-[#121822] border border-[#233548] rounded-lg text-[0.7rem] text-[#7eb3db] mt-1.5 flex items-center justify-between font-mono">
+                        <span>Konversi ke Meter:</span>
+                        <strong className="text-[#8ab896]">+{effectiveQty} Meter</strong>
+                      </div>
                     )}
                   </div>
 
@@ -497,6 +536,7 @@ export default function PembelianPage() {
 
                     <input
                       type="number"
+                      inputMode="numeric"
                       required
                       min={1}
                       value={unitPrice || ''}
@@ -504,6 +544,11 @@ export default function PembelianPage() {
                       className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
                       placeholder="0"
                     />
+                    {unitPrice > 0 && (
+                      <p className="text-[0.7rem] text-[#8ab896] mt-1 font-mono font-semibold">
+                        Rp {unitPrice.toLocaleString('id-ID')} / {isFabric ? inputUnit : activeMat.unit}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -514,14 +559,25 @@ export default function PembelianPage() {
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian & Tambah Stok'}</span>
-                </button>
+                <div className="grid sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => handleSavePurchase(true)}
+                    className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Simpan & Tambah Lagi</span>
+                  </button>
+                </div>
               </div>
             )}
           </form>
@@ -538,12 +594,12 @@ export default function PembelianPage() {
               <span className="text-[0.7rem] text-[#8899aa] font-medium">{filteredPurchases.length} Faktur</span>
             </div>
 
-            <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+            <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#5a6270]">Total Belanja Terfilter:</span>
               <span className="font-extrabold text-[#7eb3db] font-mono">Rp {totalFilteredSpending.toLocaleString('id-ID')}</span>
             </div>
 
-            {/* History Search */}
+            {/* History Search with Instant Clear */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -551,8 +607,17 @@ export default function PembelianPage() {
                 placeholder="Cari bahan atau supplier..."
                 value={historySearchQuery}
                 onChange={e => setHistorySearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                className="w-full pl-8 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
               />
+              {historySearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setHistorySearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             {/* Supplier Filter */}
@@ -561,7 +626,7 @@ export default function PembelianPage() {
                 <select
                   value={supplierFilter}
                   onChange={(e) => setSupplierFilter(e.target.value)}
-                  className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-[0.7rem] text-[#e2e6ed] outline-none font-medium cursor-pointer"
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] outline-none font-medium cursor-pointer"
                 >
                   <option value="ALL">Semua Supplier ({existingSuppliers.length})</option>
                   {existingSuppliers.map((s, i) => (
@@ -571,87 +636,133 @@ export default function PembelianPage() {
               </div>
             )}
 
-            {/* Filter Tabs */}
+            {/* Universal Filter Tabs */}
             <div className="grid grid-cols-3 gap-1 pt-0.5">
-              <button
-                type="button"
-                onClick={() => setDateFilter('ALL')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'ALL'
-                    ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
-              >
-                Semua
-              </button>
-              <button
-                type="button"
-                onClick={() => setDateFilter('TODAY')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'TODAY'
-                    ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
-              >
-                Hari Ini
-              </button>
-              <button
-                type="button"
-                onClick={() => setDateFilter('30_DAYS')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === '30_DAYS'
-                    ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
-              >
-                30 Hari
-              </button>
+              {[
+                { label: 'Semua', val: 'ALL' as const },
+                { label: 'Hari Ini', val: 'TODAY' as const },
+                { label: '7 Hari', val: '7_DAYS' as const },
+                { label: '30 Hari', val: '30_DAYS' as const },
+                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
+                { label: 'Kustom', val: 'CUSTOM' as const },
+              ].map(tab => (
+                <button
+                  key={tab.val}
+                  type="button"
+                  onClick={() => setDateFilter(tab.val)}
+                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                    dateFilter === tab.val
+                      ? 'bg-[#3d5a80] text-white'
+                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
+
+            {/* Custom Date Range Inputs */}
+            {dateFilter === 'CUSTOM' && (
+              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[420px]">
             {filteredPurchases.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#5a6270]">
-                Belum ada transaksi pembelian bahan.
+                Belum ada transaksi pembelian bahan sesuai filter.
               </div>
             ) : (
-              filteredPurchases.map(p => {
-                const matName = p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name;
-                const matUnit = p.item_type === 'fabric' ? (p.fabric_stock?.unit || 'meter') : (p.raw_materials?.unit || 'pcs');
-                const totalItemCost = p.qty * p.unit_price;
+              filteredPurchases
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(p => {
+                  const matName = p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name;
+                  const matUnit = p.item_type === 'fabric' ? (p.fabric_stock?.unit || 'meter') : (p.raw_materials?.unit || 'pcs');
+                  const totalItemCost = p.qty * p.unit_price;
 
-                return (
-                  <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#e2e6ed]">{matName || 'Bahan'}</span>
-                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{p.purchase_date}</span>
+                  return (
+                    <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#e2e6ed]">{matName || 'Bahan'}</span>
+                        <span className="font-mono text-[#5a6270] text-[0.7rem]">{p.purchase_date}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[0.7rem]">
+                        <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit} @ Rp {p.unit_price.toLocaleString('id-ID')}</span>
+                        <span className="font-bold text-[#e2e6ed] font-mono">Rp {totalItemCost.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] pt-1">
+                        {p.supplier ? (
+                          <span className="px-1.5 py-0.5 bg-[#15202b] text-[#7eb3db] border border-[#233548] rounded font-medium">
+                            🏪 {p.supplier}
+                          </span>
+                        ) : (
+                          <span className="text-[#5a6270] italic">Tanpa Supplier</span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDeletingPurchase(p)}
+                          className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-[0.7rem]">
-                      <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit} @ Rp {p.unit_price.toLocaleString('id-ID')}</span>
-                      <span className="font-bold text-[#e2e6ed] font-mono">Rp {totalItemCost.toLocaleString('id-ID')}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] pt-1">
-                      {p.supplier ? (
-                        <span className="px-1.5 py-0.5 bg-[#15202b] text-[#7eb3db] border border-[#233548] rounded font-medium">
-                          🏪 {p.supplier}
-                        </span>
-                      ) : (
-                        <span>-</span>
-                      )}
-                      <button
-                        onClick={() => setDeletingPurchase(p)}
-                        className="text-[#c87070] hover:underline"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredPurchases.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
+
+      {/* Mobile Sticky Floating Summary & Submit Bar */}
+      {activeMat && (effectiveQty > 0 || unitPrice > 0) && (
+        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
+          <div className="min-w-0">
+            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
+              {activeMat.name} (+{effectiveQty} {effectiveUnit})
+            </span>
+            <span className="text-sm font-black text-[#8ab896] font-mono">
+              Rp {totalPrice.toLocaleString('id-ID')}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={isSubmitting || effectiveQty <= 0 || unitPrice <= 0}
+            onClick={() => handleSavePurchase(false)}
+            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50"
+          >
+            {isSubmitting ? '...' : 'Simpan'}
+          </button>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

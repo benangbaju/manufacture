@@ -116,6 +116,23 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
   const totalRejectStock = variants.reduce((a, b) => a + (b.stock_reject_qty || 0), 0);
   const recipes = article?.recipes || [];
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 rounded-2xl skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 rounded-2xl skeleton-shimmer" />
+          <div className="h-96 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -152,11 +169,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {loading ? (
-        <div className="glass-card rounded-2xl p-12 text-center text-xs text-[#5a6270]">
-          Memuat data artikel dan varian dari database...
-        </div>
-      ) : !article ? (
+      {!article ? (
         <div className="glass-card rounded-2xl p-12 text-center text-xs text-[#c87070]">
           Artikel tidak ditemukan di database.
         </div>
@@ -172,8 +185,8 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                   <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Daftar Varian Warna ({variants.length} SKU)</h2>
                 </div>
                 <div className="flex items-center gap-3 text-[0.7rem] font-medium">
-                  <span className="text-[#5a6270]">Siap Jual: <strong className="text-[#8ab896]">{totalGoodStock} pcs</strong></span>
-                  <span className="text-[#5a6270]">Reject: <strong className="text-[#c8a870]">{totalRejectStock} pcs</strong></span>
+                  <span className="text-[#5a6270]">Siap Jual: <strong className="text-[#8ab896] font-mono">{totalGoodStock} pcs</strong></span>
+                  <span className="text-[#5a6270]">Reject: <strong className="text-[#c8a870] font-mono">{totalRejectStock} pcs</strong></span>
                 </div>
               </div>
 
@@ -195,18 +208,20 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                     <tbody className="divide-y divide-[#1e2330]">
                       {variants.map((v) => (
                         <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="p-3.5 font-bold text-[#e2e6ed] flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
-                            <span>{v.color}</span>
+                          <td className="p-3.5 font-bold text-[#e2e6ed]">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#7eb3db]" />
+                              <span>{v.color}</span>
+                            </div>
                           </td>
                           <td className="p-3.5">
-                            <span className="inline-flex items-center gap-1 font-bold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3040] font-mono">
+                            <span className="inline-flex items-center gap-1 font-bold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3040] font-mono text-xs">
                               <CheckCircle2 className="w-3 h-3" />
                               {v.stock_qty || 0} pcs
                             </span>
                           </td>
                           <td className="p-3.5">
-                            <span className="inline-flex items-center gap-1 font-bold text-[#c8a870] bg-[#201e1a] px-2.5 py-1 rounded-lg border border-[#3a3020] font-mono">
+                            <span className="inline-flex items-center gap-1 font-bold text-[#c8a870] bg-[#201e1a] px-2.5 py-1 rounded-lg border border-[#3a3020] font-mono text-xs">
                               <AlertTriangle className="w-3 h-3 text-[#b89860]" />
                               {v.stock_reject_qty || 0} pcs
                             </span>
@@ -244,7 +259,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                   <Layers className="w-4 h-4 text-[#7eb3db]" />
                   <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Resep Bahan Rasio-Tetap (BOM Per 1 Pcs)</h2>
                 </div>
-                <Link href="/master/resep" className="text-xs text-[#7eb3db] hover:underline">
+                <Link href="/master/resep" className="text-xs text-[#7eb3db] hover:underline font-semibold">
                   Kelola Resep &rarr;
                 </Link>
               </div>
@@ -318,11 +333,26 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                    Stok Awal Siap Jual
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                      Stok Siap Jual
+                    </label>
+                  </div>
+                  <div className="flex gap-1 mb-1.5">
+                    {[10, 50, 100].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setInitialStock(prev => (prev || 0) + val)}
+                        className="px-1.5 py-0.5 rounded text-[0.6rem] bg-[#0c0f17] text-[#8899aa] border border-[#1e2330] hover:text-[#e2e6ed]"
+                      >
+                        +{val}
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     value={initialStock}
                     onChange={(e) => setInitialStock(Number(e.target.value))}
@@ -330,11 +360,26 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                   />
                 </div>
                 <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                    Stok Awal Reject
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                      Stok Reject
+                    </label>
+                  </div>
+                  <div className="flex gap-1 mb-1.5">
+                    {[5, 10, 20].map(val => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setInitialRejectStock(prev => (prev || 0) + val)}
+                        className="px-1.5 py-0.5 rounded text-[0.6rem] bg-[#0c0f17] text-[#8899aa] border border-[#1e2330] hover:text-[#e2e6ed]"
+                      >
+                        +{val}
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     value={initialRejectStock}
                     onChange={(e) => setInitialRejectStock(Number(e.target.value))}
@@ -346,7 +391,7 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                className="w-full py-3 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Varian Warna'}</span>

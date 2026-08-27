@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import Pagination from "@/components/ui/Pagination";
 import { 
   getDbArticles, 
   getDbChannels, 
@@ -60,7 +61,7 @@ interface SaleRecord {
   channels?: { name: string };
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'CUSTOM';
+type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
 type GradeFilterOption = 'ALL' | 'GRADE_A' | 'REJECT';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
@@ -87,12 +88,15 @@ export default function PenjualanPage() {
   const [gradeFilter, setGradeFilter] = useState<GradeFilterOption>('ALL');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modals & States
   const [showModal, setShowModal] = useState(false);
   const [modalLines, setModalLines] = useState<string[]>([]);
   const [deletingSale, setDeletingSale] = useState<SaleRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quickSuccessMsg, setQuickSuccessMsg] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -179,9 +183,8 @@ export default function PenjualanPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeArticle || !activeVariant || !activeChannel || qty <= 0 || unitPrice <= 0) return;
+  const handleSubmit = async (continueEntry: boolean = false) => {
+    if (!activeArticle || !activeVariant || !activeChannel || qty <= 0 || unitPrice <= 0 || isStockInsufficient) return;
 
     setIsSubmitting(true);
     try {
@@ -211,8 +214,13 @@ export default function PenjualanPage() {
         `Sisa Stok ${gradeLabel}: ${currentAvailableStock - qty} pcs`,
       ];
 
-      setModalLines(lines);
-      setShowModal(true);
+      if (continueEntry) {
+        setQuickSuccessMsg(`Penjualan dicatat: ${qty} pcs ${activeArticle.name} (${activeVariant.color}) senilai Rp ${totalPrice.toLocaleString('id-ID')}`);
+        setTimeout(() => setQuickSuccessMsg(null), 4000);
+      } else {
+        setModalLines(lines);
+        setShowModal(true);
+      }
 
       setQty(0);
       setUnitPrice(0);
@@ -235,8 +243,9 @@ export default function PenjualanPage() {
     }
   };
 
-  // Date, Grade & Search Filtering Logic
+  // Universal Date, Grade & Search Filtering Logic
   const todayStr = getTodayDateString();
+  const now = new Date();
   const filteredSales = sales.filter(s => {
     // Search Query
     if (salesSearchQuery) {
@@ -252,16 +261,28 @@ export default function PenjualanPage() {
     if (gradeFilter === 'REJECT' && s.item_grade !== 'reject') return false;
 
     // Date Filter
+    if (dateFilter === 'ALL') return true;
     if (dateFilter === 'TODAY') return s.sale_date === todayStr;
     if (dateFilter === '7_DAYS') {
       const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setDate(now.getDate() - 7);
       return new Date(s.sale_date) >= sevenDaysAgo;
     }
     if (dateFilter === '30_DAYS') {
       const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
       return new Date(s.sale_date) >= thirtyDaysAgo;
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      const sDate = new Date(s.sale_date);
+      return sDate.getMonth() === now.getMonth() && sDate.getFullYear() === now.getFullYear();
+    }
+    if (dateFilter === 'CUSTOM') {
+      if (!customStartDate && !customEndDate) return true;
+      const sDate = new Date(s.sale_date);
+      if (customStartDate && sDate < new Date(customStartDate)) return false;
+      if (customEndDate && sDate > new Date(customEndDate)) return false;
+      return true;
     }
     return true;
   });
@@ -307,6 +328,22 @@ export default function PenjualanPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Form Container */}
         <div className="lg:col-span-2 glass-card rounded-2xl p-5 md:p-6 border-[#1e2330]">
+          {quickSuccessMsg && (
+            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{quickSuccessMsg}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setQuickSuccessMsg(null)}
+                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {articles.length === 0 && !loading ? (
             <div className="p-8 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
@@ -318,7 +355,7 @@ export default function PenjualanPage() {
               </p>
             </div>
           ) : (
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }}>
               {/* Step 1: Grade Selector */}
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -414,7 +451,7 @@ export default function PenjualanPage() {
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-semibold text-[#8899aa]">Pilih Varian Warna</label>
                     <span className="text-[0.7rem] text-[#5a6270]">
-                      Stok {itemGrade === 'grade_a' ? 'Grade A' : 'Reject'}: <strong className="text-[#8ab896]">{currentAvailableStock} pcs</strong>
+                      Stok {itemGrade === 'grade_a' ? 'Grade A' : 'Reject'}: <strong className={currentAvailableStock > 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{currentAvailableStock} pcs</strong>
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -498,6 +535,7 @@ export default function PenjualanPage() {
 
                       <input
                         type="number"
+                        inputMode="numeric"
                         required
                         min={1}
                         max={currentAvailableStock || undefined}
@@ -536,6 +574,7 @@ export default function PenjualanPage() {
 
                       <input
                         type="number"
+                        inputMode="numeric"
                         required
                         min={1}
                         value={unitPrice || ''}
@@ -543,6 +582,11 @@ export default function PenjualanPage() {
                         className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
                         placeholder="0"
                       />
+                      {unitPrice > 0 && (
+                        <p className="text-[0.7rem] text-[#8ab896] mt-1 font-mono font-semibold">
+                          Rp {unitPrice.toLocaleString('id-ID')} / pcs
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -574,14 +618,25 @@ export default function PenjualanPage() {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || isStockInsufficient}
-                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Penjualan'}</span>
-                  </button>
+                  <div className="grid sm:grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || isStockInsufficient}
+                      className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Penjualan'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting || isStockInsufficient}
+                      onClick={() => handleSubmit(true)}
+                      className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Simpan & Input Lagi</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </form>
@@ -619,7 +674,7 @@ export default function PenjualanPage() {
               </div>
             </div>
 
-            {/* Search Bar */}
+            {/* Search Bar with Instant Clear */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -627,12 +682,21 @@ export default function PenjualanPage() {
                 placeholder="Cari artikel, warna, atau channel..."
                 value={salesSearchQuery}
                 onChange={e => setSalesSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                className="w-full pl-8 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
               />
+              {salesSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSalesSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
-            {/* Filter Tabs */}
-            <div className="grid grid-cols-3 gap-1 pt-0.5">
+            {/* Grade Filter Tabs */}
+            <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setGradeFilter('ALL')}
@@ -642,7 +706,7 @@ export default function PenjualanPage() {
                     : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
-                Semua
+                Semua Grade
               </button>
               <button
                 type="button"
@@ -667,6 +731,55 @@ export default function PenjualanPage() {
                 Reject
               </button>
             </div>
+
+            {/* Universal Date Filter Tabs */}
+            <div className="grid grid-cols-3 gap-1 pt-0.5">
+              {[
+                { label: 'Semua', val: 'ALL' as const },
+                { label: 'Hari Ini', val: 'TODAY' as const },
+                { label: '7 Hari', val: '7_DAYS' as const },
+                { label: '30 Hari', val: '30_DAYS' as const },
+                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
+                { label: 'Kustom', val: 'CUSTOM' as const },
+              ].map(tab => (
+                <button
+                  key={tab.val}
+                  type="button"
+                  onClick={() => setDateFilter(tab.val)}
+                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                    dateFilter === tab.val
+                      ? 'bg-[#3d5a80] text-white'
+                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Range Inputs */}
+            {dateFilter === 'CUSTOM' && (
+              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[420px]">
@@ -675,55 +788,88 @@ export default function PenjualanPage() {
                 Belum ada transaksi penjualan dicatat.
               </div>
             ) : (
-              filteredSales.map(s => {
-                const saleHpp = getVariantHpp(s.variant_id);
-                const saleMargin = (s.unit_price || Math.round(s.total_price / s.qty)) - saleHpp;
-                const saleMarginPct = s.unit_price > 0 ? Number(((saleMargin / s.unit_price) * 100).toFixed(1)) : 0;
-                return (
-                  <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#e2e6ed]">{s.articles?.name} - {s.variants?.color}</span>
-                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{s.sale_date}</span>
-                    </div>
+              filteredSales
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(s => {
+                  const saleHpp = getVariantHpp(s.variant_id);
+                  const saleMargin = (s.unit_price || Math.round(s.total_price / s.qty)) - saleHpp;
+                  const saleMarginPct = s.unit_price > 0 ? Number(((saleMargin / s.unit_price) * 100).toFixed(1)) : 0;
+                  return (
+                    <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#e2e6ed]">{s.articles?.name} - {s.variants?.color}</span>
+                        <span className="font-mono text-[#5a6270] text-[0.7rem]">{s.sale_date}</span>
+                      </div>
 
-                    <div className="flex items-center justify-between text-[0.7rem]">
-                      <span className="text-[#8899aa]">{s.channels?.name} ({s.qty} pcs @ Rp {(s.unit_price || Math.round(s.total_price / s.qty)).toLocaleString('id-ID')})</span>
-                      <span className="font-bold text-[#8ab896] font-mono">Rp {(s.total_price || 0).toLocaleString('id-ID')}</span>
-                    </div>
+                      <div className="flex items-center justify-between text-[0.7rem]">
+                        <span className="text-[#8899aa]">{s.channels?.name} ({s.qty} pcs @ Rp {(s.unit_price || Math.round(s.total_price / s.qty)).toLocaleString('id-ID')})</span>
+                        <span className="font-bold text-[#8ab896] font-mono">Rp {(s.total_price || 0).toLocaleString('id-ID')}</span>
+                      </div>
 
-                    <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
-                      <span className="text-[#8899aa]">
-                        HPP: <strong className="text-[#e2e6ed]">Rp {saleHpp.toLocaleString('id-ID')}</strong>
-                      </span>
-                      <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
-                        saleMargin >= 0 
-                          ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3a30]' 
-                          : 'bg-[#2a1a1a] text-[#c87070] border border-[#3a2020]'
-                      }`}>
-                        Margin: {saleMargin >= 0 ? '+' : ''}Rp {saleMargin.toLocaleString('id-ID')}/pcs ({saleMarginPct}%)
-                      </span>
-                    </div>
+                      <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
+                        <span className="text-[#8899aa]">
+                          HPP: <strong className="text-[#e2e6ed]">Rp {saleHpp.toLocaleString('id-ID')}</strong>
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
+                          saleMargin >= 0 
+                            ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3a30]' 
+                            : 'bg-[#2a1a1a] text-[#c87070] border border-[#3a2020]'
+                        }`}>
+                          Margin: {saleMargin >= 0 ? '+' : ''}Rp {saleMargin.toLocaleString('id-ID')}/pcs ({saleMarginPct}%)
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between text-[0.65rem] pt-1">
-                      <span className={`px-2 py-0.5 rounded font-semibold ${
-                        s.item_grade === 'grade_a' ? 'bg-[#1a2a20] text-[#8ab896]' : 'bg-[#201e1a] text-[#c8a870]'
-                      }`}>
-                        {s.item_grade === 'grade_a' ? 'Grade A' : 'Reject'}
-                      </span>
-                      <button
-                        onClick={() => setDeletingSale(s)}
-                        className="text-[#c87070] hover:underline"
-                      >
-                        Hapus
-                      </button>
+                      <div className="flex items-center justify-between text-[0.65rem] pt-1">
+                        <span className={`px-2 py-0.5 rounded font-semibold ${
+                          s.item_grade === 'grade_a' ? 'bg-[#1a2a20] text-[#8ab896]' : 'bg-[#201e1a] text-[#c8a870]'
+                        }`}>
+                          {s.item_grade === 'grade_a' ? 'Grade A' : 'Reject'}
+                        </span>
+                        <button
+                          onClick={() => setDeletingSale(s)}
+                          className="text-[#c87070] hover:underline"
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredSales.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
+
+      {/* Mobile Sticky Floating Summary & Submit Bar */}
+      {activeArticle && (qty > 0 || unitPrice > 0) && (
+        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
+          <div className="min-w-0">
+            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
+              {activeArticle.name} - {activeVariant?.color} ({qty} pcs)
+            </span>
+            <span className="text-sm font-black text-[#8ab896] font-mono">
+              Rp {totalPrice.toLocaleString('id-ID')}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={isSubmitting || qty <= 0 || unitPrice <= 0}
+            onClick={() => handleSubmit(false)}
+            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
+          >
+            {isSubmitting ? '...' : 'Simpan'}
+          </button>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

@@ -150,6 +150,36 @@ export default function PemetaanKainPage() {
   const uniqueArticlesMapped = new Set(mappings.map(m => m.article_id)).size;
   const uniqueFabricsMapped = new Set(mappings.map(m => m.fabric_stock_id)).size;
 
+  // Unmapped Variants Detection
+  const allVariants = articles.flatMap(a => 
+    (a.variants || []).map(v => ({
+      articleId: a.id,
+      articleName: a.name,
+      color: v.color,
+    }))
+  );
+
+  const unmappedVariants = allVariants.filter(v => 
+    !mappings.some(m => m.article_id === v.articleId && m.variant_color.toLowerCase() === v.color.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-24 rounded-2xl skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 rounded-2xl skeleton-shimmer" />
+          <div className="h-96 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -173,6 +203,33 @@ export default function PemetaanKainPage() {
         </div>
       </div>
 
+      {/* Unmapped Variants Alert Banner */}
+      {unmappedVariants.length > 0 && (
+        <div className="mb-6 p-4 rounded-2xl bg-[#1f1a14] border border-[#3a2c1a] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[#c8a870] flex items-center gap-2">
+              <span>⚠️ Ada {unmappedVariants.length} varian warna belum memiliki pemetaan kain roll</span>
+            </span>
+            <span className="text-[0.65rem] text-[#8899aa]">Klik untuk memilih otomatis:</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            {unmappedVariants.slice(0, 10).map((uv, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setSelectedArticleId(uv.articleId);
+                  setVariantColor(uv.color);
+                }}
+                className="px-2.5 py-1 bg-[#12100d] hover:bg-[#251e14] border border-[#443218] text-[#e2c088] rounded-xl text-xs font-medium transition-all"
+              >
+                + {uv.articleName} ({uv.color})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Table Container */}
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
@@ -185,17 +242,24 @@ export default function PemetaanKainPage() {
                 placeholder="Cari artikel, warna, atau kain..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <span className="text-xs text-[#8899aa] font-semibold shrink-0">
               {filteredMappings.length} dari {mappings.length} Pemetaan
             </span>
           </div>
 
-          {loading ? (
-            <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data pemetaan dari database...</div>
-          ) : filteredMappings.length === 0 ? (
+          {filteredMappings.length === 0 ? (
             <div className="p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Link2 className="w-6 h-6" />

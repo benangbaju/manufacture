@@ -135,6 +135,23 @@ export default function ResepPage() {
 
   const selectedMatObj = materials.find(m => m.id === Number(selectedMaterialId));
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-24 rounded-2xl skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 rounded-2xl skeleton-shimmer" />
+          <div className="h-96 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -161,20 +178,27 @@ export default function ResepPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {/* Search bar */}
-          <div className="glass-card rounded-2xl p-3 border-[#1e2330] flex items-center gap-2">
+          <div className="glass-card rounded-2xl p-3 border-[#1e2330] flex items-center gap-2 relative">
             <Search className="w-4 h-4 text-[#5a6270] ml-2" />
             <input
               type="text"
               placeholder="Cari artikel atau bahan dalam resep..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent border-none text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none"
+              className="w-full bg-transparent border-none text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none pr-6"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold mr-2"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          {loading ? (
-            <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data resep dari database...</div>
-          ) : filteredGroups.length === 0 ? (
+          {filteredGroups.length === 0 ? (
             <div className="p-12 text-center glass-card rounded-2xl border-[#1e2330]">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Layers className="w-6 h-6" />
@@ -248,13 +272,12 @@ export default function ResepPage() {
             <form className="space-y-4" onSubmit={handleAddMaterialToRecipe}>
               <div>
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Pilih Artikel <span className="text-[#c87070]">*</span>
+                  1. Pilih Artikel Baju <span className="text-[#c87070]">*</span>
                 </label>
                 <select
                   value={selectedArticleId}
-                  onChange={(e) => setSelectedArticleId(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
-                  required
+                  onChange={e => setSelectedArticleId(Number(e.target.value))}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs sm:text-sm text-[#e2e6ed] focus:border-[#7eb3db] outline-none"
                 >
                   {articles.map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
@@ -264,13 +287,12 @@ export default function ResepPage() {
 
               <div>
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Pilih Bahan Baku <span className="text-[#c87070]">*</span>
+                  2. Pilih Bahan Rasio-Tetap <span className="text-[#c87070]">*</span>
                 </label>
                 <select
                   value={selectedMaterialId}
-                  onChange={(e) => setSelectedMaterialId(Number(e.target.value))}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
-                  required
+                  onChange={e => setSelectedMaterialId(Number(e.target.value))}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs sm:text-sm text-[#e2e6ed] focus:border-[#7eb3db] outline-none"
                 >
                   {materials.map(m => (
                     <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>

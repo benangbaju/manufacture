@@ -472,10 +472,70 @@ html.light .fixed .bg-\[\#12161f\] {
   box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15) !important;
 }
 
-html.light .fixed .bg-\[\#0c0f17\],
-html.light .fixed .bg-\[\#0e1219\] {
-  background-color: #f8fafc !important;
-  border-color: #e2e8f0 !important;
+/* Shimmer Skeleton Loader */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #121722 25%, #1c2638 50%, #121722 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite ease-in-out;
+}
+
+html.light .skeleton-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite ease-in-out;
+}
+
+/* ==========================================================================
+   PRINT OPTIMIZATION (Invoices, Production Sheets, P&L Reports)
+   ========================================================================== */
+@media print {
+  aside,
+  header button,
+  .pwa-install-btn,
+  [role="dialog"],
+  button:not(.print-keep) {
+    display: none !important;
+  }
+
+  body, html, main {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11pt !important;
+  }
+
+  .glass-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+    color: #0f172a !important;
+  }
+
+  thead {
+    background-color: #f1f5f9 !important;
+  }
+}
+
 
 

@@ -7,13 +7,14 @@ import {
   Factory, 
   ShoppingBag, 
   Menu, 
-  Layers,
-  PackagePlus,
-  Receipt,
-  FileSpreadsheet,
-  Database,
-  Shirt,
-  Scissors
+  Layers, 
+  PackagePlus, 
+  Receipt, 
+  FileSpreadsheet, 
+  Database, 
+  Shirt, 
+  Scissors,
+  Search
 } from 'lucide-react';
 import PWAInstallButton from './PWAInstallButton';
 import ThemeToggle from './ThemeToggle';
@@ -85,6 +86,21 @@ export default function Sidebar() {
           </div>
           <ThemeToggle variant="compact" />
         </div>
+
+        {/* Quick Command Palette Trigger */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+          className="w-full flex items-center justify-between px-3 py-2 mb-3 rounded-xl bg-[#121620] border border-[#1e2838] hover:border-[#2a3848] text-[#8899aa] hover:text-[#e2e6ed] text-xs transition-all shadow-inner group cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <Search className="w-3.5 h-3.5 text-[#5a6270] group-hover:text-[#7eb3db]" />
+            <span className="text-[0.7rem]">Cari menu...</span>
+          </div>
+          <kbd className="px-1.5 py-0.5 rounded bg-[#1a2030] text-[#7a8a9a] text-[0.6rem] font-mono border border-[#2a3040]">
+            Ctrl K
+          </kbd>
+        </button>
 
         {/* Desktop Categorized Navigation */}
         <div className="flex flex-col gap-4">

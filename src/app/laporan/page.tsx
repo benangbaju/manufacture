@@ -21,7 +21,8 @@ import {
   Wallet,
   Coins,
   TrendingUp,
-  Tag
+  Tag,
+  Printer
 } from 'lucide-react';
 
 const MONTH_NAMES = [
@@ -279,6 +280,28 @@ export default function LaporanPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-28 rounded-2xl skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="h-32 rounded-2xl skeleton-shimmer" />
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="h-64 rounded-2xl skeleton-shimmer" />
+          <div className="lg:col-span-2 h-64 rounded-2xl skeleton-shimmer" />
+        </div>
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="h-80 rounded-2xl skeleton-shimmer" />
+          <div className="h-80 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -299,9 +322,19 @@ export default function LaporanPage() {
             )}
 
             <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-3.5 py-2.5 bg-[#1a2030] hover:bg-[#222a3a] border border-[#2a3040] text-[#b0b8c4] rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-[0.99] cursor-pointer"
+              title="Cetak Laporan atau Simpan PDF"
+            >
+              <Printer className="w-4 h-4 text-[#7a8a9a]" />
+              <span className="hidden sm:inline">Cetak / PDF</span>
+            </button>
+
+            <button
               onClick={handleExport}
               disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2.5 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-sm active:scale-[0.99] disabled:opacity-50 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>{isExporting ? 'Mengunduh...' : 'Download Excel (.xlsx)'}</span>
@@ -328,9 +361,10 @@ export default function LaporanPage() {
           <p className="text-xl sm:text-2xl font-black text-[#c8a870] mt-1 font-mono">
             Rp {cogs.toLocaleString('id-ID')}
           </p>
-          <p className="text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            Laba Kotor: <strong className="text-[#8ab896] font-mono">Rp {grossProfit.toLocaleString('id-ID')}</strong> ({grossMargin}%)
-          </p>
+          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            <span>Laba Kotor:</span>
+            <strong className="text-[#8ab896] font-mono">Rp {grossProfit.toLocaleString('id-ID')} ({grossMargin}%)</strong>
+          </div>
         </div>
 
         <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
@@ -338,9 +372,10 @@ export default function LaporanPage() {
           <p className="text-xl sm:text-2xl font-black text-[#c87070] mt-1 font-mono">
             Rp {expenses.toLocaleString('id-ID')}
           </p>
-          <p className="text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            {expenseList.length} pos biaya dicatat
-          </p>
+          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            <span>{expenseList.length} pos beban</span>
+            <span>{revenue > 0 ? ((expenses / revenue) * 100).toFixed(1) : 0}% omset</span>
+          </div>
         </div>
 
         <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
@@ -348,9 +383,10 @@ export default function LaporanPage() {
           <p className={`text-xl sm:text-2xl font-black mt-1 font-mono ${netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
             Rp {netProfit.toLocaleString('id-ID')}
           </p>
-          <p className="text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            Net Profit Margin: <strong className={netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{netMargin}%</strong>
-          </p>
+          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
+            <span>Margin Bersih:</span>
+            <strong className={netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{netMargin}%</strong>
+          </div>
         </div>
       </div>
 
@@ -376,6 +412,28 @@ export default function LaporanPage() {
               <p className="text-base font-extrabold text-[#c8a870] font-mono">{totalMonthReject} pcs</p>
             </div>
           </div>
+
+          {/* Visual Production Yield Progress Bar */}
+          {totalMonthCut > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="w-full h-3 bg-[#0c0f17] rounded-full overflow-hidden flex border border-[#1e2330]">
+                <div 
+                  style={{ width: `${((totalMonthGood / totalMonthCut) * 100).toFixed(1)}%` }} 
+                  className="bg-[#8ab896] h-full transition-all"
+                  title={`Grade A: ${totalMonthGood} pcs`}
+                />
+                <div 
+                  style={{ width: `${((totalMonthReject / totalMonthCut) * 100).toFixed(1)}%` }} 
+                  className="bg-[#c8a870] h-full transition-all"
+                  title={`Reject: ${totalMonthReject} pcs`}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[0.65rem] text-[#8899aa]">
+                <span className="text-[#8ab896] font-semibold font-mono">Grade A: {((totalMonthGood / totalMonthCut) * 100).toFixed(1)}%</span>
+                <span className="text-[#c8a870] font-semibold font-mono">Reject: {monthRejectRatePct}%</span>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl flex items-center justify-between text-xs">

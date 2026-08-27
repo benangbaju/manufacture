@@ -12,9 +12,12 @@ export default function SetupPage() {
   const [tableCounts, setTableCounts] = useState<{ [key: string]: number }>({});
   const [errorMessage, setErrorMessage] = useState('');
 
+  const [pingMs, setPingMs] = useState<number | null>(null);
+
   const checkConnection = async () => {
     setChecking(true);
     setErrorMessage('');
+    const startTime = Date.now();
     try {
       if (!isSupabaseConfigured()) {
         setIsConnected(false);
@@ -42,6 +45,7 @@ export default function SetupPage() {
         sales: saleRes.count || 0,
       });
 
+      setPingMs(Date.now() - startTime);
       setIsConnected(true);
     } catch (err: any) {
       console.error('Supabase connection check error:', err);
@@ -84,14 +88,21 @@ export default function SetupPage() {
                 </div>
               </div>
 
-              <button
-                onClick={checkConnection}
-                disabled={checking}
-                className="p-2.5 rounded-xl bg-[#1a2030] hover:bg-[#222a3a] border border-[#2a3040] text-[#aab8c8] text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
-                <span>Cek Ulang</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {pingMs !== null && isConnected && (
+                  <span className="hidden sm:inline-flex items-center gap-1 text-[0.65rem] font-bold font-mono px-2 py-1 bg-[#1a2a20] border border-[#2a3828] text-[#8ab896] rounded-xl">
+                    ⚡ {pingMs} ms
+                  </span>
+                )}
+                <button
+                  onClick={checkConnection}
+                  disabled={checking}
+                  className="p-2.5 rounded-xl bg-[#1a2030] hover:bg-[#222a3a] border border-[#2a3040] text-[#aab8c8] text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
+                  <span>Cek Ulang</span>
+                </button>
+              </div>
             </div>
 
             {errorMessage && (
@@ -158,30 +169,25 @@ export default function SetupPage() {
               <span>Jumlah Data Real di Database</span>
             </h3>
             <ul className="space-y-2 text-xs text-[#8899aa]">
-              <li className="flex justify-between py-2 border-b border-[#1e2330]">
-                <span>Artikel Produk</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">{tableCounts.articles ?? 0} data</span>
-              </li>
-              <li className="flex justify-between py-2 border-b border-[#1e2330]">
-                <span>Stok Kain Roll</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">{tableCounts.fabric_stock ?? 0} data</span>
-              </li>
-              <li className="flex justify-between py-2 border-b border-[#1e2330]">
-                <span>Bahan Baku / BOM</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">{tableCounts.raw_materials ?? 0} data</span>
-              </li>
-              <li className="flex justify-between py-2 border-b border-[#1e2330]">
-                <span>Channel Penjualan</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">{tableCounts.sales_channels ?? 0} data</span>
-              </li>
-              <li className="flex justify-between py-2 border-b border-[#1e2330]">
-                <span>Batch Produksi</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">{tableCounts.production_batches ?? 0} data</span>
-              </li>
-              <li className="flex justify-between py-2">
-                <span>Transaksi Penjualan</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">{tableCounts.sales ?? 0} data</span>
-              </li>
+              {[
+                { label: 'Artikel Produk', count: tableCounts.articles, href: '/master/artikel' },
+                { label: 'Stok Kain Roll', count: tableCounts.fabric_stock, href: '/master/kain' },
+                { label: 'Bahan Baku / BOM', count: tableCounts.raw_materials, href: '/master/bahan-baku' },
+                { label: 'Channel Penjualan', count: tableCounts.sales_channels, href: '/master/channel' },
+                { label: 'Batch Produksi', count: tableCounts.production_batches, href: '/produksi' },
+                { label: 'Transaksi Penjualan', count: tableCounts.sales, href: '/penjualan' },
+              ].map((item, idx) => (
+                <li key={idx} className="flex justify-between items-center py-2 border-b border-[#1e2330] last:border-none">
+                  <Link href={item.href} className="hover:text-[#7eb3db] transition-colors">
+                    {item.label}
+                  </Link>
+                  <span className={`font-mono font-bold px-2 py-0.5 rounded-lg text-[0.7rem] ${
+                    checking ? 'skeleton-shimmer' : (item.count || 0) > 0 ? 'bg-[#1a2a20] text-[#8ab896]' : 'bg-[#1a2030] text-[#5a6270]'
+                  }`}>
+                    {checking ? '...' : `${item.count ?? 0} data`}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
 

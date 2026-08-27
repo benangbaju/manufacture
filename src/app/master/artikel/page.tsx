@@ -126,6 +126,23 @@ export default function ArtikelPage() {
     acc + (a.product_variants?.reduce((vAcc, v) => vAcc + (v.stock_reject_qty || 0), 0) || 0), 0
   );
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 rounded-2xl skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 rounded-2xl skeleton-shimmer" />
+          <div className="h-96 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -165,17 +182,24 @@ export default function ArtikelPage() {
                 placeholder="Cari artikel atau varian warna..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs text-[#8899aa] shrink-0">
               <span className="font-semibold">{filteredArticles.length} dari {articles.length} Model</span>
             </div>
           </div>
           
-          {loading ? (
-            <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data artikel dari database...</div>
-          ) : filteredArticles.length === 0 ? (
+          {filteredArticles.length === 0 ? (
             <div className="p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Shirt className="w-6 h-6" />

@@ -81,6 +81,22 @@ export default function ChannelPage() {
     return c.name.toLowerCase().includes(q);
   });
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 grid sm:grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-20 rounded-2xl skeleton-shimmer" />
+            ))}
+          </div>
+          <div className="h-72 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -99,17 +115,24 @@ export default function ChannelPage() {
                 placeholder="Cari channel penjualan..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1 bg-transparent text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none"
+                className="w-full pl-9 pr-7 py-1 bg-transparent text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <span className="text-xs text-[#8899aa] font-semibold shrink-0 pr-2">
               Total {channels.length} Channel
             </span>
           </div>
 
-          {loading ? (
-            <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data channel dari database...</div>
-          ) : filteredChannels.length === 0 ? (
+          {filteredChannels.length === 0 ? (
             <div className="p-12 text-center glass-card rounded-2xl border-[#1e2330]">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Store className="w-6 h-6" />

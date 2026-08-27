@@ -112,6 +112,23 @@ export default function KainPage() {
   const totalYards = (totalVolume / 0.9144).toFixed(1);
   const lowStockCount = data.filter(k => Number(k.stock_qty || 0) < 30).length;
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-16 rounded-2xl skeleton-shimmer" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-24 rounded-2xl skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-96 rounded-2xl skeleton-shimmer" />
+          <div className="h-96 rounded-2xl skeleton-shimmer" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader 
@@ -153,17 +170,24 @@ export default function KainPage() {
                 placeholder="Cari jenis kain atau warna..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <span className="text-xs text-[#8899aa] font-semibold shrink-0">
               {filteredData.length} dari {data.length} Kain
             </span>
           </div>
 
-          {loading ? (
-            <div className="p-12 text-center text-xs text-[#5a6270]">Memuat data stok kain dari database...</div>
-          ) : filteredData.length === 0 ? (
+          {filteredData.length === 0 ? (
             <div className="p-12 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
                 <Scissors className="w-6 h-6" />
@@ -282,7 +306,7 @@ export default function KainPage() {
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                  Satuan Input
+                  Satuan & Stok Awal
                 </label>
                 <div className="flex bg-[#0c0f17] border border-[#2a3040] rounded-lg p-0.5">
                   <button
@@ -306,8 +330,23 @@ export default function KainPage() {
                 </div>
               </div>
 
+              {/* Quick Stepper Chips */}
+              <div className="flex gap-1 mb-2">
+                {[50, 100, 200, 500].map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setStockInput(prev => (prev || 0) + val)}
+                    className="px-2 py-0.5 rounded-lg text-[0.65rem] font-mono bg-[#0c0f17] text-[#8899aa] border border-[#1e2330] hover:text-[#e2e6ed]"
+                  >
+                    +{val}
+                  </button>
+                ))}
+              </div>
+
               <input 
                 type="number" 
+                inputMode="decimal"
                 step="0.1"
                 min="0"
                 placeholder="0"
@@ -328,7 +367,7 @@ export default function KainPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-2.5 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+              className="w-full py-3 px-4 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
               <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Kain Roll'}</span>

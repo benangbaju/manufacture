@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Sidebar from "@/components/ui/Sidebar";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import PWAInstallButton from "@/components/ui/PWAInstallButton";
+import CommandPalette from "@/components/ui/CommandPalette";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -60,6 +61,7 @@ export default function RootLayout({
               {children}
             </main>
           </div>
+          <CommandPalette />
           <PWAInstallButton variant="floating" />
         </ThemeProvider>
       </body>

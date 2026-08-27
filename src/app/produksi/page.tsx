@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import Pagination from "@/components/ui/Pagination";
 import { 
   getDbArticles, 
   getDbFabricStock, 
@@ -87,7 +88,7 @@ interface BatchRecord {
   fabric_stock?: { name: string; unit: string };
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'CUSTOM';
+type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
@@ -114,16 +115,21 @@ export default function ProduksiPage() {
 
   const [showRejectInventoryModal, setShowRejectInventoryModal] = useState(false);
   
+  // History & Filter states
   const [filterPayment, setFilterPayment] = useState<'ALL' | 'UNPAID' | 'PAID'>('ALL');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
+  const [batchSearchQuery, setBatchSearchQuery] = useState<string>('');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
   
   const [showModal, setShowModal] = useState(false);
   const [modalLines, setModalLines] = useState<string[]>([]);
   const [pendingPaymentAction, setPendingPaymentAction] = useState<BatchRecord | null>(null);
   const [deletingBatch, setDeletingBatch] = useState<BatchRecord | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quickSuccessMsg, setQuickSuccessMsg] = useState<string | null>(null);
 
   // Edit Batch States
   const [editingBatch, setEditingBatch] = useState<BatchRecord | null>(null);
@@ -159,6 +165,9 @@ export default function ProduksiPage() {
           setSelectedVariantId(artList[0].variants[0].id);
         }
       }
+      if (fabList && fabList.length > 0 && !selectedFabricId) {
+        setSelectedFabricId(fabList[0].id);
+      }
     } catch (err) {
       console.error('Failed to load production data:', err);
     } finally {
@@ -171,31 +180,27 @@ export default function ProduksiPage() {
   }, []);
 
   const activeArticle = articles.find(a => a.id === selectedArticleId);
-  const activeVariant = activeArticle?.variants?.find((v: any) => v.id === selectedVariantId) || null;
+  const activeVariant = activeArticle?.variants.find(v => v.id === selectedVariantId);
+  const activeFabric = fabrics.find(f => f.id === selectedFabricId);
 
+  // Auto select mapped fabric when variant changes
   useEffect(() => {
-    if (activeArticle && activeVariant) {
-      const map = mappings.find(
-        m => m.article_id === activeArticle.id && 
-        (m.variant_color || '').toLowerCase() === (activeVariant.color || '').toLowerCase()
+    if (selectedArticleId && activeVariant) {
+      const mapping = mappings.find(
+        m => m.article_id === selectedArticleId && m.variant_color.toLowerCase() === activeVariant.color.toLowerCase()
       );
-      if (map) {
-        setSelectedFabricId(map.fabric_stock_id);
-      } else if (fabrics.length > 0 && !selectedFabricId) {
-        setSelectedFabricId(fabrics[0].id);
+      if (mapping) {
+        setSelectedFabricId(mapping.fabric_stock_id);
       }
     }
-  }, [activeArticle, activeVariant, mappings, fabrics]);
+  }, [selectedArticleId, selectedVariantId, mappings, activeVariant]);
 
-  const activeFabric = fabrics.find(f => f.id === selectedFabricId);
-  const activeRecipes = recipes.filter(r => r.article_id === selectedArticleId);
-
-  const totalCutPieces = (qty || 0) + (qtyReject || 0);
   const effectiveFabricUsed = fabricInputUnit === 'yard' ? Number((fabricUsed * 0.9144).toFixed(2)) : fabricUsed;
-  const isFabricInsufficient = activeFabric ? effectiveFabricUsed > Number(activeFabric.stock_qty || 0) : false;
+  const totalCutPieces = qty + qtyReject;
 
-  // Insufficient raw materials validation
-  const insufficientMaterials = activeRecipes
+  // Check Raw Materials in Recipe
+  const activeRecipes = recipes.filter(r => r.article_id === selectedArticleId);
+  const materialShortages = activeRecipes
     .map(rec => {
       const needed = Number(rec.qty_per_piece || 0) * totalCutPieces;
       const available = Number(rec.raw_materials?.stock_qty || 0);
@@ -211,6 +216,9 @@ export default function ProduksiPage() {
 
   const currentYield = totalCutPieces > 0 && effectiveFabricUsed > 0 ? (totalCutPieces / effectiveFabricUsed).toFixed(1) : '0.0';
   const totalCost = totalCutPieces * costPerPcs;
+  const availableFabricStock = Number(activeFabric?.stock_qty || 0);
+  const isFabricStockShort = effectiveFabricUsed > availableFabricStock;
+  const meterPerPcs = totalCutPieces > 0 && effectiveFabricUsed > 0 ? Number((effectiveFabricUsed / totalCutPieces).toFixed(2)) : 0;
 
   // Real-time fabric price & estimated HPP calculation for form
   const fabricPurchases = purchases.filter(p => p.item_type === 'fabric' && p.fabric_stock_id === selectedFabricId);
@@ -269,8 +277,7 @@ export default function ProduksiPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (continueEntry: boolean = false) => {
     if (!activeArticle || !activeVariant || !activeFabric || totalCutPieces <= 0 || effectiveFabricUsed <= 0) return;
 
     setIsSubmitting(true);
@@ -299,11 +306,16 @@ export default function ProduksiPage() {
         `Ongkos Jahit: Rp ${totalCost.toLocaleString('id-ID')} (${isPaidDirectly ? 'SUDAH DIBAYAR' : 'BELUM DIBAYAR'})`,
         `Estimasi Biaya Kain: Rp ${estimatedFabricCost.toLocaleString('id-ID')}`,
         `Estimasi HPP Satuan: Rp ${estimatedHppPerPcs.toLocaleString('id-ID')} / pcs`,
-        `Efisiensi Yield: ${currentYield} pcs / meter`,
+        `Efisiensi Yield: ${currentYield} pcs / meter (${meterPerPcs} m/pcs)`,
       ];
 
-      setModalLines(lines);
-      setShowModal(true);
+      if (continueEntry) {
+        setQuickSuccessMsg(`Batch disimpan: +${qty} pcs Bagus, +${qtyReject} pcs Reject (${activeArticle.name} - ${activeVariant.color})`);
+        setTimeout(() => setQuickSuccessMsg(null), 4000);
+      } else {
+        setModalLines(lines);
+        setShowModal(true);
+      }
 
       setQty(0);
       setQtyReject(0);
@@ -340,20 +352,34 @@ export default function ProduksiPage() {
   };
 
   const todayStr = getTodayDateString();
+  const now = new Date();
   const filteredBatches = batches.filter(b => {
     if (filterPayment === 'UNPAID' && b.is_paid) return false;
     if (filterPayment === 'PAID' && !b.is_paid) return false;
 
+    if (batchSearchQuery) {
+      const q = batchSearchQuery.toLowerCase().trim();
+      const art = (b.articles?.name || '').toLowerCase();
+      const col = (b.variants?.color || '').toLowerCase();
+      const fab = (b.fabric_stock?.name || '').toLowerCase();
+      if (!art.includes(q) && !col.includes(q) && !fab.includes(q)) return false;
+    }
+
+    if (dateFilter === 'ALL') return true;
     if (dateFilter === 'TODAY') return b.batch_date === todayStr;
     if (dateFilter === '7_DAYS') {
       const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      sevenDaysAgo.setDate(now.getDate() - 7);
       return new Date(b.batch_date) >= sevenDaysAgo;
     }
     if (dateFilter === '30_DAYS') {
       const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
       return new Date(b.batch_date) >= thirtyDaysAgo;
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      const bDate = new Date(b.batch_date);
+      return bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear();
     }
     if (dateFilter === 'CUSTOM') {
       if (!customStartDate && !customEndDate) return true;
@@ -431,6 +457,22 @@ export default function ProduksiPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 glass-card rounded-2xl p-5 md:p-6 border-[#1e2330]">
+          {quickSuccessMsg && (
+            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{quickSuccessMsg}</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setQuickSuccessMsg(null)}
+                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {articles.length === 0 && !loading ? (
             <div className="p-8 text-center">
               <div className="w-12 h-12 rounded-2xl bg-[#1a2030] text-[#5a6270] flex items-center justify-center mx-auto mb-3">
@@ -442,7 +484,7 @@ export default function ProduksiPage() {
               </p>
             </div>
           ) : (
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }}>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -508,7 +550,16 @@ export default function ProduksiPage() {
                 <div className="space-y-4 pt-2 border-t border-[#1e2330]">
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Roll Kain yang Dipotong <span className="text-[#c87070]">*</span></label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
+                          Roll Kain yang Dipotong <span className="text-[#c87070]">*</span>
+                        </label>
+                        {activeFabric && (
+                          <span className="text-[0.65rem] text-[#8899aa] font-mono">
+                            Stok: <strong className={availableFabricStock > 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{availableFabricStock.toFixed(1)} {activeFabric.unit}</strong>
+                          </span>
+                        )}
+                      </div>
                       <select
                         value={selectedFabricId || ''}
                         onChange={(e) => setSelectedFabricId(Number(e.target.value))}
@@ -549,12 +600,23 @@ export default function ProduksiPage() {
                     </div>
                   </div>
 
+                  {/* Warning if Fabric is Short */}
+                  {isFabricStockShort && effectiveFabricUsed > 0 && (
+                    <div className="p-3 bg-[#241a1a] border border-[#3a2020] rounded-xl text-xs text-[#c87070] flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>
+                        Peringatan: Pemakaian kain ({effectiveFabricUsed} meter) melebihi stok fisik gudang ({availableFabricStock.toFixed(1)} meter).
+                      </span>
+                    </div>
+                  )}
+
                   {/* 3 Metric Inputs */}
                   <div className="grid sm:grid-cols-3 gap-3">
                     <div className="p-3 bg-[#0e1219] border border-[#1e2330] rounded-xl">
                       <label className="block text-xs font-bold text-[#8ab896] mb-1.5 text-center">Output Grade A (Pcs) *</label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         required
                         min={0}
                         placeholder="0"
@@ -569,6 +631,7 @@ export default function ProduksiPage() {
                       <label className="block text-xs font-bold text-[#c8a870] mb-1.5 text-center">Output Reject (Pcs)</label>
                       <input
                         type="number"
+                        inputMode="numeric"
                         min={0}
                         placeholder="0"
                         className="w-full p-2.5 text-2xl font-black text-center bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c8a870] focus:border-[#7eb3db] outline-none font-mono"
@@ -582,6 +645,7 @@ export default function ProduksiPage() {
                       <label className="block text-xs font-bold text-[#7eb3db] mb-1.5 text-center">Kain ({fabricInputUnit}) *</label>
                       <input
                         type="number"
+                        inputMode="decimal"
                         required
                         min={0.1}
                         step={0.1}
@@ -590,23 +654,48 @@ export default function ProduksiPage() {
                         value={fabricUsed || ''}
                         onChange={(e) => setFabricUsed(Number(e.target.value))}
                       />
-                      <p className="text-[0.65rem] text-[#5a6270] text-center mt-1">Roll Terpotong</p>
+                      {fabricInputUnit === 'yard' && fabricUsed > 0 ? (
+                        <p className="text-[0.65rem] text-[#7eb3db] text-center mt-1 font-mono">≈ {effectiveFabricUsed} meter</p>
+                      ) : (
+                        <p className="text-[0.65rem] text-[#5a6270] text-center mt-1">Roll Terpotong</p>
+                      )}
                     </div>
                   </div>
 
                   <div className="p-3.5 bg-[#0e1219] border border-[#1e2330] rounded-xl space-y-3">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs">
                       <span className="text-[#8899aa]">Total Potongan Fisik: <strong className="text-[#e2e6ed] font-mono">{totalCutPieces} pcs</strong></span>
-                      <span className="text-[#8ab896] font-bold font-mono">Yield Kain: {currentYield} pcs/meter</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#8899aa]">Rasio: <strong className="text-[#7eb3db] font-mono">{currentYield} pcs/m</strong> ({meterPerPcs} m/pcs)</span>
+                        {totalCutPieces > 0 && effectiveFabricUsed > 0 && (
+                          <span className={`px-2 py-0.5 rounded-md text-[0.65rem] font-bold ${
+                            meterPerPcs <= 1.2 
+                              ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3a30]' 
+                              : meterPerPcs <= 1.8 
+                                ? 'bg-[#121822] text-[#7eb3db] border border-[#233548]' 
+                                : 'bg-[#201e1a] text-[#c8a870] border border-[#3a3020]'
+                          }`}>
+                            {meterPerPcs <= 1.2 ? '✨ Sangat Hemat' : meterPerPcs <= 1.8 ? '✓ Normal' : '⚠️ Cek Pemakaian'}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-3 items-center pt-2 border-t border-[#1e2330]">
                       <div>
-                        <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                          Ongkos Jahit / Pcs (Rp)
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider">
+                            Ongkos Jahit / Pcs (Rp)
+                          </label>
+                          {costPerPcs > 0 && (
+                            <span className="text-[0.65rem] text-[#8ab896] font-mono font-semibold">
+                              Rp {costPerPcs.toLocaleString('id-ID')} / pcs
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="number"
+                          inputMode="numeric"
                           required
                           min={0}
                           value={costPerPcs}
@@ -653,14 +742,25 @@ export default function ProduksiPage() {
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{isSubmitting ? 'Menyimpan...' : `Simpan Hasil Produksi (+${qty} Bagus, +${qtyReject} Reject)`}</span>
-                  </button>
+                  <div className="grid sm:grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>{isSubmitting ? 'Menyimpan...' : `Simpan Batch (+${qty} A, +${qtyReject} Reject)`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => handleSubmit(true)}
+                      className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                      <span>Simpan & Input Lagi</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </form>
@@ -688,95 +788,198 @@ export default function ProduksiPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 pt-1">
+            {/* Batch Search with Instant Clear */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Cari artikel, warna, kain..."
+                value={batchSearchQuery}
+                onChange={e => setBatchSearchQuery(e.target.value)}
+                className="w-full pl-3 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
+              />
+              {batchSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setBatchSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Payment Filter Status Chips */}
+            <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
-                onClick={() => setDateFilter('ALL')}
+                onClick={() => setFilterPayment('ALL')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'ALL' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                  filterPayment === 'ALL' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
-                Semua
+                Semua Status
               </button>
               <button
                 type="button"
-                onClick={() => setDateFilter('TODAY')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                  dateFilter === 'TODAY' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
-                }`}
-              >
-                Hari Ini
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterPayment(filterPayment === 'UNPAID' ? 'ALL' : 'UNPAID')}
+                onClick={() => setFilterPayment('UNPAID')}
                 className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
                   filterPayment === 'UNPAID' ? 'bg-[#201e1a] text-[#c8a870] border border-[#3a3020]' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
                 }`}
               >
-                Hutang
+                Hutang ({unpaidCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterPayment('PAID')}
+                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                  filterPayment === 'PAID' ? 'bg-[#1a2a20] text-[#6ea87a] border border-[#2a3a30]' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                }`}
+              >
+                Lunas
               </button>
             </div>
+
+            {/* Universal Filter Tabs */}
+            <div className="grid grid-cols-3 gap-1 pt-0.5">
+              {[
+                { label: 'Semua', val: 'ALL' as const },
+                { label: 'Hari Ini', val: 'TODAY' as const },
+                { label: '7 Hari', val: '7_DAYS' as const },
+                { label: '30 Hari', val: '30_DAYS' as const },
+                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
+                { label: 'Kustom', val: 'CUSTOM' as const },
+              ].map(tab => (
+                <button
+                  key={tab.val}
+                  type="button"
+                  onClick={() => setDateFilter(tab.val)}
+                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                    dateFilter === tab.val
+                      ? 'bg-[#3d5a80] text-white'
+                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Range Inputs */}
+            {dateFilter === 'CUSTOM' && (
+              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={e => setCustomStartDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={e => setCustomEndDate(e.target.value)}
+                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[440px]">
             {filteredBatches.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#5a6270]">Belum ada batch dicatat.</div>
             ) : (
-              filteredBatches.map(b => (
-                <div key={b.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[#e2e6ed]">{b.articles?.name} - {b.variants?.color}</span>
-                    <span className="font-mono text-[#5a6270] text-[0.7rem]">{b.batch_date}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[0.7rem]">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#8ab896] font-semibold">+{b.qty_produced} Bagus</span>
-                      {b.qty_reject > 0 && <span className="text-[#c8a870] font-semibold">+{b.qty_reject} Reject</span>}
+              filteredBatches
+                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                .map(b => (
+                  <div key={b.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-[#e2e6ed]">{b.articles?.name} - {b.variants?.color}</span>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{b.batch_date}</span>
                     </div>
-                    <span className="font-mono text-xs text-[#e2e6ed] font-semibold">
-                      Ongkos: Rp {(b.total_sewing_cost || 0).toLocaleString('id-ID')}
-                    </span>
-                  </div>
 
-                  <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
-                    <span className="text-[#8899aa]">
-                      Kain: <strong className="text-[#e2e6ed] font-mono">{b.fabric_used} m</strong> (Rp {(b.fabric_cost || 0).toLocaleString('id-ID')})
-                    </span>
-                    <span className="px-1.5 py-0.5 bg-[#121822] text-[#7eb3db] border border-[#233548] rounded font-mono font-bold">
-                      HPP: Rp {(b.unit_cost || 0).toLocaleString('id-ID')}/pcs
-                    </span>
-                  </div>
+                    <div className="flex items-center justify-between text-[0.7rem]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[#8ab896] font-semibold">+{b.qty_produced} Bagus</span>
+                        {b.qty_reject > 0 && <span className="text-[#c8a870] font-semibold">+{b.qty_reject} Reject</span>}
+                      </div>
+                      <span className="font-mono text-xs text-[#e2e6ed] font-semibold">
+                        Ongkos: Rp {(b.total_sewing_cost || 0).toLocaleString('id-ID')}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-[0.65rem] pt-0.5">
-                    <button
-                      onClick={() => setPendingPaymentAction(b)}
-                      className={`px-2 py-0.5 rounded font-semibold transition-colors ${
-                        b.is_paid ? 'bg-[#1a2a20] text-[#6ea87a]' : 'bg-[#201e1a] text-[#c8a870]'
-                      }`}
-                    >
-                      {b.is_paid ? '✓ Lunas' : '⏳ Belum Lunas'}
-                    </button>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
+                      <span className="text-[#8899aa]">
+                        Kain: <strong className="text-[#e2e6ed] font-mono">{b.fabric_used} m</strong> (Rp {(b.fabric_cost || 0).toLocaleString('id-ID')})
+                      </span>
+                      <span className="px-1.5 py-0.5 bg-[#121822] text-[#7eb3db] border border-[#233548] rounded font-mono font-bold">
+                        HPP: Rp {(b.unit_cost || 0).toLocaleString('id-ID')}/pcs
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[0.65rem] pt-0.5">
                       <button
-                        onClick={() => openEditBatch(b)}
-                        className="text-[#8ab896] hover:underline flex items-center gap-1"
+                        onClick={() => setPendingPaymentAction(b)}
+                        className={`px-2 py-0.5 rounded font-semibold transition-colors ${
+                          b.is_paid ? 'bg-[#1a2a20] text-[#6ea87a]' : 'bg-[#201e1a] text-[#c8a870]'
+                        }`}
                       >
-                        <Pencil className="w-3 h-3" />
-                        <span>Edit</span>
+                        {b.is_paid ? '✓ Lunas' : '⏳ Belum Lunas'}
                       </button>
-                      <button onClick={() => setDeletingBatch(b)} className="text-[#c87070] hover:underline">
-                        Hapus
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => openEditBatch(b)}
+                          className="text-[#8ab896] hover:underline flex items-center gap-1"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <button onClick={() => setDeletingBatch(b)} className="text-[#c87070] hover:underline">
+                          Hapus
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredBatches.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+          />
         </div>
       </div>
+
+      {/* Mobile Sticky Floating Summary & Submit Bar */}
+      {activeArticle && (qty > 0 || qtyReject > 0 || effectiveFabricUsed > 0) && (
+        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
+          <div className="min-w-0">
+            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
+              {activeArticle.name} - {activeVariant?.color} (+{qty} Bagus)
+            </span>
+            <span className="text-sm font-black text-[#8ab896] font-mono">
+              Ongkos: Rp {totalCost.toLocaleString('id-ID')}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={isSubmitting || totalCutPieces <= 0 || effectiveFabricUsed <= 0}
+            onClick={() => handleSubmit(false)}
+            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
+          >
+            {isSubmitting ? '...' : 'Simpan'}
+          </button>
+        </div>
+      )}
 
       {/* Edit Batch Modal */}
       {editingBatch && (
