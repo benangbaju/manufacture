@@ -39,6 +39,7 @@ create table if not exists product_variants (
   color             text not null,
   stock_qty         integer not null default 0 check (stock_qty >= 0), -- Stok Siap Jual (Grade A)
   stock_reject_qty  integer not null default 0 check (stock_reject_qty >= 0), -- Stok Barang Reject (Cacat / Afkir)
+  initial_hpp       numeric(14,2) not null default 0 check (initial_hpp >= 0), -- Estimasi HPP Modal per Pcs Bawaan Awal
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   unique (article_id, color)
@@ -56,12 +57,13 @@ create index if not exists idx_product_variants_article on product_variants(arti
 -- 2. BAHAN BAKU: RASIO TETAP (kancing, label, resleting, benang)
 -- ------------------------------------------------------------
 create table if not exists raw_materials (
-  id            serial primary key,
-  name          text not null unique,
-  unit          text not null default 'pcs',
-  stock_qty     numeric(12,2) not null default 0 check (stock_qty >= 0),
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  id                  serial primary key,
+  name                text not null unique,
+  unit                text not null default 'pcs',
+  stock_qty           numeric(12,2) not null default 0 check (stock_qty >= 0),
+  initial_unit_price  numeric(14,2) not null default 0 check (initial_unit_price >= 0), -- Harga Modal Awal per Unit
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
 );
 
 drop trigger if exists trg_raw_materials_updated_at on raw_materials;
@@ -74,12 +76,13 @@ create trigger trg_raw_materials_updated_at
 -- 3. KAIN: STOK ROLL PER WARNA (yield potong variatif)
 -- ------------------------------------------------------------
 create table if not exists fabric_stock (
-  id            serial primary key,
-  name          text not null unique,
-  unit          text not null default 'meter',
-  stock_qty     numeric(12,2) not null default 0 check (stock_qty >= 0),
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  id                  serial primary key,
+  name                text not null unique,
+  unit                text not null default 'meter',
+  stock_qty           numeric(12,2) not null default 0 check (stock_qty >= 0),
+  initial_unit_price  numeric(14,2) not null default 0 check (initial_unit_price >= 0), -- Harga Modal Awal per Meter
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
 );
 
 drop trigger if exists trg_fabric_stock_updated_at on fabric_stock;
@@ -399,10 +402,38 @@ order by 1 desc;
 
 
 -- ------------------------------------------------------------
+-- 11a. TABEL PENGATURAN & SALDO KAS AWAL
+-- ------------------------------------------------------------
+create table if not exists app_settings (
+  id            serial primary key,
+  key           text not null unique,
+  value         text,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
+drop trigger if exists trg_app_settings_updated_at on app_settings;
+create trigger trg_app_settings_updated_at
+  before update on app_settings
+  for each row execute function update_updated_at();
+
+insert into app_settings (key, value) values
+  ('initial_cash_balance', '0'),
+  ('cutoff_date', current_date::text),
+  ('cutoff_notes', 'Saldo awal migrasi sistem')
+on conflict (key) do nothing;
+
+
+-- ------------------------------------------------------------
 -- 11b. VIEW BANTUAN: SALDO KAS & TOTAL UANG SAAT INI (REAL CASH FLOW)
 -- ------------------------------------------------------------
+drop view if exists v_current_cash_balance cascade;
 create or replace view v_current_cash_balance as
-with cash_in as (
+with settings as (
+  select coalesce(max(case when key = 'initial_cash_balance' then nullif(value, '')::numeric else 0 end), 0) as initial_cash
+  from app_settings
+),
+cash_in as (
   select coalesce(sum(qty * sale_price), 0) as total_cash_in,
          coalesce(sum(case when item_grade = 'grade_a' then qty * sale_price else 0 end), 0) as regular_cash_in,
          coalesce(sum(case when item_grade = 'reject' then qty * sale_price else 0 end), 0) as reject_cash_in
@@ -421,6 +452,7 @@ cash_out_expenses as (
   from expenses
 )
 select
+  coalesce(st.initial_cash, 0) as initial_cash_balance,
   ci.total_cash_in,
   ci.regular_cash_in,
   ci.reject_cash_in,
@@ -428,8 +460,8 @@ select
   col.total_labor,
   coe.total_expenses,
   (cop.total_purchases + col.total_labor + coe.total_expenses) as total_cash_out,
-  (ci.total_cash_in - (cop.total_purchases + col.total_labor + coe.total_expenses)) as current_cash_balance
-from cash_in ci, cash_out_purchases cop, cash_out_labor col, cash_out_expenses coe;
+  (coalesce(st.initial_cash, 0) + ci.total_cash_in - (cop.total_purchases + col.total_labor + coe.total_expenses)) as current_cash_balance
+from settings st, cash_in ci, cash_out_purchases cop, cash_out_labor col, cash_out_expenses coe;
 
 
 -- ------------------------------------------------------------

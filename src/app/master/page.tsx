@@ -12,15 +12,16 @@ import {
   Layers, 
   Link2, 
   Store, 
-  Database,
-  PackagePlus,
-  Factory,
-  ShoppingBag,
-  ArrowRight,
-  Smartphone,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles
+  Database, 
+  PackagePlus, 
+  Factory, 
+  ShoppingBag, 
+  ArrowRight, 
+  Smartphone, 
+  CheckCircle2, 
+  AlertCircle, 
+  Sparkles,
+  Wallet
 } from 'lucide-react';
 import PWAInstallButton from "@/components/ui/PWAInstallButton";
 import ThemeToggle from "@/components/ui/ThemeToggle";
@@ -110,10 +111,17 @@ export default function MasterDataPage() {
 
   const menuSections: MenuSection[] = [
     {
-      step: "Langkah 1: Setup Awal",
-      sectionTitle: "Integrasi & Channel Penjualan",
+      step: "Langkah 1: Setup Awal & Saldo",
+      sectionTitle: "Integrasi, Channel & Saldo Awal",
       items: [
         { href: '/setup', icon: Database, title: 'Setup Database', desc: 'Koneksi Supabase & status database.' },
+        { 
+          href: '/master/saldo-awal', 
+          icon: Wallet, 
+          title: 'Saldo Awal & Migrasi', 
+          desc: 'Input saldo kas awal, stok kain, bahan, dan baju jadi cut-off.',
+          highlight: true 
+        },
         { 
           href: '/master/channel', 
           icon: Store, 

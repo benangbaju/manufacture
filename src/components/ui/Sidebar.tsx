@@ -14,7 +14,8 @@ import {
   Database, 
   Shirt, 
   Scissors,
-  Search
+  Search,
+  Wallet
 } from 'lucide-react';
 import PWAInstallButton from './PWAInstallButton';
 import ThemeToggle from './ThemeToggle';
@@ -55,6 +56,7 @@ const desktopNavSections = [
     category: 'Master Data & Setup',
     items: [
       { label: 'Katalog & Resep BOM', path: '/master', icon: Layers },
+      { label: 'Saldo Awal & Migrasi', path: '/master/saldo-awal', icon: Wallet },
       { label: 'Setup Database', path: '/setup', icon: Database },
     ]
   }

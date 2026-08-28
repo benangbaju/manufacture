@@ -152,10 +152,10 @@ export default function SetupPage() {
                 <p className="text-[0.7rem] text-[#5a6270] mt-1">Kancing, resleting, label, hangtag, dsb.</p>
               </Link>
 
-              <Link href="/produksi" className="p-3.5 bg-[#0c0f17] border border-[#1e2330] hover:border-[#2a3c50] rounded-xl block transition-all group">
-                <span className="text-[0.65rem] text-[#7eb3db] font-bold">Langkah 4</span>
-                <p className="font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] mt-0.5">Catat Produksi & Reject &rarr;</p>
-                <p className="text-[0.7rem] text-[#5a6270] mt-1">Stok Grade A & Reject terpisah otomatis.</p>
+              <Link href="/master/saldo-awal" className="p-3.5 bg-[#121822] border border-[#2a3c50] hover:border-[#3d5a80] rounded-xl block transition-all group">
+                <span className="text-[0.65rem] text-[#8ab896] font-bold">Langkah 4 (Penting)</span>
+                <p className="font-bold text-[#8ab896] group-hover:text-[#a8d8b6] mt-0.5">Saldo Awal & Migrasi Data &rarr;</p>
+                <p className="text-[0.7rem] text-[#7a8a9a] mt-1">Input uang kas awal, stok awal & harga modal.</p>
               </Link>
             </div>
           </div>

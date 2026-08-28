@@ -88,22 +88,25 @@ export async function deleteDbArticle(id: number) {
 // ==========================================
 // 2. VARIAN PRODUK
 // ==========================================
-export async function createDbVariant(articleId: number, color: string, stockQty = 0, stockRejectQty = 0) {
+export async function createDbVariant(articleId: number, color: string, stockQty = 0, stockRejectQty = 0, initialHpp = 0) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
   const { data, error } = await supabase
     .from('product_variants')
-    .insert({ article_id: articleId, color, stock_qty: stockQty, stock_reject_qty: stockRejectQty })
+    .insert({ article_id: articleId, color, stock_qty: stockQty, stock_reject_qty: stockRejectQty, initial_hpp: initialHpp })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateDbVariant(id: number, color: string, stockQty: number, stockRejectQty: number) {
+export async function updateDbVariant(id: number, color: string, stockQty: number, stockRejectQty: number, initialHpp?: number) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const updatePayload: any = { color, stock_qty: stockQty, stock_reject_qty: stockRejectQty };
+  if (initialHpp !== undefined) updatePayload.initial_hpp = initialHpp;
+
   const { data, error } = await supabase
     .from('product_variants')
-    .update({ color, stock_qty: stockQty, stock_reject_qty: stockRejectQty })
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single();
@@ -127,22 +130,25 @@ export async function getDbFabricStock() {
   return data || [];
 }
 
-export async function createDbFabric(name: string, unit = 'meter', stockQty = 0) {
+export async function createDbFabric(name: string, unit = 'meter', stockQty = 0, initialUnitPrice = 0) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
   const { data, error } = await supabase
     .from('fabric_stock')
-    .insert({ name, unit, stock_qty: stockQty })
+    .insert({ name, unit, stock_qty: stockQty, initial_unit_price: initialUnitPrice })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateDbFabric(id: number, name: string, unit: string, stockQty: number) {
+export async function updateDbFabric(id: number, name: string, unit: string, stockQty: number, initialUnitPrice?: number) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const updatePayload: any = { name, unit, stock_qty: stockQty };
+  if (initialUnitPrice !== undefined) updatePayload.initial_unit_price = initialUnitPrice;
+
   const { data, error } = await supabase
     .from('fabric_stock')
-    .update({ name, unit, stock_qty: stockQty })
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single();
@@ -163,22 +169,25 @@ export async function getDbRawMaterials() {
   return data || [];
 }
 
-export async function createDbRawMaterial(name: string, unit = 'pcs', stockQty = 0) {
+export async function createDbRawMaterial(name: string, unit = 'pcs', stockQty = 0, initialUnitPrice = 0) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
   const { data, error } = await supabase
     .from('raw_materials')
-    .insert({ name, unit, stock_qty: stockQty })
+    .insert({ name, unit, stock_qty: stockQty, initial_unit_price: initialUnitPrice })
     .select()
     .single();
   if (error) throw error;
   return data;
 }
 
-export async function updateDbRawMaterial(id: number, name: string, unit: string, stockQty: number) {
+export async function updateDbRawMaterial(id: number, name: string, unit: string, stockQty: number, initialUnitPrice?: number) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const updatePayload: any = { name, unit, stock_qty: stockQty };
+  if (initialUnitPrice !== undefined) updatePayload.initial_unit_price = initialUnitPrice;
+
   const { data, error } = await supabase
     .from('raw_materials')
-    .update({ name, unit, stock_qty: stockQty })
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single();
@@ -221,6 +230,30 @@ export async function saveDbRecipe(articleId: number, rawMaterialId: number, qty
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function saveDbArticleRecipesBatch(
+  articleId: number,
+  recipes: { raw_material_id: number; qty_per_unit: number }[]
+) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  
+  // Delete existing recipes for this article
+  await supabase.from('product_recipes').delete().eq('article_id', articleId);
+  
+  // Insert new recipes if any
+  const validRecipes = recipes.filter(r => r.raw_material_id > 0 && r.qty_per_unit > 0);
+  if (validRecipes.length > 0) {
+    const rows = validRecipes.map(r => ({
+      article_id: articleId,
+      raw_material_id: r.raw_material_id,
+      qty_per_unit: r.qty_per_unit,
+    }));
+    const { data, error } = await supabase.from('product_recipes').insert(rows).select();
+    if (error) throw error;
+    return data;
+  }
+  return [];
 }
 
 export async function deleteDbRecipe(id: number) {
@@ -914,15 +947,20 @@ export async function getDbDashboardSummary() {
   if (!isSupabaseConfigured()) return null;
 
   try {
-    const [cashRes, variantsRes, fabricRes, rawRes, salesRes, batchRes, purchasesRes] = await Promise.all([
+    const [cashRes, variantsRes, fabricRes, rawRes, salesRes, batchRes, purchasesRes, settingsRes] = await Promise.all([
       supabase.from('v_current_cash_balance').select('*').single(),
-      supabase.from('product_variants').select('id, color, stock_qty, stock_reject_qty, article_id, articles(id, name)'),
-      supabase.from('fabric_stock').select('id, name, stock_qty, unit'),
-      supabase.from('raw_materials').select('id, name, stock_qty, unit'),
+      supabase.from('product_variants').select('id, color, stock_qty, stock_reject_qty, initial_hpp, article_id, articles(id, name)'),
+      supabase.from('fabric_stock').select('id, name, stock_qty, unit, initial_unit_price'),
+      supabase.from('raw_materials').select('id, name, stock_qty, unit, initial_unit_price'),
       supabase.from('sales').select('variant_id, qty, sale_price, item_grade, sale_date'),
       supabase.from('production_batches').select('id, variant_id, qty_produced, qty_reject, fabric_used, fabric_stock_id, production_date, production_costs(amount), production_batch_materials(qty_used, raw_material_id)'),
       supabase.from('purchases').select('item_type, fabric_stock_id, raw_material_id, qty, unit_price'),
+      supabase.from('app_settings').select('key, value'),
     ]);
+
+    const settingsMap = new Map<string, string>();
+    (settingsRes.data || []).forEach((s: any) => settingsMap.set(s.key, s.value || ''));
+    const initialCashFromSettings = Number(settingsMap.get('initial_cash_balance') || 0);
 
     const totalFinishedStock = (variantsRes.data || []).reduce((acc, curr) => acc + (curr.stock_qty || 0), 0);
     const totalRejectStock = (variantsRes.data || []).reduce((acc, curr) => acc + (curr.stock_reject_qty || 0), 0);
@@ -962,17 +1000,24 @@ export async function getDbDashboardSummary() {
     (batchRes.data || []).forEach((b: any) => {
       const cut = Number(b.qty_produced || 0) + Number(b.qty_reject || 0);
       const labor = b.production_costs?.reduce((acc: number, c: any) => acc + Number(c.amount || 0), 0) || 0;
+      
+      const fabricObj = (fabricRes.data || []).find((f: any) => f.id === b.fabric_stock_id);
       const fp = b.fabric_stock_id ? fabricPriceMap.get(b.fabric_stock_id) : null;
-      const avgFabPrice = fp && fp.qty > 0 ? fp.cost / fp.qty : 30000;
+      const initialFabPrice = fabricObj && typeof fabricObj.initial_unit_price !== 'undefined' ? Number(fabricObj.initial_unit_price) : 0;
+      const avgFabPrice = fp && fp.qty > 0 ? fp.cost / fp.qty : (initialFabPrice > 0 ? initialFabPrice : 30000);
       const fabCost = Math.round(Number(b.fabric_used || 0) * avgFabPrice);
 
       let accessoriesCost = 0;
       (b.production_batch_materials || []).forEach((bm: any) => {
         const mQty = Number(bm.qty_used || 0);
+        const rawObj = (rawRes.data || []).find((r: any) => r.id === bm.raw_material_id);
+        const initialRawPrice = rawObj && typeof rawObj.initial_unit_price !== 'undefined' ? Number(rawObj.initial_unit_price) : 0;
         let mPrice = 0;
         if (bm.raw_material_id && rawPriceMap.has(bm.raw_material_id)) {
           const rp = rawPriceMap.get(bm.raw_material_id)!;
-          mPrice = rp.qty > 0 ? rp.cost / rp.qty : 0;
+          mPrice = rp.qty > 0 ? rp.cost / rp.qty : (initialRawPrice > 0 ? initialRawPrice : 0);
+        } else if (initialRawPrice > 0) {
+          mPrice = initialRawPrice;
         }
         accessoriesCost += Math.round(mQty * mPrice);
       });
@@ -1008,7 +1053,11 @@ export async function getDbDashboardSummary() {
     let totalCogs = 0;
     (salesRes.data || []).forEach(s => {
       const vc = variantCostMap.get(s.variant_id);
-      const uCost = vc && vc.totalQty > 0 ? Math.round(vc.totalCost / vc.totalQty) : avgHppOverall;
+      const vObj = (variantsRes.data || []).find((v: any) => v.id === s.variant_id);
+      const initialHppVal = vObj && typeof vObj.initial_hpp !== 'undefined' ? Number(vObj.initial_hpp) : 0;
+      const uCost = vc && vc.totalQty > 0 
+        ? Math.round(vc.totalCost / vc.totalQty) 
+        : (initialHppVal > 0 ? initialHppVal : avgHppOverall);
       totalCogs += s.qty * uCost;
     });
 
@@ -1022,7 +1071,9 @@ export async function getDbDashboardSummary() {
 
     (variantsRes.data || []).forEach((v: any) => {
       const vc = variantCostMap.get(v.id);
-      const hpp = vc && vc.totalQty > 0 ? Math.round(vc.totalCost / vc.totalQty) : avgHppOverall;
+      const hpp = vc && vc.totalQty > 0 
+        ? Math.round(vc.totalCost / vc.totalQty) 
+        : (Number(v.initial_hpp || 0) > 0 ? Number(v.initial_hpp) : avgHppOverall);
       const sp = variantSalePriceMap.get(v.id);
       const avgPrice = sp && sp.totalQty > 0 ? Math.round(sp.totalRevenue / sp.totalQty) : Math.round(hpp * 1.5);
 
@@ -1052,7 +1103,9 @@ export async function getDbDashboardSummary() {
     let rejectStockValuation = 0;
     (variantsRes.data || []).forEach((v: any) => {
       const vc = variantCostMap.get(v.id);
-      const hpp = vc && vc.totalQty > 0 ? Math.round(vc.totalCost / vc.totalQty) : avgHppOverall;
+      const hpp = vc && vc.totalQty > 0 
+        ? Math.round(vc.totalCost / vc.totalQty) 
+        : (Number(v.initial_hpp || 0) > 0 ? Number(v.initial_hpp) : avgHppOverall);
       rejectStockValuation += Number(v.stock_reject_qty || 0) * hpp;
     });
 
@@ -1061,7 +1114,9 @@ export async function getDbDashboardSummary() {
     const fabricItemDetails: any[] = [];
     (fabricRes.data || []).forEach((f: any) => {
       const fp = fabricPriceMap.get(f.id);
-      const avgPrice = fp && fp.qty > 0 ? Math.round(fp.cost / fp.qty) : 30000;
+      const avgPrice = fp && fp.qty > 0 
+        ? Math.round(fp.cost / fp.qty) 
+        : (Number(f.initial_unit_price || 0) > 0 ? Number(f.initial_unit_price) : 30000);
       const fQty = Number(f.stock_qty || 0);
       const val = Math.round(fQty * avgPrice);
       fabricStockValuation += val;
@@ -1083,7 +1138,9 @@ export async function getDbDashboardSummary() {
     const rawMaterialItemDetails: any[] = [];
     (rawRes.data || []).forEach((r: any) => {
       const rp = rawPriceMap.get(r.id);
-      const avgPrice = rp && rp.qty > 0 ? Math.round(rp.cost / rp.qty) : 500;
+      const avgPrice = rp && rp.qty > 0 
+        ? Math.round(rp.cost / rp.qty) 
+        : (Number(r.initial_unit_price || 0) > 0 ? Number(r.initial_unit_price) : 500);
       const rQty = Number(r.stock_qty || 0);
       const val = Math.round(rQty * avgPrice);
       rawMaterialStockValuation += val;
@@ -1102,8 +1159,16 @@ export async function getDbDashboardSummary() {
 
     const totalInventoryValuation = finishedStockValuation + rejectStockValuation + fabricStockValuation + rawMaterialStockValuation;
 
+    // Calculate final cash balance factoring in initial cash balance
+    let finalCashBalance = Number(cashRes.data?.current_cash_balance || 0);
+    // If the view did not include initial_cash_balance yet (legacy view), ensure it is added:
+    if (cashRes.data && cashRes.data.initial_cash_balance === undefined && initialCashFromSettings > 0) {
+      finalCashBalance += initialCashFromSettings;
+    }
+
     return {
-      cashBalance: cashRes.data?.current_cash_balance || 0,
+      cashBalance: finalCashBalance,
+      initialCashBalance: Number(cashRes.data?.initial_cash_balance ?? initialCashFromSettings),
       totalRevenue: totalSalesRevenue,
       regularRevenue: regularSalesRevenue,
       rejectRevenue: rejectSalesRevenue,
@@ -1171,4 +1236,123 @@ export async function getDbMonthlyPL() {
     console.warn('Error fetching v_monthly_pl:', err);
     return [];
   }
+}
+
+// ==========================================
+// 12. APP SETTINGS & SALDO AWAL (OPENING BALANCES)
+// ==========================================
+export async function getDbAppSettings() {
+  if (!isSupabaseConfigured()) return {};
+  try {
+    const { data, error } = await supabase.from('app_settings').select('*');
+    if (error) {
+      console.warn('app_settings table might not exist yet:', error.message);
+      return {};
+    }
+    const settings: Record<string, string> = {};
+    (data || []).forEach(item => {
+      settings[item.key] = item.value;
+    });
+    return settings;
+  } catch (err) {
+    console.warn('getDbAppSettings error:', err);
+    return {};
+  }
+}
+
+export async function saveDbAppSetting(key: string, value: string) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const { data, error } = await supabase
+    .from('app_settings')
+    .upsert({ key, value }, { onConflict: 'key' })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function getDbInitialBalances() {
+  if (!isSupabaseConfigured()) {
+    return {
+      initialCash: 0,
+      cutoffDate: new Date().toISOString().split('T')[0],
+      cutoffNotes: '',
+      fabrics: [],
+      rawMaterials: [],
+      variants: [],
+    };
+  }
+
+  const [settingsRes, fabRes, rawRes, varRes] = await Promise.all([
+    supabase.from('app_settings').select('*'),
+    supabase.from('fabric_stock').select('*').order('id'),
+    supabase.from('raw_materials').select('*').order('id'),
+    supabase.from('product_variants').select('*, articles(id, name)').order('article_id'),
+  ]);
+
+  const settingsMap: Record<string, string> = {};
+  (settingsRes.data || []).forEach((s: any) => {
+    settingsMap[s.key] = s.value;
+  });
+
+  return {
+    initialCash: Number(settingsMap['initial_cash_balance'] || 0),
+    cutoffDate: settingsMap['cutoff_date'] || new Date().toISOString().split('T')[0],
+    cutoffNotes: settingsMap['cutoff_notes'] || '',
+    fabrics: fabRes.data || [],
+    rawMaterials: rawRes.data || [],
+    variants: (varRes.data || []).map((v: any) => ({
+      ...v,
+      article_name: v.articles?.name || 'Artikel',
+    })),
+  };
+}
+
+export async function saveDbInitialBalances(payload: {
+  initialCash: number;
+  cutoffDate: string;
+  cutoffNotes: string;
+  fabrics: { id: number; stock_qty: number; initial_unit_price: number }[];
+  rawMaterials: { id: number; stock_qty: number; initial_unit_price: number }[];
+  variants: { id: number; stock_qty: number; stock_reject_qty: number; initial_hpp: number }[];
+}) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+
+  // 1. Save Settings
+  try {
+    await Promise.all([
+      supabase.from('app_settings').upsert({ key: 'initial_cash_balance', value: String(payload.initialCash) }, { onConflict: 'key' }),
+      supabase.from('app_settings').upsert({ key: 'cutoff_date', value: payload.cutoffDate }, { onConflict: 'key' }),
+      supabase.from('app_settings').upsert({ key: 'cutoff_notes', value: payload.cutoffNotes }, { onConflict: 'key' }),
+    ]);
+  } catch (err: any) {
+    console.warn('Failed to upsert app_settings (table might need migration):', err.message);
+  }
+
+  // 2. Batch Update Fabrics
+  for (const fab of payload.fabrics) {
+    await supabase.from('fabric_stock').update({
+      stock_qty: fab.stock_qty,
+      initial_unit_price: fab.initial_unit_price,
+    }).eq('id', fab.id);
+  }
+
+  // 3. Batch Update Raw Materials
+  for (const rm of payload.rawMaterials) {
+    await supabase.from('raw_materials').update({
+      stock_qty: rm.stock_qty,
+      initial_unit_price: rm.initial_unit_price,
+    }).eq('id', rm.id);
+  }
+
+  // 4. Batch Update Product Variants
+  for (const v of payload.variants) {
+    await supabase.from('product_variants').update({
+      stock_qty: v.stock_qty,
+      stock_reject_qty: v.stock_reject_qty,
+      initial_hpp: v.initial_hpp,
+    }).eq('id', v.id);
+  }
+
+  return { success: true };
 }

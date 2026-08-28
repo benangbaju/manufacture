@@ -19,7 +19,8 @@ import {
   Database, 
   LayoutDashboard,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Wallet
 } from 'lucide-react';
 
 interface CommandItem {
@@ -44,6 +45,7 @@ const ALL_COMMANDS: CommandItem[] = [
   { id: 'dash', title: 'Dashboard Ringkasan Eksekutif', desc: 'Ringkasan kas riil, valuasi gudang, dan KPI keuangan', href: '/', category: 'Laporan & Finansial', icon: LayoutDashboard, shortcut: 'D' },
 
   // Master
+  { id: 'm-saldo', title: 'Setup Saldo Awal & Migrasi', desc: 'Atur modal kas awal, stok kain, bahan baku, dan baju jadi cut-off', href: '/master/saldo-awal', category: 'Master & Formulasi', icon: Wallet, shortcut: 'S' },
   { id: 'm-art', title: 'Master Artikel & Varian SKU', desc: 'Daftar model baju induk dan varian warna', href: '/master/artikel', category: 'Master & Formulasi', icon: Shirt },
   { id: 'm-kain', title: 'Master Stok Kain Roll', desc: 'Kelola stok roll kain meter/yard per warna', href: '/master/kain', category: 'Master & Formulasi', icon: Scissors },
   { id: 'm-raw', title: 'Master Bahan Baku (BOM)', desc: 'Kelola kancing, label, resleting, benang, polybag', href: '/master/bahan-baku', category: 'Master & Formulasi', icon: Tag },
