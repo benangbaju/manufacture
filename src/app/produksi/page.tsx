@@ -901,9 +901,9 @@ export default function ProduksiPage() {
                 .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                 .map(b => (
                   <div key={b.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#e2e6ed]">{b.articles?.name} - {b.variants?.color}</span>
-                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{b.batch_date}</span>
+                    <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
+                      <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{b.articles?.name} — {b.variants?.color}</span>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{b.batch_date}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-[0.7rem]">

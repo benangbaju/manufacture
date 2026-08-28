@@ -701,9 +701,9 @@ export default function PembelianPage() {
 
                   return (
                     <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[#e2e6ed]">{matName || 'Bahan'}</span>
-                        <span className="font-mono text-[#5a6270] text-[0.7rem]">{p.purchase_date}</span>
+                      <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
+                        <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{matName || 'Bahan'}</span>
+                        <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{p.purchase_date}</span>
                       </div>
                       <div className="flex items-center justify-between text-[0.7rem]">
                         <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit} @ Rp {p.unit_price.toLocaleString('id-ID')}</span>

@@ -272,20 +272,20 @@ export default function ArtikelPage() {
                     return (
                       <tr key={a.id} className="hover:bg-white/[0.02] transition-colors group">
                         <td className="p-3.5 text-[#5a6270] font-mono text-xs">#{a.id}</td>
-                        <td className="p-3.5 font-bold text-[#e2e6ed]">
+                        <td className="p-3.5 font-bold text-[#e2e6ed] min-w-[140px]">
                           <Link 
                             href={`/master/artikel/${a.id}`}
                             className="hover:text-[#7eb3db] flex items-center gap-1.5 group/link"
                           >
-                            <span>{a.name}</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#5a6270] group-hover/link:text-[#7eb3db] group-hover/link:translate-x-0.5 transition-all" />
+                            <span className="break-words whitespace-normal leading-snug">{a.name}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-[#5a6270] group-hover/link:text-[#7eb3db] group-hover/link:translate-x-0.5 transition-all shrink-0" />
                           </Link>
                           <span className="text-[0.65rem] text-[#5a6270] font-normal block mt-0.5">
                             Total Stok: <strong className="text-[#8ab896] font-mono">{articleStock} pcs</strong>
                           </span>
                         </td>
-                        <td className="p-3.5 text-[#8899aa] hidden md:table-cell text-xs">{a.description || '-'}</td>
-                        <td className="p-3.5">
+                        <td className="p-3.5 text-[#8899aa] hidden md:table-cell text-xs break-words">{a.description || '-'}</td>
+                        <td className="p-3.5 min-w-[160px]">
                           <div className="flex flex-wrap gap-1.5">
                             {a.product_variants && a.product_variants.length > 0 ? (
                               a.product_variants.map(v => (

@@ -498,10 +498,10 @@ export default function SaldoAwalPage() {
                       const subtotal = f.stock_qty * f.initial_unit_price;
                       return (
                         <tr key={f.id} className="hover:bg-white/[0.01]">
-                          <td className="p-3 font-semibold text-[#e2e6ed]">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
-                              <span>{f.name}</span>
+                          <td className="p-3 font-semibold text-[#e2e6ed] min-w-[140px]">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-2 h-2 rounded-full bg-[#7eb3db] shrink-0"></span>
+                              <span className="break-words whitespace-normal leading-snug">{f.name}</span>
                             </div>
                           </td>
                           <td className="p-3 text-center">
@@ -580,10 +580,10 @@ export default function SaldoAwalPage() {
                       const subtotal = r.stock_qty * r.initial_unit_price;
                       return (
                         <tr key={r.id} className="hover:bg-white/[0.01]">
-                          <td className="p-3 font-semibold text-[#e2e6ed]">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-2 rounded-full bg-[#8ab896]"></span>
-                              <span>{r.name}</span>
+                          <td className="p-3 font-semibold text-[#e2e6ed] min-w-[140px]">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-2 h-2 rounded-full bg-[#8ab896] shrink-0"></span>
+                              <span className="break-words whitespace-normal leading-snug">{r.name}</span>
                             </div>
                           </td>
                           <td className="p-3 text-center">
@@ -649,8 +649,8 @@ export default function SaldoAwalPage() {
             </div>
 
             <div className="flex items-center gap-3 text-xs shrink-0">
-              <span className="text-[#8899aa]">Valuasi Baju Jadi:</span>
-              <span className="font-mono font-bold text-[#c8a870] bg-[#241f16] px-2.5 py-1 rounded-xl border border-[#3a3020]">
+              <span className="text-[#8899aa]">Valuasi Produk:</span>
+              <span className="font-mono font-bold text-[#c8a870] bg-[#201e1a] px-2.5 py-1 rounded-xl border border-[#3a3020]">
                 Rp {totalProductValuation.toLocaleString('id-ID')}
               </span>
             </div>
@@ -693,9 +693,9 @@ export default function SaldoAwalPage() {
                       const subtotal = totalPcs * Number(v.initial_hpp || 0);
                       return (
                         <tr key={v.id} className="hover:bg-white/[0.01]">
-                          <td className="p-3">
-                            <p className="font-bold text-[#e2e6ed]">{v.article_name}</p>
-                            <span className="text-[0.7rem] text-[#7eb3db] font-medium">Warna: {v.color}</span>
+                          <td className="p-3 min-w-[140px]">
+                            <p className="font-bold text-[#e2e6ed] break-words whitespace-normal leading-snug">{v.article_name}</p>
+                            <span className="text-[0.7rem] text-[#7eb3db] font-medium break-words whitespace-normal block mt-0.5">Warna: {v.color}</span>
                           </td>
 
                           {/* Grade A */}

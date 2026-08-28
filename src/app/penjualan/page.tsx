@@ -796,9 +796,9 @@ export default function PenjualanPage() {
                   const saleMarginPct = s.unit_price > 0 ? Number(((saleMargin / s.unit_price) * 100).toFixed(1)) : 0;
                   return (
                     <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[#e2e6ed]">{s.articles?.name} - {s.variants?.color}</span>
-                        <span className="font-mono text-[#5a6270] text-[0.7rem]">{s.sale_date}</span>
+                      <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
+                        <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{s.articles?.name} — {s.variants?.color}</span>
+                        <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{s.sale_date}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-[0.7rem]">

@@ -240,10 +240,10 @@ export default function BahanBakuPage() {
                     const isLow = Number(d.stock_qty || 0) < 100;
                     return (
                       <tr key={d.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-3.5 font-bold text-[#e2e6ed]">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
-                            <span>{d.name}</span>
+                        <td className="p-3.5 font-bold text-[#e2e6ed] min-w-[140px]">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-[#7eb3db] shrink-0"></span>
+                            <span className="break-words whitespace-normal leading-snug">{d.name}</span>
                           </div>
                         </td>
                         <td className="p-3.5 text-center text-[#8899aa] font-mono text-xs">{d.unit}</td>

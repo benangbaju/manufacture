@@ -485,14 +485,14 @@ export default function PengeluaranPage() {
                 .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                 .map(e => (
                   <div key={e.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#e2e6ed]">{e.category}</span>
-                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{e.expense_date}</span>
+                    <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
+                      <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{e.category}</span>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{e.expense_date}</span>
                     </div>
 
-                    <div className="flex items-center justify-between text-[0.7rem]">
-                      <span className="text-[#8899aa]">{e.notes || 'Tanpa catatan'}</span>
-                      <span className="font-bold text-[#c87070] font-mono">Rp {(e.amount || 0).toLocaleString('id-ID')}</span>
+                    <div className="flex items-center justify-between text-[0.7rem] gap-2">
+                      <span className="text-[#8899aa] break-words whitespace-normal leading-snug flex-1">{e.notes || 'Tanpa catatan'}</span>
+                      <span className="font-bold text-[#c87070] font-mono shrink-0">Rp {(e.amount || 0).toLocaleString('id-ID')}</span>
                     </div>
 
                     <div className="flex justify-end pt-0.5">

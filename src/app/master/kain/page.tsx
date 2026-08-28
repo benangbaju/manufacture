@@ -247,10 +247,10 @@ export default function KainPage() {
                     const yards = (Number(k.stock_qty || 0) / 0.9144).toFixed(1);
                     return (
                       <tr key={k.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="p-3.5 font-bold text-[#e2e6ed]">
-                          <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-[#7eb3db]"></span>
-                            <span>{k.name}</span>
+                        <td className="p-3.5 font-bold text-[#e2e6ed] min-w-[140px]">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="w-2 h-2 rounded-full bg-[#7eb3db] shrink-0"></span>
+                            <span className="break-words whitespace-normal leading-snug">{k.name}</span>
                           </div>
                         </td>
                         <td className="p-3.5 text-center">

@@ -421,15 +421,15 @@ export default function ResepPage() {
                       <button
                         type="button"
                         onClick={() => handleSelectArticle(art.id)}
-                        className="w-full p-2.5 text-left flex items-center justify-between transition-colors"
+                        className="w-full p-2.5 text-left flex items-center justify-between transition-colors gap-2"
                       >
-                        <div className="flex items-center gap-2 truncate">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
                           <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
                             isArtSelected ? 'bg-[#3d5a80] text-white' : 'bg-[#1a2030] text-[#7a8a9a]'
                           }`}>
                             <Shirt className="w-3 h-3" />
                           </div>
-                          <span className="font-bold text-xs text-[#e2e6ed] truncate">{art.name}</span>
+                          <span className="font-bold text-xs text-[#e2e6ed] break-words whitespace-normal leading-snug">{art.name}</span>
                         </div>
                         <span className="text-[0.65rem] text-[#5a6270] shrink-0 font-mono">
                           {artVars.length} Warna
@@ -447,18 +447,18 @@ export default function ResepPage() {
                                 key={v.id}
                                 type="button"
                                 onClick={() => handleSelectVariant(v.id, art.id)}
-                                className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs flex items-center justify-between transition-all border ${
+                                className={`w-full px-2.5 py-1.5 rounded-lg text-left text-xs flex items-center justify-between transition-all border gap-2 ${
                                   isVarSelected
                                     ? 'bg-[#1a2838] border-[#7eb3db] text-[#e2e6ed] font-bold shadow-sm'
                                     : 'bg-[#0c0f17] border-transparent hover:border-[#1e2838] text-[#8899aa] hover:text-[#e2e6ed]'
                                 }`}
                               >
-                                <div className="flex items-center gap-2 truncate">
-                                  <span className={`w-2 h-2 rounded-full ${isVarSelected ? 'bg-[#7eb3db]' : 'bg-[#4a5568]'}`}></span>
-                                  <span className="truncate">{v.color}</span>
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${isVarSelected ? 'bg-[#7eb3db]' : 'bg-[#4a5568]'}`}></span>
+                                  <span className="break-words whitespace-normal leading-snug">{v.color}</span>
                                 </div>
 
-                                <span className={`text-[0.6rem] px-1.5 py-0.5 rounded font-mono font-semibold ${
+                                <span className={`text-[0.6rem] px-1.5 py-0.5 rounded font-mono font-semibold shrink-0 ${
                                   compCount > 0 
                                     ? 'bg-[#162a20] text-[#8ab896] border border-[#2a4030]' 
                                     : 'bg-[#1a1a1a] text-[#5a6270]'
@@ -497,18 +497,18 @@ export default function ResepPage() {
               <div className="glass-card rounded-2xl p-5 md:p-6 border-[#1e2330] space-y-5">
                 {/* Header of Active Variant */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1e2330]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#1a2838] border border-[#2a3848] text-[#7eb3db] flex items-center justify-center font-bold">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-xl bg-[#1a2838] border border-[#2a3848] text-[#7eb3db] flex items-center justify-center font-bold shrink-0">
                       <Palette className="w-5 h-5" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-[#e2e6ed] tracking-tight">{activeArticle.name}</h3>
-                        <span className="px-2 py-0.5 rounded-lg bg-[#3d5a80] text-white text-[0.7rem] font-bold">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-bold text-[#e2e6ed] tracking-tight break-words">{activeArticle.name}</h3>
+                        <span className="px-2 py-0.5 rounded-lg bg-[#3d5a80] text-white text-[0.7rem] font-bold break-words">
                           Warna: {activeVariant.color}
                         </span>
                       </div>
-                      <p className="text-xs text-[#5a6270] mt-0.5">Daftar aksesoris & bahan baku yang terpakai saat menjahit varian warna ini</p>
+                      <p className="text-xs text-[#5a6270] mt-0.5 break-words">Daftar aksesoris & bahan baku yang terpakai saat menjahit varian warna ini</p>
                     </div>
                   </div>
 

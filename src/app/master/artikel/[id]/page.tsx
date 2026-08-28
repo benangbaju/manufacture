@@ -208,10 +208,10 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
                     <tbody className="divide-y divide-[#1e2330]">
                       {variants.map((v) => (
                         <tr key={v.id} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="p-3.5 font-bold text-[#e2e6ed]">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full bg-[#7eb3db]" />
-                              <span>{v.color}</span>
+                          <td className="p-3.5 font-bold text-[#e2e6ed] min-w-[130px]">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#7eb3db] shrink-0" />
+                              <span className="break-words whitespace-normal leading-snug">{v.color}</span>
                             </div>
                           </td>
                           <td className="p-3.5">

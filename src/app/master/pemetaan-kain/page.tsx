@@ -316,22 +316,22 @@ export default function PemetaanKainPage() {
                 <tbody className="divide-y divide-[#1e2330]">
                   {filteredMappings.map(m => (
                     <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-3.5">
-                        <span className="font-bold text-[#e2e6ed] block">{m.articles?.name}</span>
-                        <span className="inline-flex items-center gap-1 text-[0.7rem] text-[#7eb3db] font-semibold mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db]"></span>
-                          {m.variant_color}
+                      <td className="p-3.5 min-w-[140px]">
+                        <span className="font-bold text-[#e2e6ed] block break-words whitespace-normal leading-snug">{m.articles?.name}</span>
+                        <span className="inline-flex items-center gap-1 text-[0.7rem] text-[#7eb3db] font-semibold mt-0.5 break-words whitespace-normal">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db] shrink-0"></span>
+                          <span>{m.variant_color}</span>
                         </span>
                       </td>
                       <td className="p-3.5 text-center">
-                        <div className="w-6 h-6 rounded-full bg-[#121822] border border-[#233548] text-[#7eb3db] flex items-center justify-center mx-auto">
+                        <div className="w-6 h-6 rounded-full bg-[#121822] border border-[#233548] text-[#7eb3db] flex items-center justify-center mx-auto shrink-0">
                           <ArrowRight className="w-3 h-3" />
                         </div>
                       </td>
-                      <td className="p-3.5">
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3828] text-xs">
-                          <Scissors className="w-3 h-3 text-[#6ea87a]" />
-                          {m.fabric_stock?.name}
+                      <td className="p-3.5 min-w-[150px]">
+                        <span className="inline-flex items-center gap-1.5 font-semibold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3828] text-xs break-words whitespace-normal leading-snug">
+                          <Scissors className="w-3 h-3 text-[#6ea87a] shrink-0" />
+                          <span>{m.fabric_stock?.name}</span>
                         </span>
                       </td>
                       <td className="p-3.5 text-right">
