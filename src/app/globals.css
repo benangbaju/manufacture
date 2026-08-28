@@ -81,13 +81,15 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-html.light body {
+html.light body,
+[data-theme="light"] body {
   background-image: 
     radial-gradient(ellipse at 50% -20%, rgba(226, 232, 240, 0.7), transparent 70%),
     linear-gradient(to bottom, #f1f5f9, #f8fafc 600px);
 }
 
-html.dark body {
+html.dark body,
+[data-theme="dark"] body {
   background-image: 
     radial-gradient(ellipse at 50% -20%, rgba(30, 35, 48, 0.2), transparent 70%),
     linear-gradient(to bottom, #0e1219, #0c0f17 600px);
@@ -172,7 +174,8 @@ input::placeholder, textarea::placeholder {
    ========================================================================= */
 
 /* Base & Card Backgrounds in Light Mode */
-html.light body {
+html.light body,
+[data-theme="light"] body {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   background-image: 
@@ -180,38 +183,69 @@ html.light body {
     linear-gradient(to bottom, #f1f5f9, #f8fafc 600px) !important;
 }
 
-html.light .bg-base {
+html.light .bg-base,
+[data-theme="light"] .bg-base {
   background-color: #f8fafc !important;
 }
 
 html.light .glass-card,
-html.light .glass-panel {
+html.light .glass-panel,
+[data-theme="light"] .glass-card,
+[data-theme="light"] .glass-panel {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light .glass-card:hover {
+html.light .glass-card:hover,
+[data-theme="light"] .glass-card:hover {
   background-color: #fcfcfd !important;
   border-color: #cbd5e1 !important;
   box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.08) !important;
 }
 
+/* Prevent white-on-white text in light mode for non-button containers */
+html.light main .text-white:not(button):not(a.bg-\[\#3d5a80\]):not(button *):not(.bg-\[\#3d5a80\] *):not(.bg-\[\#8c4040\] *):not(.bg-blue-600 *):not(.bg-red-600 *):not(.bg-emerald-600 *),
+[data-theme="light"] main .text-white:not(button):not(a.bg-\[\#3d5a80\]):not(button *):not(.bg-\[\#3d5a80\] *):not(.bg-\[\#8c4040\] *):not(.bg-blue-600 *):not(.bg-red-600 *):not(.bg-emerald-600 *) {
+  color: #0f172a !important;
+}
+
 /* Background Utility Classes in Light Mode */
 html.light .bg-\[\#0a0d14\],
+html.light .bg-\[\#0b0f19\],
 html.light .bg-\[\#0c0f17\],
 html.light .bg-\[\#0c1017\],
 html.light .bg-\[\#0e1219\],
+html.light .bg-\[\#111622\],
 html.light .bg-\[\#12161f\],
 html.light .bg-\[\#121620\],
+html.light .bg-\[\#121722\],
 html.light .bg-\[\#121824\],
-html.light .bg-\[\#161c28\] {
+html.light .bg-\[\#131926\],
+html.light .bg-\[\#161c28\],
+[data-theme="light"] .bg-\[\#0a0d14\],
+[data-theme="light"] .bg-\[\#0b0f19\],
+[data-theme="light"] .bg-\[\#0c0f17\],
+[data-theme="light"] .bg-\[\#0c1017\],
+[data-theme="light"] .bg-\[\#0e1219\],
+[data-theme="light"] .bg-\[\#111622\],
+[data-theme="light"] .bg-\[\#12161f\],
+[data-theme="light"] .bg-\[\#121620\],
+[data-theme="light"] .bg-\[\#121722\],
+[data-theme="light"] .bg-\[\#121824\],
+[data-theme="light"] .bg-\[\#131926\],
+[data-theme="light"] .bg-\[\#161c28\] {
   background-color: #ffffff !important;
 }
 
 html.light .bg-\[\#121822\],
 html.light .bg-\[\#141a24\],
-html.light .bg-\[\#1a2838\] {
+html.light .bg-\[\#1a2838\],
+html.light .bg-\[\#192231\],
+[data-theme="light"] .bg-\[\#121822\],
+[data-theme="light"] .bg-\[\#141a24\],
+[data-theme="light"] .bg-\[\#1a2838\],
+[data-theme="light"] .bg-\[\#192231\] {
   background-color: #eff6ff !important;
   border-color: #bfdbfe !important;
 }
@@ -219,15 +253,29 @@ html.light .bg-\[\#1a2838\] {
 html.light .bg-\[\#151a24\],
 html.light .bg-\[\#1a2030\],
 html.light .bg-\[\#15202b\],
-html.light .bg-\[\#182030\] {
+html.light .bg-\[\#182030\],
+html.light .bg-\[\#1a1a1a\],
+html.light .bg-\[\#1e2536\],
+[data-theme="light"] .bg-\[\#151a24\],
+[data-theme="light"] .bg-\[\#1a2030\],
+[data-theme="light"] .bg-\[\#15202b\],
+[data-theme="light"] .bg-\[\#182030\],
+[data-theme="light"] .bg-\[\#1a1a1a\],
+[data-theme="light"] .bg-\[\#1e2536\] {
   background-color: #f1f5f9 !important;
 }
 
 /* Status Badges & Step Cards in Light Mode */
 html.light .bg-\[\#0f1712\],
 html.light .bg-\[\#1a2a20\],
+html.light .bg-\[\#162a20\],
 html.light .bg-\[\#203428\],
-html.light .bg-\[\#0e141a\] {
+html.light .bg-\[\#0e141a\],
+[data-theme="light"] .bg-\[\#0f1712\],
+[data-theme="light"] .bg-\[\#1a2a20\],
+[data-theme="light"] .bg-\[\#162a20\],
+[data-theme="light"] .bg-\[\#203428\],
+[data-theme="light"] .bg-\[\#0e141a\] {
   background-color: #f0fdf4 !important;
   border-color: #bbf7d0 !important;
 }
@@ -236,12 +284,22 @@ html.light .bg-\[\#15120f\],
 html.light .bg-\[\#1f1a14\],
 html.light .bg-\[\#201e1a\],
 html.light .bg-\[\#30281e\],
-html.light .bg-\[\#181510\] {
+html.light .bg-\[\#181510\],
+html.light .bg-\[\#2e261a\],
+html.light .bg-\[\#251e14\],
+[data-theme="light"] .bg-\[\#15120f\],
+[data-theme="light"] .bg-\[\#1f1a14\],
+[data-theme="light"] .bg-\[\#201e1a\],
+[data-theme="light"] .bg-\[\#30281e\],
+[data-theme="light"] .bg-\[\#181510\],
+[data-theme="light"] .bg-\[\#2e261a\],
+[data-theme="light"] .bg-\[\#251e14\] {
   background-color: #fefce8 !important;
   border-color: #fef08a !important;
 }
 
-html.light .bg-\[\#12100d\] {
+html.light .bg-\[\#12100d\],
+[data-theme="light"] .bg-\[\#12100d\] {
   background-color: #ffffff !important;
   border-color: #fed7aa !important;
   color: #9a3412 !important;
@@ -250,13 +308,18 @@ html.light .bg-\[\#12100d\] {
 html.light .bg-\[\#241a1a\],
 html.light .bg-\[\#2a1a1a\],
 html.light .bg-\[\#341e1e\],
-html.light .bg-\[\#3a2828\] {
+html.light .bg-\[\#3a2828\],
+[data-theme="light"] .bg-\[\#241a1a\],
+[data-theme="light"] .bg-\[\#2a1a1a\],
+[data-theme="light"] .bg-\[\#341e1e\],
+[data-theme="light"] .bg-\[\#3a2828\] {
   background-color: #fef2f2 !important;
   border-color: #fecaca !important;
 }
 
 /* Gradient Valuation Hub in Light Mode */
-html.light .bg-gradient-to-r.from-\[\#121722\] {
+html.light .bg-gradient-to-r.from-\[\#121722\],
+[data-theme="light"] .bg-gradient-to-r.from-\[\#121722\] {
   background: linear-gradient(to right, #eff6ff, #f8fafc, #f1f5f9) !important;
   border-color: #bfdbfe !important;
 }
@@ -264,8 +327,18 @@ html.light .bg-gradient-to-r.from-\[\#121722\] {
 /* Borders in Light Mode */
 html.light .border-\[\#1e2330\],
 html.light .border-\[\#1e2838\],
+html.light .border-\[\#1e2028\],
 html.light .border-\[\#2a3040\],
-html.light .border-slate-500 {
+html.light .border-slate-500,
+html.light .border-slate-800,
+html.light .border-slate-700,
+[data-theme="light"] .border-\[\#1e2330\],
+[data-theme="light"] .border-\[\#1e2838\],
+[data-theme="light"] .border-\[\#1e2028\],
+[data-theme="light"] .border-\[\#2a3040\],
+[data-theme="light"] .border-slate-500,
+[data-theme="light"] .border-slate-800,
+[data-theme="light"] .border-slate-700 {
   border-color: #e2e8f0 !important;
 }
 
@@ -273,14 +346,25 @@ html.light .border-\[\#2a3848\],
 html.light .border-\[\#233548\],
 html.light .border-\[\#233042\],
 html.light .border-\[\#2a3c50\],
-html.light .border-\[\#1e2a38\] {
+html.light .border-\[\#1e2a38\],
+[data-theme="light"] .border-\[\#2a3848\],
+[data-theme="light"] .border-\[\#233548\],
+[data-theme="light"] .border-\[\#233042\],
+[data-theme="light"] .border-\[\#2a3c50\],
+[data-theme="light"] .border-\[\#1e2a38\] {
   border-color: #cbd5e1 !important;
 }
 
 html.light .border-\[\#1e3022\],
 html.light .border-\[\#2a3a30\],
 html.light .border-\[\#2a3828\],
-html.light .border-\[\#1e2a30\] {
+html.light .border-\[\#1e2a30\],
+html.light .border-\[\#2a4030\],
+[data-theme="light"] .border-\[\#1e3022\],
+[data-theme="light"] .border-\[\#2a3a30\],
+[data-theme="light"] .border-\[\#2a3828\],
+[data-theme="light"] .border-\[\#1e2a30\],
+[data-theme="light"] .border-\[\#2a4030\] {
   border-color: #bbf7d0 !important;
 }
 
@@ -288,16 +372,24 @@ html.light .border-\[\#2c2018\],
 html.light .border-\[\#3a2c1a\],
 html.light .border-\[\#443218\],
 html.light .border-\[\#3a3020\],
-html.light .border-\[\#30281e\] {
+html.light .border-\[\#30281e\],
+[data-theme="light"] .border-\[\#2c2018\],
+[data-theme="light"] .border-\[\#3a2c1a\],
+[data-theme="light"] .border-\[\#443218\],
+[data-theme="light"] .border-\[\#3a3020\],
+[data-theme="light"] .border-\[\#30281e\] {
   border-color: #fef08a !important;
 }
 
 html.light .border-\[\#3a2020\],
-html.light .border-\[\#3a2828\] {
+html.light .border-\[\#3a2828\],
+[data-theme="light"] .border-\[\#3a2020\],
+[data-theme="light"] .border-\[\#3a2828\] {
   border-color: #fecaca !important;
 }
 
-html.light .divide-\[\#1e2330\] > * + * {
+html.light .divide-\[\#1e2330\] > * + *,
+[data-theme="light"] .divide-\[\#1e2330\] > * + * {
   border-color: #e2e8f0 !important;
 }
 
@@ -305,64 +397,77 @@ html.light .divide-\[\#1e2330\] > * + * {
 html.light .text-\[\#e2e6ed\],
 html.light .text-slate-100,
 html.light .text-slate-200,
-html.light .text-slate-300 {
+html.light .text-slate-300,
+[data-theme="light"] .text-\[\#e2e6ed\],
+[data-theme="light"] .text-slate-100,
+[data-theme="light"] .text-slate-200,
+[data-theme="light"] .text-slate-300 {
   color: #0f172a !important;
 }
 
 html.light .text-\[\#b0b8c4\],
 html.light .text-\[\#aab8c8\],
 html.light .text-\[\#c8d4e0\],
-html.light .text-\[\#e2c088\] {
+html.light .text-\[\#e2c088\],
+[data-theme="light"] .text-\[\#b0b8c4\],
+[data-theme="light"] .text-\[\#aab8c8\],
+[data-theme="light"] .text-\[\#c8d4e0\],
+[data-theme="light"] .text-\[\#e2c088\] {
   color: #334155 !important;
 }
 
 html.light .text-\[\#8899aa\],
 html.light .text-\[\#7a8a9a\],
 html.light .text-slate-400,
-html.light .text-slate-500 {
+html.light .text-slate-500,
+[data-theme="light"] .text-\[\#8899aa\],
+[data-theme="light"] .text-\[\#7a8a9a\],
+[data-theme="light"] .text-slate-400,
+[data-theme="light"] .text-slate-500 {
   color: #475569 !important;
 }
 
-html.light .text-\[\#5a6270\] {
+html.light .text-\[\#5a6270\],
+html.light .text-\[\#4a5568\],
+html.light .text-\[\#3a4454\],
+[data-theme="light"] .text-\[\#5a6270\],
+[data-theme="light"] .text-\[\#4a5568\],
+[data-theme="light"] .text-\[\#3a4454\] {
   color: #64748b !important;
 }
 
 /* Accent & Semantic Text Colors in Light Mode */
-html.light .text-\[\#7eb3db\] {
+html.light .text-\[\#7eb3db\],
+html.light .text-\[\#9bc7eb\],
+[data-theme="light"] .text-\[\#7eb3db\],
+[data-theme="light"] .text-\[\#9bc7eb\] {
   color: #2563eb !important;
 }
 
 html.light .text-\[\#8ab896\],
-html.light .text-\[\#6ea87a\] {
+html.light .text-\[\#6ea87a\],
+[data-theme="light"] .text-\[\#8ab896\],
+[data-theme="light"] .text-\[\#6ea87a\] {
   color: #15803d !important;
 }
 
 html.light .text-\[\#c8a870\],
-html.light .text-\[\#b89860\] {
+html.light .text-\[\#b89860\],
+[data-theme="light"] .text-\[\#c8a870\],
+[data-theme="light"] .text-\[\#b89860\] {
   color: #b45309 !important;
 }
 
 html.light .text-\[\#c87070\],
-html.light .text-\[\#b85c5c\] {
+html.light .text-\[\#b85c5c\],
+[data-theme="light"] .text-\[\#c87070\],
+[data-theme="light"] .text-\[\#b85c5c\] {
   color: #b91c1c !important;
 }
 
-/* Rings in Light Mode */
-html.light .ring-\[\#7eb3db\] {
-  --tw-ring-color: #2563eb !important;
-}
-html.light .ring-\[\#8ab896\] {
-  --tw-ring-color: #15803d !important;
-}
-html.light .ring-\[\#c8a870\] {
-  --tw-ring-color: #b45309 !important;
-}
-html.light .ring-\[\#c87070\] {
-  --tw-ring-color: #b91c1c !important;
-}
-
 /* Focus Border in Light Mode */
-html.light .focus\:border-\[\#7eb3db\]:focus {
+html.light .focus\:border-\[\#7eb3db\]:focus,
+[data-theme="light"] .focus\:border-\[\#7eb3db\]:focus {
   border-color: #2563eb !important;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12) !important;
 }
@@ -371,20 +476,26 @@ html.light .focus\:border-\[\#7eb3db\]:focus {
 html.light .placeholder-\[\#3a4454\]::placeholder,
 html.light .placeholder-\[\#4a5568\]::placeholder,
 html.light input::placeholder,
-html.light textarea::placeholder {
+html.light textarea::placeholder,
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
   color: #94a3b8 !important;
 }
 
 /* Form Inputs, Selects & Textareas in Light Mode */
 html.light input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
 html.light select,
-html.light textarea {
+html.light textarea,
+[data-theme="light"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+[data-theme="light"] select,
+[data-theme="light"] textarea {
   background-color: #ffffff !important;
   border-color: #cbd5e1 !important;
   color: #0f172a !important;
 }
 
-html.light input.bg-transparent {
+html.light input.bg-transparent,
+[data-theme="light"] input.bg-transparent {
   background-color: transparent !important;
   border-color: transparent !important;
   color: #0f172a !important;
@@ -392,12 +503,16 @@ html.light input.bg-transparent {
 
 html.light input:focus,
 html.light select:focus,
-html.light textarea:focus {
+html.light textarea:focus,
+[data-theme="light"] input:focus,
+[data-theme="light"] select:focus,
+[data-theme="light"] textarea:focus {
   border-color: #2563eb !important;
 }
 
 /* Keyboard Badges (kbd) in Light Mode */
-html.light kbd {
+html.light kbd,
+[data-theme="light"] kbd {
   background-color: #f1f5f9 !important;
   color: #334155 !important;
   border-color: #cbd5e1 !important;
@@ -405,33 +520,51 @@ html.light kbd {
 
 /* Primary Action Buttons (preserve high-contrast white text) */
 html.light .bg-\[\#3d5a80\],
-html.light button.bg-\[\#3d5a80\] {
+html.light button.bg-\[\#3d5a80\],
+html.light a.bg-\[\#3d5a80\],
+[data-theme="light"] .bg-\[\#3d5a80\],
+[data-theme="light"] button.bg-\[\#3d5a80\],
+[data-theme="light"] a.bg-\[\#3d5a80\] {
   background-color: #2563eb !important;
   color: #ffffff !important;
 }
 html.light .bg-\[\#3d5a80\] *,
-html.light button.bg-\[\#3d5a80\] * {
+html.light button.bg-\[\#3d5a80\] *,
+html.light a.bg-\[\#3d5a80\] *,
+[data-theme="light"] .bg-\[\#3d5a80\] *,
+[data-theme="light"] button.bg-\[\#3d5a80\] *,
+[data-theme="light"] a.bg-\[\#3d5a80\] * {
   color: #ffffff !important;
 }
 html.light .bg-\[\#3d5a80\]:hover,
-html.light button.bg-\[\#3d5a80\]:hover {
+html.light button.bg-\[\#3d5a80\]:hover,
+html.light a.bg-\[\#3d5a80\]:hover,
+[data-theme="light"] .bg-\[\#3d5a80\]:hover,
+[data-theme="light"] button.bg-\[\#3d5a80\]:hover,
+[data-theme="light"] a.bg-\[\#3d5a80\]:hover {
   background-color: #1d4ed8 !important;
 }
 
 /* Dangerous Action Buttons */
 html.light .bg-\[\#8c4040\],
-html.light button.bg-\[\#8c4040\] {
+html.light button.bg-\[\#8c4040\],
+[data-theme="light"] .bg-\[\#8c4040\],
+[data-theme="light"] button.bg-\[\#8c4040\] {
   background-color: #dc2626 !important;
   color: #ffffff !important;
 }
 html.light .bg-\[\#8c4040\]:hover,
-html.light button.bg-\[\#8c4040\]:hover {
+html.light button.bg-\[\#8c4040\]:hover,
+[data-theme="light"] .bg-\[\#8c4040\]:hover,
+[data-theme="light"] button.bg-\[\#8c4040\]:hover {
   background-color: #b91c1c !important;
 }
 
 /* Active Highlight Buttons & Chips in Light Mode */
 html.light button.bg-\[\#121822\],
-html.light div.bg-\[\#121822\] {
+html.light div.bg-\[\#121822\],
+[data-theme="light"] button.bg-\[\#121822\],
+[data-theme="light"] div.bg-\[\#121822\] {
   background-color: #eff6ff !important;
   border-color: #bfdbfe !important;
 }
@@ -442,7 +575,13 @@ html.light tr.hover\:bg-white\/\[0\.01\]:hover,
 html.light div.hover\:bg-white\/\[0\.02\]:hover,
 html.light div.hover\:bg-white\/\[0\.01\]:hover,
 html.light .hover\:bg-white\/\[0\.02\]:hover,
-html.light .hover\:bg-white\/\[0\.01\]:hover {
+html.light .hover\:bg-white\/\[0\.01\]:hover,
+[data-theme="light"] tr.hover\:bg-white\/\[0\.02\]:hover,
+[data-theme="light"] tr.hover\:bg-white\/\[0\.01\]:hover,
+[data-theme="light"] div.hover\:bg-white\/\[0\.02\]:hover,
+[data-theme="light"] div.hover\:bg-white\/\[0\.01\]:hover,
+[data-theme="light"] .hover\:bg-white\/\[0\.02\]:hover,
+[data-theme="light"] .hover\:bg-white\/\[0\.01\]:hover {
   background-color: #f1f5f9 !important;
 }
 
@@ -450,71 +589,95 @@ html.light .hover\:bg-white\/\[0\.01\]:hover {
 html.light .hover\:bg-\[\#222a3a\]:hover,
 html.light .hover\:bg-\[\#1a2030\]:hover,
 html.light .hover\:bg-\[\#151a24\]:hover,
-html.light .hover\:bg-\[\#233548\]:hover {
+html.light .hover\:bg-\[\#233548\]:hover,
+[data-theme="light"] .hover\:bg-\[\#222a3a\]:hover,
+[data-theme="light"] .hover\:bg-\[\#1a2030\]:hover,
+[data-theme="light"] .hover\:bg-\[\#151a24\]:hover,
+[data-theme="light"] .hover\:bg-\[\#233548\]:hover {
   background-color: #e2e8f0 !important;
   color: #0f172a !important;
 }
 
-html.light .hover\:bg-\[\#341e1e\]:hover {
+html.light .hover\:bg-\[\#341e1e\]:hover,
+[data-theme="light"] .hover\:bg-\[\#341e1e\]:hover {
   background-color: #fee2e2 !important;
 }
 html.light .hover\:bg-\[\#2e261a\]:hover,
-html.light .hover\:bg-\[\#251e14\]:hover {
+html.light .hover\:bg-\[\#251e14\]:hover,
+[data-theme="light"] .hover\:bg-\[\#2e261a\]:hover,
+[data-theme="light"] .hover\:bg-\[\#251e14\]:hover {
   background-color: #fef3c7 !important;
 }
 
 /* Group Hovers in Light Mode */
-html.light .group:hover .group-hover\:text-white {
+html.light .group:hover .group-hover\:text-white,
+[data-theme="light"] .group:hover .group-hover\:text-white {
   color: #0f172a !important;
 }
 html.light .group:hover .group-hover\:bg-\[\#222a3a\],
-html.light .group:hover .group-hover\:bg-\[\#121822\] {
+html.light .group:hover .group-hover\:bg-\[\#121822\],
+[data-theme="light"] .group:hover .group-hover\:bg-\[\#222a3a\],
+[data-theme="light"] .group:hover .group-hover\:bg-\[\#121822\] {
   background-color: #e2e8f0 !important;
   color: #0f172a !important;
 }
 html.light .group:hover .group-hover\:text-\[\#7eb3db\],
-html.light .group:hover .group-hover\:text-\[\#aab8c8\] {
+html.light .group:hover .group-hover\:text-\[\#aab8c8\],
+[data-theme="light"] .group:hover .group-hover\:text-\[\#7eb3db\],
+[data-theme="light"] .group:hover .group-hover\:text-\[\#aab8c8\] {
   color: #2563eb !important;
 }
 
 /* Hover Text Colors in Light Mode */
-html.light .hover\:text-\[\#e2e6ed\]:hover {
+html.light .hover\:text-\[\#e2e6ed\]:hover,
+[data-theme="light"] .hover\:text-\[\#e2e6ed\]:hover {
   color: #0f172a !important;
 }
-html.light .hover\:text-\[\#8899aa\]:hover {
+html.light .hover\:text-\[\#8899aa\]:hover,
+[data-theme="light"] .hover\:text-\[\#8899aa\]:hover {
   color: #1e293b !important;
 }
 html.light .hover\:border-\[\#7eb3db\]:hover,
 html.light .hover\:border-\[\#2a3c50\]:hover,
-html.light .hover\:border-\[\#4a6d8c\]:hover {
+html.light .hover\:border-\[\#4a6d8c\]:hover,
+[data-theme="light"] .hover\:border-\[\#7eb3db\]:hover,
+[data-theme="light"] .hover\:border-\[\#2a3c50\]:hover,
+[data-theme="light"] .hover\:border-\[\#4a6d8c\]:hover {
   border-color: #94a3b8 !important;
 }
 
 /* Sidebar & Navigation in Light Mode */
-html.light aside {
+html.light aside,
+[data-theme="light"] aside {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
 }
-html.light aside a.bg-\[\#1a2030\] {
+html.light aside a.bg-\[\#1a2030\],
+[data-theme="light"] aside a.bg-\[\#1a2030\] {
   background-color: #eff6ff !important;
   color: #2563eb !important;
   border-color: #bfdbfe !important;
 }
-html.light aside a.bg-\[\#1a2030\] svg {
+html.light aside a.bg-\[\#1a2030\] svg,
+[data-theme="light"] aside a.bg-\[\#1a2030\] svg {
   color: #2563eb !important;
 }
-html.light aside nav a.text-\[\#7eb3db\] {
+html.light aside nav a.text-\[\#7eb3db\],
+[data-theme="light"] aside nav a.text-\[\#7eb3db\] {
   color: #2563eb !important;
 }
-html.light aside nav .bg-\[\#1a2030\] {
+html.light aside nav .bg-\[\#1a2030\],
+[data-theme="light"] aside nav .bg-\[\#1a2030\] {
   background-color: #eff6ff !important;
   color: #2563eb !important;
 }
 
 /* Modals & Dialogs in Light Mode */
 html.light .fixed .bg-\[\#121620\],
-html.light .fixed .bg-\[\#12161f\] {
+html.light .fixed .bg-\[\#12161f\],
+[data-theme="light"] .fixed .bg-\[\#121620\],
+[data-theme="light"] .fixed .bg-\[\#12161f\] {
   background-color: #ffffff !important;
   border-color: #cbd5e1 !important;
   box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15) !important;
@@ -536,7 +699,8 @@ html.light .fixed .bg-\[\#12161f\] {
   animation: shimmer 1.8s infinite ease-in-out;
 }
 
-html.light .skeleton-shimmer {
+html.light .skeleton-shimmer,
+[data-theme="light"] .skeleton-shimmer {
   background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
   background-size: 200% 100%;
   animation: shimmer 1.8s infinite ease-in-out;
@@ -584,6 +748,3 @@ html.light .skeleton-shimmer {
     background-color: #f1f5f9 !important;
   }
 }
-
-
-

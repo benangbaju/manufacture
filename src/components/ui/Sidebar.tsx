@@ -175,8 +175,9 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* PWA Install Button (Desktop Sidebar Bottom) */}
-      <div className="hidden md:block w-full pt-3 border-t border-[#1e2330]">
+      {/* Desktop Sidebar Bottom (Theme Toggle & PWA Install) */}
+      <div className="hidden md:flex flex-col gap-2 w-full pt-3 border-t border-[#1e2330]">
+        <ThemeToggle variant="full" />
         <PWAInstallButton variant="sidebar" />
       </div>
     </aside>
