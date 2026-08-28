@@ -37,6 +37,12 @@ alter table raw_materials
 alter table product_variants
   add column if not exists initial_hpp numeric(14,2) not null default 0 check (initial_hpp >= 0);
 
+-- 2d. Resep BOM Produk: support variant_id (resep per varian warna)
+alter table product_recipes
+  add column if not exists variant_id integer references product_variants(id) on delete cascade;
+
+create index if not exists idx_product_recipes_variant on product_recipes(variant_id);
+
 
 -- 3. Pembaruan VIEW: v_current_cash_balance (Menghitung Saldo Kas Awal)
 drop view if exists v_current_cash_balance cascade;

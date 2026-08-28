@@ -92,16 +92,16 @@ create trigger trg_fabric_stock_updated_at
 
 
 -- ------------------------------------------------------------
--- 4. RESEP PRODUK (BOM) — Kebutuhan Bahan Rasio-Tetap per Artikel
+-- 4. RESEP PRODUK (BOM) — Kebutuhan Bahan Rasio-Tetap per Varian / Artikel
 -- ------------------------------------------------------------
 create table if not exists product_recipes (
   id               serial primary key,
-  article_id       integer not null references articles(id) on delete cascade,
+  article_id       integer references articles(id) on delete cascade,
+  variant_id       integer references product_variants(id) on delete cascade,
   raw_material_id  integer not null references raw_materials(id) on delete restrict,
   qty_per_unit     numeric(12,4) not null check (qty_per_unit > 0),
   created_at       timestamptz not null default now(),
-  updated_at       timestamptz not null default now(),
-  unique (article_id, raw_material_id)
+  updated_at       timestamptz not null default now()
 );
 
 drop trigger if exists trg_product_recipes_updated_at on product_recipes;
@@ -110,6 +110,7 @@ create trigger trg_product_recipes_updated_at
   for each row execute function update_updated_at();
 
 create index if not exists idx_product_recipes_article on product_recipes(article_id);
+create index if not exists idx_product_recipes_variant on product_recipes(variant_id);
 
 
 -- ------------------------------------------------------------

@@ -59,7 +59,8 @@ interface MappingItem {
 interface RecipeItem {
   id: number;
   article_id: number;
-  raw_material_id: number;
+  variant_id?: number;
+  raw_material_id?: number;
   qty_per_piece: number;
   raw_materials?: { id: number; name: string; unit: string; stock_qty: number };
 }
@@ -198,8 +199,11 @@ export default function ProduksiPage() {
   const effectiveFabricUsed = fabricInputUnit === 'yard' ? Number((fabricUsed * 0.9144).toFixed(2)) : fabricUsed;
   const totalCutPieces = qty + qtyReject;
 
-  // Check Raw Materials in Recipe
-  const activeRecipes = recipes.filter(r => r.article_id === selectedArticleId);
+  // Check Raw Materials in Recipe for the active variant (fallback to article)
+  const variantSpecificRecipes = recipes.filter(r => r.variant_id === selectedVariantId);
+  const activeRecipes = variantSpecificRecipes.length > 0 
+    ? variantSpecificRecipes 
+    : recipes.filter(r => r.article_id === selectedArticleId && !r.variant_id);
   const materialShortages = activeRecipes
     .map(rec => {
       const needed = Number(rec.qty_per_piece || 0) * totalCutPieces;

@@ -208,28 +208,89 @@ export async function getDbRecipes() {
   if (!isSupabaseConfigured()) return [];
   const { data, error } = await supabase
     .from('product_recipes')
-    .select('*, articles(name), raw_materials(id, name, unit, stock_qty)')
+    .select('*, articles(id, name), product_variants(id, color, article_id, articles(id, name)), raw_materials(id, name, unit, stock_qty)')
     .order('id');
   if (error) throw error;
   return (data || []).map(r => ({
     id: r.id,
-    article_id: r.article_id,
+    article_id: r.article_id || r.product_variants?.article_id,
+    variant_id: r.variant_id,
     raw_material_id: r.raw_material_id,
     qty_per_piece: Number(r.qty_per_unit),
     raw_materials: r.raw_materials,
-    articles: r.articles,
+    articles: r.articles || r.product_variants?.articles,
+    variants: r.product_variants,
   }));
 }
 
-export async function saveDbRecipe(articleId: number, rawMaterialId: number, qtyPerUnit: number) {
+export async function saveDbRecipe(articleId: number, rawMaterialId: number, qtyPerUnit: number, variantId?: number) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const payload: any = { article_id: articleId, raw_material_id: rawMaterialId, qty_per_unit: qtyPerUnit };
+  if (variantId) payload.variant_id = variantId;
+
   const { data, error } = await supabase
     .from('product_recipes')
-    .upsert({ article_id: articleId, raw_material_id: rawMaterialId, qty_per_unit: qtyPerUnit }, { onConflict: 'article_id,raw_material_id' })
+    .insert(payload)
     .select()
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function saveDbVariantRecipesBatch(
+  variantId: number,
+  recipes: { raw_material_id: number; qty_per_unit: number }[],
+  articleId?: number
+) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  
+  let finalArticleId = articleId;
+  if (!finalArticleId) {
+    const { data: pv } = await supabase.from('product_variants').select('article_id').eq('id', variantId).single();
+    finalArticleId = pv?.article_id;
+  }
+
+  // Delete existing recipes for this variant
+  await supabase.from('product_recipes').delete().eq('variant_id', variantId);
+  
+  // Insert new recipes if any
+  const validRecipes = recipes.filter(r => r.raw_material_id > 0 && r.qty_per_unit > 0);
+  if (validRecipes.length > 0) {
+    const rows = validRecipes.map(r => ({
+      variant_id: variantId,
+      article_id: finalArticleId,
+      raw_material_id: r.raw_material_id,
+      qty_per_unit: r.qty_per_unit,
+    }));
+    const { data, error } = await supabase.from('product_recipes').insert(rows).select();
+    if (error) throw error;
+    return data;
+  }
+  return [];
+}
+
+export async function applyDbVariantRecipeToAllVariants(
+  articleId: number,
+  recipes: { raw_material_id: number; qty_per_unit: number }[]
+) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const { data: variants } = await supabase.from('product_variants').select('id').eq('article_id', articleId);
+  if (!variants || variants.length === 0) return;
+
+  const validRecipes = recipes.filter(r => r.raw_material_id > 0 && r.qty_per_unit > 0);
+
+  for (const v of variants) {
+    await supabase.from('product_recipes').delete().eq('variant_id', v.id);
+    if (validRecipes.length > 0) {
+      const rows = validRecipes.map(r => ({
+        variant_id: v.id,
+        article_id: articleId,
+        raw_material_id: r.raw_material_id,
+        qty_per_unit: r.qty_per_unit,
+      }));
+      await supabase.from('product_recipes').insert(rows);
+    }
+  }
 }
 
 export async function saveDbArticleRecipesBatch(
@@ -560,15 +621,25 @@ export async function createDbProductionBatch(batch: {
     });
   }
 
-  // Deduct & record BOM recipes if article_id is present or discoverable
+  // Deduct & record BOM recipes if variant_id/article_id is present or discoverable
   let articleId = batch.article_id;
-  if (!articleId) {
+  if (!articleId && batch.variant_id) {
     const { data: vData } = await supabase.from('product_variants').select('article_id').eq('id', batch.variant_id).single();
     if (vData) articleId = vData.article_id;
   }
 
-  if (articleId && totalCut > 0) {
-    const { data: recipes } = await supabase.from('product_recipes').select('*').eq('article_id', articleId);
+  if (batch.variant_id && totalCut > 0) {
+    // 1. Look up recipes for this specific variant first
+    let { data: recipes } = await supabase.from('product_recipes').select('*').eq('variant_id', batch.variant_id);
+    
+    // 2. Fallback to article-level recipe if no variant-specific recipe
+    if (!recipes || recipes.length === 0) {
+      if (articleId) {
+        const { data: artRec } = await supabase.from('product_recipes').select('*').eq('article_id', articleId);
+        recipes = artRec;
+      }
+    }
+
     if (recipes && recipes.length > 0) {
       for (const rec of recipes) {
         const qtyUsed = Number(rec.qty_per_unit) * totalCut;
@@ -724,8 +795,18 @@ export async function updateDbProductionBatch(batch: {
   // 7. Apply new raw material consumption
   const { data: vData } = await supabase.from('product_variants').select('article_id').eq('id', batch.variant_id).single();
   const articleId = vData?.article_id;
-  if (articleId && newTotalCut > 0) {
-    const { data: recipes } = await supabase.from('product_recipes').select('*').eq('article_id', articleId);
+  if (batch.variant_id && newTotalCut > 0) {
+    // 1. Look up recipes for this specific variant first
+    let { data: recipes } = await supabase.from('product_recipes').select('*').eq('variant_id', batch.variant_id);
+    
+    // 2. Fallback to article-level recipe if no variant-specific recipe
+    if (!recipes || recipes.length === 0) {
+      if (articleId) {
+        const { data: artRec } = await supabase.from('product_recipes').select('*').eq('article_id', articleId);
+        recipes = artRec;
+      }
+    }
+
     if (recipes && recipes.length > 0) {
       for (const rec of recipes) {
         const qtyUsed = Number(rec.qty_per_unit) * newTotalCut;
