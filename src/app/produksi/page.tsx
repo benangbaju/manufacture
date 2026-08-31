@@ -153,17 +153,21 @@ export default function ProduksiPage() {
         getDbProductionBatches(),
       ]);
 
-      setArticles(artList || []);
+      const sortedArticles = (artList || []).slice().sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' })
+      );
+
+      setArticles(sortedArticles);
       setFabrics(fabList || []);
       setMappings(mapList || []);
       setRecipes(recList || []);
       setPurchases(purchaseList || []);
       setBatches(batchList || []);
 
-      if (artList && artList.length > 0 && !selectedArticleId) {
-        setSelectedArticleId(artList[0].id);
-        if (artList[0].variants && artList[0].variants.length > 0) {
-          setSelectedVariantId(artList[0].variants[0].id);
+      if (sortedArticles.length > 0 && !selectedArticleId) {
+        setSelectedArticleId(sortedArticles[0].id);
+        if (sortedArticles[0].variants && sortedArticles[0].variants.length > 0) {
+          setSelectedVariantId(sortedArticles[0].variants[0].id);
         }
       }
       if (fabList && fabList.length > 0 && !selectedFabricId) {

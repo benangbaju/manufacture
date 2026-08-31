@@ -8,13 +8,19 @@ export async function getDbArticles() {
   const { data, error } = await supabase
     .from('articles')
     .select('*, product_variants(*)')
-    .order('id');
+    .order('name', { ascending: true });
   if (error) throw error;
-  return (data || []).map((a: any) => ({
-    ...a,
-    variants: a.product_variants || a.variants || [],
-    product_variants: a.product_variants || a.variants || [],
-  }));
+  return (data || []).map((a: any) => {
+    const rawVariants = a.product_variants || a.variants || [];
+    const sortedVariants = rawVariants.slice().sort((v1: any, v2: any) =>
+      (v1.color || '').localeCompare(v2.color || '', 'id', { sensitivity: 'base' })
+    );
+    return {
+      ...a,
+      variants: sortedVariants,
+      product_variants: sortedVariants,
+    };
+  });
 }
 
 export async function getDbArticleDetail(id: number) {
@@ -208,19 +214,28 @@ export async function getDbRecipes() {
   if (!isSupabaseConfigured()) return [];
   const { data, error } = await supabase
     .from('product_recipes')
-    .select('*, articles(id, name), product_variants(id, color, article_id, articles(id, name)), raw_materials(id, name, unit, stock_qty)')
+    .select('id, article_id, variant_id, raw_material_id, qty_per_unit, raw_materials(id, name, unit, stock_qty)')
     .order('id');
-  if (error) throw error;
-  return (data || []).map(r => ({
-    id: r.id,
-    article_id: r.article_id || r.product_variants?.article_id,
-    variant_id: r.variant_id,
-    raw_material_id: r.raw_material_id,
-    qty_per_piece: Number(r.qty_per_unit),
-    raw_materials: r.raw_materials,
-    articles: r.articles || r.product_variants?.articles,
-    variants: r.product_variants,
-  }));
+  if (error) {
+    console.error('Error fetching recipes:', error);
+    throw error;
+  }
+  return (data || []).map((r: any) => {
+    const rawMat = Array.isArray(r.raw_materials) ? r.raw_materials[0] : r.raw_materials;
+    return {
+      id: r.id,
+      article_id: r.article_id,
+      variant_id: r.variant_id,
+      raw_material_id: r.raw_material_id,
+      qty_per_piece: Number(r.qty_per_unit),
+      raw_materials: rawMat ? {
+        id: Number(rawMat.id),
+        name: String(rawMat.name || ''),
+        unit: String(rawMat.unit || 'pcs'),
+        stock_qty: Number(rawMat.stock_qty || 0),
+      } : undefined,
+    };
+  });
 }
 
 export async function saveDbRecipe(articleId: number, rawMaterialId: number, qtyPerUnit: number, variantId?: number) {
@@ -246,12 +261,14 @@ export async function saveDbVariantRecipesBatch(
   
   let finalArticleId = articleId;
   if (!finalArticleId) {
-    const { data: pv } = await supabase.from('product_variants').select('article_id').eq('id', variantId).single();
+    const { data: pv, error: pvErr } = await supabase.from('product_variants').select('article_id').eq('id', variantId).single();
+    if (pvErr) throw pvErr;
     finalArticleId = pv?.article_id;
   }
 
   // Delete existing recipes for this variant
-  await supabase.from('product_recipes').delete().eq('variant_id', variantId);
+  const { error: delErr } = await supabase.from('product_recipes').delete().eq('variant_id', variantId);
+  if (delErr) throw delErr;
   
   // Insert new recipes if any
   const validRecipes = recipes.filter(r => r.raw_material_id > 0 && r.qty_per_unit > 0);
@@ -274,23 +291,51 @@ export async function applyDbVariantRecipeToAllVariants(
   recipes: { raw_material_id: number; qty_per_unit: number }[]
 ) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
-  const { data: variants } = await supabase.from('product_variants').select('id').eq('article_id', articleId);
-  if (!variants || variants.length === 0) return;
+  const { data: variants, error: varErr } = await supabase
+    .from('product_variants')
+    .select('id')
+    .eq('article_id', articleId);
+  if (varErr) throw varErr;
+  if (!variants || variants.length === 0) return [];
 
   const validRecipes = recipes.filter(r => r.raw_material_id > 0 && r.qty_per_unit > 0);
+  const variantIds = variants.map(v => v.id);
 
-  for (const v of variants) {
-    await supabase.from('product_recipes').delete().eq('variant_id', v.id);
-    if (validRecipes.length > 0) {
-      const rows = validRecipes.map(r => ({
-        variant_id: v.id,
-        article_id: articleId,
-        raw_material_id: r.raw_material_id,
-        qty_per_unit: r.qty_per_unit,
-      }));
-      await supabase.from('product_recipes').insert(rows);
+  // 1. Delete all existing recipes for all variants of this article
+  const { error: delVarErr } = await supabase
+    .from('product_recipes')
+    .delete()
+    .in('variant_id', variantIds);
+  if (delVarErr) throw delVarErr;
+
+  // 2. Also delete article-level recipes without variant_id for this article so they don't conflict
+  await supabase
+    .from('product_recipes')
+    .delete()
+    .eq('article_id', articleId)
+    .is('variant_id', null);
+
+  // 3. Batch insert recipes for all variants
+  if (validRecipes.length > 0) {
+    const allRows: any[] = [];
+    for (const v of variants) {
+      for (const r of validRecipes) {
+        allRows.push({
+          variant_id: v.id,
+          article_id: articleId,
+          raw_material_id: r.raw_material_id,
+          qty_per_unit: r.qty_per_unit,
+        });
+      }
     }
+    const { data, error: insErr } = await supabase
+      .from('product_recipes')
+      .insert(allRows)
+      .select();
+    if (insErr) throw insErr;
+    return data;
   }
+  return [];
 }
 
 export async function saveDbArticleRecipesBatch(

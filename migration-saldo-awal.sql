@@ -80,3 +80,26 @@ select
   (cop.total_purchases + col.total_labor + coe.total_expenses) as total_cash_out,
   (coalesce(st.initial_cash, 0) + ci.total_cash_in - (cop.total_purchases + col.total_labor + coe.total_expenses)) as current_cash_balance
 from settings st, cash_in ci, cash_out_purchases cop, cash_out_labor col, cash_out_expenses coe;
+
+
+-- 4. Nonaktifkan Row-Level Security (RLS) & Berikan Akses Penuh ke Tabel
+alter table if exists articles disable row level security;
+alter table if exists product_variants disable row level security;
+alter table if exists raw_materials disable row level security;
+alter table if exists fabric_stock disable row level security;
+alter table if exists product_recipes disable row level security;
+alter table if exists variant_fabric_mapping disable row level security;
+alter table if exists sales_channels disable row level security;
+alter table if exists purchases disable row level security;
+alter table if exists production_batches disable row level security;
+alter table if exists production_batch_materials disable row level security;
+alter table if exists production_costs disable row level security;
+alter table if exists sales disable row level security;
+alter table if exists expenses disable row level security;
+alter table if exists app_settings disable row level security;
+
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+grant all on all routines in schema public to anon, authenticated, service_role;
+

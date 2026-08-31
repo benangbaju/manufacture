@@ -98,18 +98,22 @@ export default function ResepPage() {
         getDbRawMaterials(),
       ]);
 
-      setRecipes(recipeList || []);
-      setArticles(articleList || []);
-      setMaterials(materialList || []);
+      const validRecipes = recipeList || [];
+      const validArticles = articleList || [];
+      const validMaterials = materialList || [];
+
+      setRecipes(validRecipes);
+      setArticles(validArticles);
+      setMaterials(validMaterials);
 
       // Determine active article & variant
       let activeArtId = preferredArticleId || selectedArticleId;
-      if (!activeArtId && articleList && articleList.length > 0) {
-        activeArtId = articleList[0].id;
+      if (!activeArtId && validArticles.length > 0) {
+        activeArtId = validArticles[0].id;
       }
       setSelectedArticleId(activeArtId);
 
-      const activeArt = (articleList || []).find(a => a.id === activeArtId);
+      const activeArt = validArticles.find(a => a.id === activeArtId);
       const artVariants = activeArt?.variants || activeArt?.product_variants || [];
 
       let activeVarId = preferredVariantId || selectedVariantId;
@@ -118,17 +122,23 @@ export default function ResepPage() {
       }
       setSelectedVariantId(activeVarId);
 
-      if (activeVarId && recipeList) {
-        loadVariantRecipesIntoEditor(activeVarId, recipeList, materialList || []);
+      if (activeVarId) {
+        loadVariantRecipesIntoEditor(activeVarId, validRecipes, validMaterials, validArticles);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load recipe data:', err);
+      alert('Gagal memuat data resep: ' + (err.message || err));
     } finally {
       setLoading(false);
     }
   };
 
-  const loadVariantRecipesIntoEditor = (variantId: number, recipeList: RecipeItem[], materialList: MaterialOption[]) => {
+  const loadVariantRecipesIntoEditor = (
+    variantId: number, 
+    recipeList: RecipeItem[], 
+    materialList: MaterialOption[], 
+    articleList?: ArticleOption[]
+  ) => {
     // 1. Check variant specific recipes first
     const varItems = recipeList.filter(r => r.variant_id === variantId);
     if (varItems.length > 0) {
@@ -140,7 +150,8 @@ export default function ResepPage() {
     }
 
     // 2. Fallback to article level if any
-    const activeArt = articles.find(a => (a.variants || a.product_variants || []).some((v: VariantOption) => v.id === variantId));
+    const activeArtList = articleList && articleList.length > 0 ? articleList : articles;
+    const activeArt = activeArtList.find(a => (a.variants || a.product_variants || []).some((v: VariantOption) => v.id === variantId));
     if (activeArt) {
       const artItems = recipeList.filter(r => r.article_id === activeArt.id && !r.variant_id);
       if (artItems.length > 0) {
@@ -166,7 +177,8 @@ export default function ResepPage() {
     const art = articles.find(a => a.id === artId);
     const artVars = art?.variants || art?.product_variants || [];
     if (artVars.length > 0) {
-      handleSelectVariant(artVars[0].id, artId);
+      setSelectedVariantId(artVars[0].id);
+      loadVariantRecipesIntoEditor(artVars[0].id, recipes, materials, articles);
     } else {
       setSelectedVariantId(null);
       setEditorRows([]);
@@ -177,7 +189,7 @@ export default function ResepPage() {
   const handleSelectVariant = (varId: number, artId?: number) => {
     setSelectedVariantId(varId);
     if (artId) setSelectedArticleId(artId);
-    loadVariantRecipesIntoEditor(varId, recipes, materials);
+    loadVariantRecipesIntoEditor(varId, recipes, materials, articles);
   };
 
   // Add component row
@@ -217,6 +229,17 @@ export default function ResepPage() {
   const handleSaveVariant = async () => {
     if (!selectedVariantId || !selectedArticleId) return;
 
+    if (editorRows.length === 0) {
+      alert('Resep harus memiliki minimal 1 komponen bahan baku.');
+      return;
+    }
+
+    const invalidQty = editorRows.some(r => !r.qty_per_unit || r.qty_per_unit <= 0);
+    if (invalidQty) {
+      alert('Takaran bahan per pcs baju harus lebih dari 0.');
+      return;
+    }
+
     // Validate duplicate materials
     const matIds = editorRows.map(r => r.raw_material_id);
     if (new Set(matIds).size !== matIds.length) {
@@ -249,7 +272,7 @@ export default function ResepPage() {
       setShowModal(true);
       await loadData(selectedVariantId, selectedArticleId);
     } catch (err: any) {
-      alert('Gagal menyimpan resep varian: ' + err.message);
+      alert('Gagal menyimpan resep varian: ' + (err.message || err));
     } finally {
       setIsSaving(false);
     }
@@ -262,8 +285,25 @@ export default function ResepPage() {
     const artVars = activeArt?.variants || activeArt?.product_variants || [];
     if (artVars.length === 0) return;
 
+    if (editorRows.length === 0) {
+      alert('Resep harus memiliki minimal 1 komponen bahan baku.');
+      return;
+    }
+
+    const invalidQty = editorRows.some(r => !r.qty_per_unit || r.qty_per_unit <= 0);
+    if (invalidQty) {
+      alert('Takaran bahan per pcs baju harus lebih dari 0.');
+      return;
+    }
+
+    const matIds = editorRows.map(r => r.raw_material_id);
+    if (new Set(matIds).size !== matIds.length) {
+      alert('Terdapat bahan baku yang sama berulang dalam resep. Harap gabungkan takaran atau pilih bahan yang berbeda.');
+      return;
+    }
+
     const confirmed = window.confirm(
-      `Terapkan susunan resep ini ke SELURUH (${artVars.length}) varian warna dari "${activeArt?.name}"? Resep masing-masing warna akan disamakan.`
+      `Terapkan susunan resep ini (${editorRows.length} komponen) ke SELURUH (${artVars.length}) varian warna dari "${activeArt?.name}"? Resep masing-masing warna (${artVars.map(v => v.color).join(', ')}) akan disamakan.`
     );
     if (!confirmed) return;
 
@@ -279,7 +319,7 @@ export default function ResepPage() {
       setShowModal(true);
       await loadData(selectedVariantId || undefined, selectedArticleId);
     } catch (err: any) {
-      alert('Gagal menerapkan resep ke semua varian: ' + err.message);
+      alert('Gagal menerapkan resep ke semua varian: ' + (err.message || err));
     } finally {
       setIsSaving(false);
     }
