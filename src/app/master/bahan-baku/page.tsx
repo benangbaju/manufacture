@@ -19,10 +19,16 @@ const ACCESSORY_SUGGESTIONS = [
   { name: 'Label Brand Woven', unit: 'pcs' },
   { name: 'Label Care & Washing', unit: 'pcs' },
   { name: 'Resleting YKK 15cm', unit: 'pcs' },
+  { name: 'Renda Katun / Rajut', unit: 'cm' },
+  { name: 'Karet Elastis / Elastic Band', unit: 'cm' },
+  { name: 'Pita Satin / Grossgrain', unit: 'cm' },
+  { name: 'Tali Kur / Serut', unit: 'cm' },
   { name: 'Benang Jahit No.40', unit: 'cone' },
   { name: 'Polybag Plastik Sablon', unit: 'pcs' },
   { name: 'Hangtag Baju + Tali', unit: 'pcs' },
 ];
+
+const UNIT_PRESETS = ['pcs', 'cm', 'meter', 'yard', 'roll', 'cone', 'lembar', 'gram', 'pack'];
 
 export default function BahanBakuPage() {
   const [data, setData] = useState<BahanItem[]>([]);
@@ -60,15 +66,17 @@ export default function BahanBakuPage() {
 
     setIsSubmitting(true);
     try {
-      await createDbRawMaterial(name.trim(), unit, stock);
+      await createDbRawMaterial(name.trim(), unit.trim() || 'pcs', stock);
       setModalLines([
         `Bahan Baku: ${name}`,
-        `Satuan: ${unit}`,
-        `Stok awal: ${stock} ${unit}`,
+        `Satuan: ${unit.trim() || 'pcs'}`,
+        `Stok awal: ${stock} ${unit.trim() || 'pcs'}`,
+        `Saat mengatur Resep Produk (BOM), Anda dapat menentukan takaran bahan ini (contoh: 45 ${unit.trim() || 'pcs'} per 1 pcs baju).`,
       ]);
       setShowModal(true);
       setName('');
       setStock(0);
+      setUnit('pcs');
       await loadData();
     } catch (err: any) {
       alert('Gagal menambah bahan baku: ' + err.message);
@@ -82,7 +90,7 @@ export default function BahanBakuPage() {
     if (!editingItem || !editingItem.name.trim()) return;
 
     try {
-      await updateDbRawMaterial(editingItem.id, editingItem.name, editingItem.unit || 'pcs', Number(editingItem.stock_qty || 0));
+      await updateDbRawMaterial(editingItem.id, editingItem.name.trim(), editingItem.unit?.trim() || 'pcs', Number(editingItem.stock_qty || 0));
       setEditingItem(null);
       await loadData();
     } catch (err: any) {
@@ -141,8 +149,8 @@ export default function BahanBakuPage() {
   return (
     <div>
       <PageHeader 
-        title="Bahan Baku Rasio-Tetap (BOM)" 
-        description="Master komponen non-kain (kancing, label, resleting, benang) yang dikonsumsi per pcs produk" 
+        title="Bahan Baku & Aksesoris (BOM)" 
+        description="Master komponen non-kain (kancing, renda, karet, label, resleting, benang) dengan satuan fleksibel (pcs, cm, meter, roll, cone) yang dikonsumsi per pcs produk" 
       />
 
       {/* Top Stat Overview Cards */}
@@ -172,7 +180,7 @@ export default function BahanBakuPage() {
               <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Cari bahan baku, kancing, label..."
+                placeholder="Cari bahan baku, kancing, renda, label..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
@@ -291,7 +299,7 @@ export default function BahanBakuPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Tambah Bahan Baku</h2>
-              <p className="text-[0.7rem] text-[#5a6270]">Kancing, label, resleting, benang, dll.</p>
+              <p className="text-[0.7rem] text-[#5a6270]">Kancing, renda, karet, label, resleting, benang, dll.</p>
             </div>
           </div>
 
@@ -313,15 +321,15 @@ export default function BahanBakuPage() {
                     }}
                     className="px-2 py-0.5 rounded-lg text-[0.65rem] font-medium bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa] transition-all"
                   >
-                    + {s.name}
+                    + {s.name} ({s.unit})
                   </button>
                 ))}
               </div>
 
               <input 
                 type="text" 
-                required
-                placeholder="Contoh: Kancing 4 Lubang Hitam"
+                required 
+                placeholder="Contoh: Renda Katun Vintage 2cm"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
@@ -333,10 +341,29 @@ export default function BahanBakuPage() {
                 <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
                   Satuan
                 </label>
+
+                {/* Quick Unit Presets */}
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {UNIT_PRESETS.map(u => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setUnit(u)}
+                      className={`px-1.5 py-0.5 rounded text-[0.6rem] font-medium transition-all ${
+                        unit === u
+                          ? 'bg-[#3d5a80] text-white border border-[#4a6d8c]'
+                          : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+
                 <input 
                   type="text" 
                   required
-                  placeholder="pcs / pack / roll"
+                  placeholder="pcs / cm / meter / roll"
                   value={unit}
                   onChange={e => setUnit(e.target.value)}
                   className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
@@ -408,6 +435,22 @@ export default function BahanBakuPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan</label>
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {UNIT_PRESETS.slice(0, 5).map(u => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => setEditingItem({ ...editingItem, unit: u })}
+                        className={`px-1.5 py-0.5 rounded text-[0.6rem] font-medium transition-all ${
+                          editingItem.unit === u
+                            ? 'bg-[#3d5a80] text-white border border-[#4a6d8c]'
+                            : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                        }`}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                  </div>
                   <input
                     type="text"
                     required
