@@ -99,8 +99,12 @@ export default function ResepPage() {
       ]);
 
       const validRecipes = recipeList || [];
-      const validArticles = articleList || [];
-      const validMaterials = materialList || [];
+      const validArticles = (articleList || []).slice().sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' })
+      );
+      const validMaterials = (materialList || []).slice().sort((a, b) => 
+        (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' })
+      );
 
       setRecipes(validRecipes);
       setArticles(validArticles);
@@ -114,7 +118,9 @@ export default function ResepPage() {
       setSelectedArticleId(activeArtId);
 
       const activeArt = validArticles.find(a => a.id === activeArtId);
-      const artVariants = activeArt?.variants || activeArt?.product_variants || [];
+      const artVariants = (activeArt?.variants || activeArt?.product_variants || []).slice().sort((v1: VariantOption, v2: VariantOption) => 
+        (v1.color || '').localeCompare(v2.color || '', 'id', { sensitivity: 'base' })
+      );
 
       let activeVarId = preferredVariantId || selectedVariantId;
       if ((!activeVarId || !artVariants.some((v: VariantOption) => v.id === activeVarId)) && artVariants.length > 0) {
@@ -175,7 +181,9 @@ export default function ResepPage() {
   const handleSelectArticle = (artId: number) => {
     setSelectedArticleId(artId);
     const art = articles.find(a => a.id === artId);
-    const artVars = art?.variants || art?.product_variants || [];
+    const artVars = (art?.variants || art?.product_variants || []).slice().sort((v1: VariantOption, v2: VariantOption) =>
+      (v1.color || '').localeCompare(v2.color || '', 'id', { sensitivity: 'base' })
+    );
     if (artVars.length > 0) {
       setSelectedVariantId(artVars[0].id);
       loadVariantRecipesIntoEditor(artVars[0].id, recipes, materials, articles);
@@ -327,7 +335,9 @@ export default function ResepPage() {
 
   // Helper getters
   const activeArticle = articles.find(a => a.id === selectedArticleId);
-  const activeVariants = activeArticle?.variants || activeArticle?.product_variants || [];
+  const activeVariants = (activeArticle?.variants || activeArticle?.product_variants || []).slice().sort((v1: VariantOption, v2: VariantOption) =>
+    (v1.color || '').localeCompare(v2.color || '', 'id', { sensitivity: 'base' })
+  );
   const activeVariant = activeVariants.find(v => v.id === selectedVariantId);
 
   // Variant recipe map for quick count
@@ -340,13 +350,16 @@ export default function ResepPage() {
     }
   });
 
-  // Filtered articles
-  const filteredArticles = articles.filter(a =>
-    a.name.toLowerCase().includes(articleSearch.toLowerCase().trim()) ||
-    (a.variants || a.product_variants || []).some(v => v.color.toLowerCase().includes(articleSearch.toLowerCase().trim()))
-  );
+  // Filtered articles sorted alphabetically by name
+  const filteredArticles = articles
+    .filter(a =>
+      a.name.toLowerCase().includes(articleSearch.toLowerCase().trim()) ||
+      (a.variants || a.product_variants || []).some(v => v.color.toLowerCase().includes(articleSearch.toLowerCase().trim()))
+    )
+    .slice()
+    .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' }));
 
-  // All variants list for copy dropdown
+  // All variants list for copy dropdown sorted alphabetically
   const allVariantsWithRecipes: { id: number; label: string }[] = [];
   articles.forEach(art => {
     (art.variants || art.product_variants || []).forEach(v => {
@@ -358,6 +371,7 @@ export default function ResepPage() {
       }
     });
   });
+  allVariantsWithRecipes.sort((a, b) => a.label.localeCompare(b.label, 'id', { sensitivity: 'base' }));
 
   if (loading) {
     return (
@@ -445,7 +459,9 @@ export default function ResepPage() {
               {/* Article Accordion / List */}
               <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
                 {filteredArticles.map(art => {
-                  const artVars = art.variants || art.product_variants || [];
+                  const artVars = (art.variants || art.product_variants || []).slice().sort((v1: VariantOption, v2: VariantOption) => 
+                    (v1.color || '').localeCompare(v2.color || '', 'id', { sensitivity: 'base' })
+                  );
                   const isArtSelected = art.id === selectedArticleId;
 
                   return (
