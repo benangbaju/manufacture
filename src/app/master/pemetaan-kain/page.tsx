@@ -314,37 +314,56 @@ export default function PemetaanKainPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#1e2330]">
-                  {filteredMappings.map(m => (
-                    <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="p-3.5 min-w-[140px]">
-                        <span className="font-bold text-[#e2e6ed] block break-words whitespace-normal leading-snug">{m.articles?.name}</span>
-                        <span className="inline-flex items-center gap-1 text-[0.7rem] text-[#7eb3db] font-semibold mt-0.5 break-words whitespace-normal">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db] shrink-0"></span>
-                          <span>{m.variant_color}</span>
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <div className="w-6 h-6 rounded-full bg-[#121822] border border-[#233548] text-[#7eb3db] flex items-center justify-center mx-auto shrink-0">
-                          <ArrowRight className="w-3 h-3" />
-                        </div>
-                      </td>
-                      <td className="p-3.5 min-w-[150px]">
-                        <span className="inline-flex items-center gap-1.5 font-semibold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3828] text-xs break-words whitespace-normal leading-snug">
-                          <Scissors className="w-3 h-3 text-[#6ea87a] shrink-0" />
-                          <span>{m.fabric_stock?.name}</span>
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right">
-                        <button
-                          onClick={() => setDeletingMap(m)}
-                          className="p-1.5 rounded-lg bg-[#241a1a] hover:bg-[#341e1e] text-[#c87070] border border-[#3a2020] transition-colors"
-                          title="Hapus Pemetaan"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredMappings.map(m => {
+                    // Count how many fabrics mapped to this same variant
+                    const variantAllMaps = mappings.filter(
+                      other => other.article_id === m.article_id && other.variant_color.toLowerCase() === m.variant_color.toLowerCase()
+                    );
+                    const isMulti = variantAllMaps.length > 1;
+                    const mapIndex = variantAllMaps.findIndex(other => other.id === m.id);
+                    const isPrimary = mapIndex === 0;
+
+                    return (
+                      <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-3.5 min-w-[140px]">
+                          <span className="font-bold text-[#e2e6ed] block break-words whitespace-normal leading-snug">{m.articles?.name}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-[0.7rem] text-[#7eb3db] font-semibold break-words whitespace-normal">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db] shrink-0"></span>
+                              <span>{m.variant_color}</span>
+                            </span>
+                            {isMulti && (
+                              <span className={`px-1.5 py-0.2 rounded text-[0.6rem] font-bold ${
+                                isPrimary ? 'bg-[#121822] text-[#7eb3db] border border-[#233548]' : 'bg-[#201e1a] text-[#c8a870] border border-[#3a3020]'
+                              }`}>
+                                {isPrimary ? 'Kain Utama' : `Kombinasi #${mapIndex + 1}`}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="w-6 h-6 rounded-full bg-[#121822] border border-[#233548] text-[#7eb3db] flex items-center justify-center mx-auto shrink-0">
+                            <ArrowRight className="w-3 h-3" />
+                          </div>
+                        </td>
+                        <td className="p-3.5 min-w-[150px]">
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-lg border border-[#2a3828] text-xs break-words whitespace-normal leading-snug">
+                            <Scissors className="w-3 h-3 text-[#6ea87a] shrink-0" />
+                            <span>{m.fabric_stock?.name}</span>
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right">
+                          <button
+                            onClick={() => setDeletingMap(m)}
+                            className="p-1.5 rounded-lg bg-[#241a1a] hover:bg-[#341e1e] text-[#c87070] border border-[#3a2020] transition-colors"
+                            title="Hapus Pemetaan"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -359,7 +378,7 @@ export default function PemetaanKainPage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-[#e2e6ed] tracking-tight">Hubungkan Kain</h2>
-              <p className="text-[0.7rem] text-[#5a6270]">Petakan warna varian ke stok roll kain</p>
+              <p className="text-[0.7rem] text-[#5a6270]">Bisa petakan 1 atau 2+ jenis kain roll per warna</p>
             </div>
           </div>
 
@@ -421,6 +440,33 @@ export default function PemetaanKainPage() {
                   onChange={(e) => setVariantColor(e.target.value)}
                   className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
                 />
+
+                {/* Show already mapped fabrics for selected variant */}
+                {selectedArticleId && variantColor.trim() && (
+                  (() => {
+                    const existingForColor = mappings.filter(
+                      m => m.article_id === Number(selectedArticleId) && m.variant_color.toLowerCase() === variantColor.trim().toLowerCase()
+                    );
+                    if (existingForColor.length > 0) {
+                      return (
+                        <div className="mt-2 p-2 bg-[#0e1219] border border-[#1e2330] rounded-xl text-[0.68rem] text-[#8899aa] space-y-1">
+                          <span className="text-[#7eb3db] font-semibold block">Kain yang sudah terhubung ({existingForColor.length}):</span>
+                          <div className="flex flex-wrap gap-1">
+                            {existingForColor.map((em, idx) => (
+                              <span key={em.id} className="px-1.5 py-0.5 rounded bg-[#1a2030] text-[#8ab896] font-mono text-[0.62rem]">
+                                {idx === 0 ? 'Utama:' : 'Kombinasi:'} {em.fabric_stock?.name}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-[0.62rem] text-[#5a6270] pt-0.5">
+                            💡 Anda dapat memilih kain lain di bawah untuk menambahkan kain kombinasi ke-2.
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()
+                )}
               </div>
 
               <div>

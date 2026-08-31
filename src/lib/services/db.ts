@@ -625,20 +625,45 @@ export async function deleteDbPurchase(id: number) {
   if (error) throw error;
 }
 
-// ==========================================
-// 7. PRODUKSI (PRODUCTION BATCHES)
-// ==========================================
+// Helper to extract multi-fabric usage from notes
+function extractFabricsFromNotes(notes?: string, defaultFabricId?: number | null, defaultFabricUsed?: number): { fabric_stock_id: number; fabric_used: number }[] {
+  if (notes && notes.includes('[MULTI_FABRIC:')) {
+    try {
+      const match = notes.match(/\[MULTI_FABRIC:(.*?)\]/);
+      if (match && match[1]) {
+        const parsed = JSON.parse(match[1]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any) => ({
+            fabric_stock_id: Number(item.fabric_stock_id),
+            fabric_used: Number(item.fabric_used),
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing MULTI_FABRIC tag:', e);
+    }
+  }
+  if (defaultFabricId && Number(defaultFabricUsed || 0) > 0) {
+    return [{ fabric_stock_id: Number(defaultFabricId), fabric_used: Number(defaultFabricUsed) }];
+  }
+  return [];
+}
+
 export async function getDbProductionBatches() {
   if (!isSupabaseConfigured()) return [];
-  const [{ data: batches, error: batchErr }, { data: purchases }] = await Promise.all([
+  const [{ data: batches, error: batchErr }, { data: purchases }, { data: allFabrics }] = await Promise.all([
     supabase
       .from('production_batches')
       .select('*, product_variants(id, color, article_id, stock_qty, stock_reject_qty, articles(name)), fabric_stock(name, unit), production_costs(*), production_batch_materials(*, raw_materials(name, unit))')
       .order('production_date', { ascending: false }),
     supabase.from('purchases').select('item_type, fabric_stock_id, raw_material_id, qty, unit_price'),
+    supabase.from('fabric_stock').select('id, name, unit'),
   ]);
 
   if (batchErr) throw batchErr;
+
+  const fabricMap = new Map<number, { name: string; unit: string }>();
+  (allFabrics || []).forEach(f => fabricMap.set(f.id, { name: f.name, unit: f.unit || 'meter' }));
 
   // Calculate weighted average price for fabrics & raw materials
   const fabricPriceMap = new Map<number, { totalCost: number; totalQty: number }>();
@@ -664,7 +689,11 @@ export async function getDbProductionBatches() {
 
   return (batches || []).map(b => {
     const totalCut = Number(b.qty_produced || 0) + Number(b.qty_reject || 0);
-    const fabricMtr = Number(b.fabric_used || 0);
+    
+    // Extract multi-fabric if recorded
+    const fabricsUsedList = extractFabricsFromNotes(b.notes, b.fabric_stock_id, b.fabric_used);
+    const totalFabricMtr = fabricsUsedList.reduce((sum, f) => sum + Number(f.fabric_used || 0), 0);
+    const fabricMtr = totalFabricMtr > 0 ? totalFabricMtr : Number(b.fabric_used || 0);
     const yieldRatio = totalCut > 0 && fabricMtr > 0 ? Number((totalCut / fabricMtr).toFixed(1)) : 0;
     
     // Labor cost
@@ -672,13 +701,36 @@ export async function getDbProductionBatches() {
     const laborPerPcs = totalCut > 0 ? Math.round(Number(laborCost) / totalCut) : 30000;
     const isPaid = !b.notes?.includes('[BELUM_DIBAYAR]');
 
-    // Fabric cost
-    let avgFabricPrice = 0;
-    if (b.fabric_stock_id && fabricPriceMap.has(b.fabric_stock_id)) {
-      const fp = fabricPriceMap.get(b.fabric_stock_id)!;
-      avgFabricPrice = fp.totalQty > 0 ? fp.totalCost / fp.totalQty : 0;
+    // Fabric cost (sum of all fabrics used)
+    let totalFabricCost = 0;
+    const fabricsDetail = fabricsUsedList.map((f, idx) => {
+      let avgPrice = 30000;
+      if (f.fabric_stock_id && fabricPriceMap.has(f.fabric_stock_id)) {
+        const fp = fabricPriceMap.get(f.fabric_stock_id)!;
+        avgPrice = fp.totalQty > 0 ? fp.totalCost / fp.totalQty : 30000;
+      }
+      const itemCost = Math.round(Number(f.fabric_used) * avgPrice);
+      totalFabricCost += itemCost;
+      const fabInfo = fabricMap.get(f.fabric_stock_id);
+      return {
+        fabric_stock_id: f.fabric_stock_id,
+        fabric_name: fabInfo?.name || (idx === 0 ? b.fabric_stock?.name : 'Kain Kombinasi'),
+        unit: fabInfo?.unit || 'meter',
+        fabric_used: Number(f.fabric_used),
+        unit_price: avgPrice,
+        cost: itemCost,
+        is_primary: idx === 0,
+      };
+    });
+
+    if (fabricsDetail.length === 0) {
+      let avgPrice = 30000;
+      if (b.fabric_stock_id && fabricPriceMap.has(b.fabric_stock_id)) {
+        const fp = fabricPriceMap.get(b.fabric_stock_id)!;
+        avgPrice = fp.totalQty > 0 ? fp.totalCost / fp.totalQty : 30000;
+      }
+      totalFabricCost = Math.round(fabricMtr * avgPrice);
     }
-    const fabricCost = Math.round(fabricMtr * avgFabricPrice);
 
     // Raw materials / Accessories (BOM) cost
     let accessoriesCost = 0;
@@ -692,8 +744,8 @@ export async function getDbProductionBatches() {
       accessoriesCost += Math.round(mQty * mPrice);
     });
 
-    const totalProductionCost = fabricCost + Number(laborCost) + accessoriesCost;
-    const unitCost = totalCut > 0 ? Math.round(totalProductionCost / totalCut) : (laborPerPcs + (avgFabricPrice > 0 ? Math.round((fabricMtr * avgFabricPrice) / (totalCut || 1)) : 0));
+    const totalProductionCost = totalFabricCost + Number(laborCost) + accessoriesCost;
+    const unitCost = totalCut > 0 ? Math.round(totalProductionCost / totalCut) : 0;
 
     return {
       id: b.id,
@@ -705,10 +757,11 @@ export async function getDbProductionBatches() {
       qty_reject: Number(b.qty_reject || 0),
       total_cut: totalCut,
       fabric_used: fabricMtr,
+      fabrics_used_details: fabricsDetail,
       yield_ratio: yieldRatio,
       cost_per_pcs: laborPerPcs,
       total_sewing_cost: Number(laborCost),
-      fabric_cost: fabricCost,
+      fabric_cost: totalFabricCost,
       accessories_cost: accessoriesCost,
       total_production_cost: totalProductionCost,
       unit_cost: unitCost, // HPP per pcs
@@ -726,7 +779,7 @@ export async function createDbProductionBatch(batch: {
   qty_produced: number;
   qty_reject: number;
   fabric_stock_id?: number | null;
-  fabric_used: number;
+  fabric_used?: number;
   cost_per_pcs?: number;
   total_sewing_cost?: number;
   is_paid?: boolean;
@@ -736,6 +789,7 @@ export async function createDbProductionBatch(batch: {
   article_id?: number;
   paid_date?: string;
   notes?: string;
+  fabrics?: { fabric_stock_id: number; fabric_used: number }[];
 }) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
   const totalCut = batch.qty_produced + batch.qty_reject;
@@ -743,7 +797,18 @@ export async function createDbProductionBatch(batch: {
   const totalLaborCost = batch.total_sewing_cost ?? (totalCut * costPcs);
   const prodDate = batch.production_date || batch.batch_date || new Date().toISOString().split('T')[0];
   const paidTag = batch.is_paid ? '[SUDAH_DIBAYAR]' : '[BELUM_DIBAYAR]';
-  const finalNotes = `${paidTag} ${batch.notes || ''}`.trim();
+
+  // Process multi-fabric if provided
+  const fabricList = batch.fabrics && batch.fabrics.length > 0
+    ? batch.fabrics.filter(f => f.fabric_stock_id && Number(f.fabric_used) > 0)
+    : (batch.fabric_stock_id && Number(batch.fabric_used || 0) > 0 
+        ? [{ fabric_stock_id: batch.fabric_stock_id, fabric_used: Number(batch.fabric_used) }] 
+        : []);
+
+  const primaryFabric = fabricList.length > 0 ? fabricList[0] : { fabric_stock_id: batch.fabric_stock_id || null, fabric_used: batch.fabric_used || 0 };
+  const multiFabricTag = fabricList.length > 0 ? `[MULTI_FABRIC:${JSON.stringify(fabricList)}]` : '';
+  const cleanNotes = (batch.notes || '').replace(/\[MULTI_FABRIC:.*?\]/g, '').trim();
+  const finalNotes = `${paidTag} ${multiFabricTag} ${cleanNotes}`.trim();
 
   // Insert batch
   const { data: newBatch, error: batchErr } = await supabase
@@ -752,8 +817,8 @@ export async function createDbProductionBatch(batch: {
       variant_id: batch.variant_id,
       qty_produced: batch.qty_produced,
       qty_reject: batch.qty_reject,
-      fabric_stock_id: batch.fabric_stock_id,
-      fabric_used: batch.fabric_used,
+      fabric_stock_id: primaryFabric.fabric_stock_id,
+      fabric_used: primaryFabric.fabric_used,
       production_date: prodDate,
       notes: finalNotes,
     })
@@ -819,13 +884,15 @@ export async function createDbProductionBatch(batch: {
     }).eq('id', batch.variant_id);
   }
 
-  // Deduct fabric stock
-  if (batch.fabric_stock_id && batch.fabric_used > 0) {
-    const { data: fs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', batch.fabric_stock_id).single();
-    if (fs) {
-      await supabase.from('fabric_stock').update({
-        stock_qty: Math.max(0, Number(fs.stock_qty) - batch.fabric_used),
-      }).eq('id', batch.fabric_stock_id);
+  // Deduct physical stock for all fabrics used
+  for (const fab of fabricList) {
+    if (fab.fabric_stock_id && Number(fab.fabric_used) > 0) {
+      const { data: fs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', fab.fabric_stock_id).single();
+      if (fs) {
+        await supabase.from('fabric_stock').update({
+          stock_qty: Math.max(0, Number(fs.stock_qty) - Number(fab.fabric_used)),
+        }).eq('id', fab.fabric_stock_id);
+      }
     }
   }
 
@@ -856,12 +923,13 @@ export async function updateDbProductionBatch(batch: {
   qty_produced: number;
   qty_reject: number;
   fabric_stock_id?: number | null;
-  fabric_used: number;
+  fabric_used?: number;
   cost_per_pcs?: number;
   total_sewing_cost?: number;
   is_paid?: boolean;
   production_date?: string;
   notes?: string;
+  fabrics?: { fabric_stock_id: number; fabric_used: number }[];
 }) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
   
@@ -878,11 +946,25 @@ export async function updateDbProductionBatch(batch: {
   const newTotalLaborCost = batch.total_sewing_cost ?? (newTotalCut * costPcs);
   const prodDate = batch.production_date || oldBatch.production_date;
 
+  // Process new multi-fabric list
+  const newFabricList = batch.fabrics && batch.fabrics.length > 0
+    ? batch.fabrics.filter(f => f.fabric_stock_id && Number(f.fabric_used) > 0)
+    : (batch.fabric_stock_id && Number(batch.fabric_used || 0) > 0 
+        ? [{ fabric_stock_id: batch.fabric_stock_id, fabric_used: Number(batch.fabric_used) }] 
+        : []);
+
+  const primaryFabric = newFabricList.length > 0 ? newFabricList[0] : { fabric_stock_id: batch.fabric_stock_id || null, fabric_used: batch.fabric_used || 0 };
+  const multiFabricTag = newFabricList.length > 0 ? `[MULTI_FABRIC:${JSON.stringify(newFabricList)}]` : '';
+
   // Maintain paid status in notes
   const isPaid = batch.is_paid !== undefined ? batch.is_paid : !oldBatch.notes?.includes('[BELUM_DIBAYAR]');
   const paidTag = isPaid ? '[SUDAH_DIBAYAR]' : '[BELUM_DIBAYAR]';
-  const cleanNotes = (batch.notes || oldBatch.notes || '').replace('[SUDAH_DIBAYAR]', '').replace('[BELUM_DIBAYAR]', '').trim();
-  const finalNotes = `${paidTag} ${cleanNotes}`.trim();
+  const cleanNotes = (batch.notes || oldBatch.notes || '')
+    .replace('[SUDAH_DIBAYAR]', '')
+    .replace('[BELUM_DIBAYAR]', '')
+    .replace(/\[MULTI_FABRIC:.*?\]/g, '')
+    .trim();
+  const finalNotes = `${paidTag} ${multiFabricTag} ${cleanNotes}`.trim();
 
   // 2. Revert old variant stock
   const { data: oldPv } = await supabase.from('product_variants').select('stock_qty, stock_reject_qty').eq('id', oldBatch.variant_id).single();
@@ -893,13 +975,16 @@ export async function updateDbProductionBatch(batch: {
     }).eq('id', oldBatch.variant_id);
   }
 
-  // 3. Revert old fabric stock
-  if (oldBatch.fabric_stock_id && Number(oldBatch.fabric_used || 0) > 0) {
-    const { data: oldFs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', oldBatch.fabric_stock_id).single();
-    if (oldFs) {
-      await supabase.from('fabric_stock').update({
-        stock_qty: Number(oldFs.stock_qty || 0) + Number(oldBatch.fabric_used || 0),
-      }).eq('id', oldBatch.fabric_stock_id);
+  // 3. Revert old fabric stock (support all old fabrics)
+  const oldFabrics = extractFabricsFromNotes(oldBatch.notes, oldBatch.fabric_stock_id, oldBatch.fabric_used);
+  for (const ofab of oldFabrics) {
+    if (ofab.fabric_stock_id && Number(ofab.fabric_used) > 0) {
+      const { data: oldFs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', ofab.fabric_stock_id).single();
+      if (oldFs) {
+        await supabase.from('fabric_stock').update({
+          stock_qty: Number(oldFs.stock_qty || 0) + Number(ofab.fabric_used || 0),
+        }).eq('id', ofab.fabric_stock_id);
+      }
     }
   }
 
@@ -921,8 +1006,8 @@ export async function updateDbProductionBatch(batch: {
       variant_id: batch.variant_id,
       qty_produced: batch.qty_produced,
       qty_reject: batch.qty_reject,
-      fabric_stock_id: batch.fabric_stock_id,
-      fabric_used: batch.fabric_used,
+      fabric_stock_id: primaryFabric.fabric_stock_id,
+      fabric_used: primaryFabric.fabric_used,
       production_date: prodDate,
       notes: finalNotes,
     })
@@ -945,10 +1030,7 @@ export async function updateDbProductionBatch(batch: {
   const { data: vData } = await supabase.from('product_variants').select('article_id').eq('id', batch.variant_id).single();
   const articleId = vData?.article_id;
   if (batch.variant_id && newTotalCut > 0) {
-    // 1. Look up recipes for this specific variant first
     let { data: recipes } = await supabase.from('product_recipes').select('*').eq('variant_id', batch.variant_id);
-    
-    // 2. Fallback to article-level recipe if no variant-specific recipe
     if (!recipes || recipes.length === 0) {
       if (articleId) {
         const { data: artRec } = await supabase.from('product_recipes').select('*').eq('article_id', articleId);
@@ -984,13 +1066,15 @@ export async function updateDbProductionBatch(batch: {
     }).eq('id', batch.variant_id);
   }
 
-  // 9. Apply new fabric stock deduction
-  if (batch.fabric_stock_id && batch.fabric_used > 0) {
-    const { data: newFs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', batch.fabric_stock_id).single();
-    if (newFs) {
-      await supabase.from('fabric_stock').update({
-        stock_qty: Math.max(0, Number(newFs.stock_qty || 0) - batch.fabric_used),
-      }).eq('id', batch.fabric_stock_id);
+  // 9. Apply new fabric stock deductions (for all fabrics)
+  for (const fab of newFabricList) {
+    if (fab.fabric_stock_id && Number(fab.fabric_used) > 0) {
+      const { data: newFs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', fab.fabric_stock_id).single();
+      if (newFs) {
+        await supabase.from('fabric_stock').update({
+          stock_qty: Math.max(0, Number(newFs.stock_qty || 0) - Number(fab.fabric_used)),
+        }).eq('id', fab.fabric_stock_id);
+      }
     }
   }
 
@@ -1017,13 +1101,16 @@ export async function deleteDbProductionBatch(id: number) {
       }).eq('id', oldBatch.variant_id);
     }
 
-    // Revert fabric stock
-    if (oldBatch.fabric_stock_id && Number(oldBatch.fabric_used || 0) > 0) {
-      const { data: fs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', oldBatch.fabric_stock_id).single();
-      if (fs) {
-        await supabase.from('fabric_stock').update({
-          stock_qty: Number(fs.stock_qty || 0) + Number(oldBatch.fabric_used || 0),
-        }).eq('id', oldBatch.fabric_stock_id);
+    // Revert all fabrics used (multi-fabric aware)
+    const oldFabrics = extractFabricsFromNotes(oldBatch.notes, oldBatch.fabric_stock_id, oldBatch.fabric_used);
+    for (const ofab of oldFabrics) {
+      if (ofab.fabric_stock_id && Number(ofab.fabric_used) > 0) {
+        const { data: fs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', ofab.fabric_stock_id).single();
+        if (fs) {
+          await supabase.from('fabric_stock').update({
+            stock_qty: Number(fs.stock_qty || 0) + Number(ofab.fabric_used || 0),
+          }).eq('id', ofab.fabric_stock_id);
+        }
       }
     }
 
