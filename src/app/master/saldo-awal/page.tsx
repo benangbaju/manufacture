@@ -82,31 +82,47 @@ export default function SaldoAwalPage() {
       setCutoffDate(data.cutoffDate || new Date().toISOString().split('T')[0]);
       setCutoffNotes(data.cutoffNotes || '');
 
-      setFabrics((data.fabrics || []).map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        unit: f.unit || 'meter',
-        stock_qty: Number(f.stock_qty || 0),
-        initial_unit_price: Number(f.initial_unit_price || 0),
-      })));
+      setFabrics((data.fabrics || [])
+        .slice()
+        .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'id'))
+        .map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          unit: f.unit || 'meter',
+          stock_qty: Number(f.stock_qty || 0),
+          initial_unit_price: Number(f.initial_unit_price || 0),
+        }))
+      );
 
-      setRawMaterials((data.rawMaterials || []).map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        unit: r.unit || 'pcs',
-        stock_qty: Number(r.stock_qty || 0),
-        initial_unit_price: Number(r.initial_unit_price || 0),
-      })));
+      setRawMaterials((data.rawMaterials || [])
+        .slice()
+        .sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', 'id'))
+        .map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          unit: r.unit || 'pcs',
+          stock_qty: Number(r.stock_qty || 0),
+          initial_unit_price: Number(r.initial_unit_price || 0),
+        }))
+      );
 
-      setVariants((data.variants || []).map((v: any) => ({
-        id: v.id,
-        article_id: v.article_id,
-        article_name: v.article_name || 'Artikel',
-        color: v.color,
-        stock_qty: Number(v.stock_qty || 0),
-        stock_reject_qty: Number(v.stock_reject_qty || 0),
-        initial_hpp: Number(v.initial_hpp || 0),
-      })));
+      setVariants((data.variants || [])
+        .slice()
+        .sort((a: any, b: any) => {
+          const artComp = (a.article_name || '').localeCompare(b.article_name || '', 'id');
+          if (artComp !== 0) return artComp;
+          return (a.color || '').localeCompare(b.color || '', 'id');
+        })
+        .map((v: any) => ({
+          id: v.id,
+          article_id: v.article_id,
+          article_name: v.article_name || 'Artikel',
+          color: v.color,
+          stock_qty: Number(v.stock_qty || 0),
+          stock_reject_qty: Number(v.stock_reject_qty || 0),
+          initial_hpp: Number(v.initial_hpp || 0),
+        }))
+      );
     } catch (err) {
       console.error('Failed to load initial balances:', err);
     } finally {

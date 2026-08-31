@@ -60,18 +60,21 @@ export default function PemetaanKainPage() {
         getDbFabricStock(),
       ]);
 
-      setMappings(mapList || []);
-      setArticles(artList || []);
-      setFabrics(fabList || []);
+      const sortedArticles = (artList || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id'));
+      const sortedFabrics = (fabList || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id'));
 
-      if (artList && artList.length > 0 && !selectedArticleId) {
-        setSelectedArticleId(artList[0].id);
-        if (artList[0].variants && artList[0].variants.length > 0) {
-          setVariantColor(artList[0].variants[0].color);
+      setMappings(mapList || []);
+      setArticles(sortedArticles);
+      setFabrics(sortedFabrics);
+
+      if (sortedArticles.length > 0 && !selectedArticleId) {
+        setSelectedArticleId(sortedArticles[0].id);
+        if (sortedArticles[0].variants && sortedArticles[0].variants.length > 0) {
+          setVariantColor(sortedArticles[0].variants[0].color);
         }
       }
-      if (fabList && fabList.length > 0 && !selectedFabricId) {
-        setSelectedFabricId(fabList[0].id);
+      if (sortedFabrics.length > 0 && !selectedFabricId) {
+        setSelectedFabricId(sortedFabrics[0].id);
       }
     } catch (err) {
       console.error('Failed to load fabric mappings:', err);

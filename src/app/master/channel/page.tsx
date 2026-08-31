@@ -32,7 +32,7 @@ export default function ChannelPage() {
     setLoading(true);
     try {
       const res = await getDbChannels();
-      setChannels(res || []);
+      setChannels((res || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id')));
     } catch (err) {
       console.error('Failed to load channels:', err);
     } finally {

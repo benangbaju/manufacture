@@ -121,19 +121,26 @@ export default function PenjualanPage() {
         getDbProductionBatches(),
       ]);
 
-      setArticles(artList || []);
-      setChannels(chList || []);
+      const sortedArticles = (artList || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id')).map(a => ({
+        ...a,
+        variants: (a.variants || []).slice().sort((v1: any, v2: any) => v1.color.localeCompare(v2.color, 'id')),
+      }));
+
+      const sortedChannels = (chList || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id'));
+
+      setArticles(sortedArticles);
+      setChannels(sortedChannels);
       setSales(saleList || []);
       setBatches(batchList || []);
 
-      if (artList && artList.length > 0 && !selectedArticleId) {
-        setSelectedArticleId(artList[0].id);
-        if (artList[0].variants && artList[0].variants.length > 0) {
-          setSelectedVariantId(artList[0].variants[0].id);
+      if (sortedArticles.length > 0 && !selectedArticleId) {
+        setSelectedArticleId(sortedArticles[0].id);
+        if (sortedArticles[0].variants && sortedArticles[0].variants.length > 0) {
+          setSelectedVariantId(sortedArticles[0].variants[0].id);
         }
       }
-      if (chList && chList.length > 0 && !selectedChannelId) {
-        setSelectedChannelId(chList[0].id);
+      if (sortedChannels.length > 0 && !selectedChannelId) {
+        setSelectedChannelId(sortedChannels[0].id);
       }
     } catch (err) {
       console.error('Failed to load sales data:', err);

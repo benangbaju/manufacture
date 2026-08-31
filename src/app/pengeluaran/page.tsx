@@ -31,13 +31,14 @@ type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 
 
 const categories = [
   'Ads (Iklan)', 
-  'Ongkir & Ekspedisi', 
+  'Bagi Hasil / Konsinyasi',
   'Gaji & Upah Karyawan', 
-  'Packaging & Plastik', 
-  'Listrik & Air Pabrik', 
-  'Sewa Tempat / Ruko',
-  'Maintenance Mesin Jahit',
   'Konsumsi & Operasional',
+  'Listrik & Air Pabrik', 
+  'Maintenance Mesin Jahit',
+  'Ongkir & Ekspedisi', 
+  'Packaging & Plastik', 
+  'Sewa Tempat / Ruko',
   'Lainnya'
 ];
 

@@ -103,20 +103,26 @@ export default function PembelianPage() {
       ]);
 
       const formattedMaterials: MaterialItem[] = [
-        ...(fabrics || []).map(f => ({
-          id: f.id,
-          type: 'fabric' as const,
-          name: f.name,
-          unit: f.unit || 'meter',
-          currentStock: Number(f.stock_qty || 0),
-        })),
-        ...(rawMats || []).map(r => ({
-          id: r.id,
-          type: 'raw' as const,
-          name: r.name,
-          unit: r.unit || 'pcs',
-          currentStock: Number(r.stock_qty || 0),
-        })),
+        ...(fabrics || [])
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name, 'id'))
+          .map(f => ({
+            id: f.id,
+            type: 'fabric' as const,
+            name: f.name,
+            unit: f.unit || 'meter',
+            currentStock: Number(f.stock_qty || 0),
+          })),
+        ...(rawMats || [])
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name, 'id'))
+          .map(r => ({
+            id: r.id,
+            type: 'raw' as const,
+            name: r.name,
+            unit: r.unit || 'pcs',
+            currentStock: Number(r.stock_qty || 0),
+          })),
       ];
 
       setMaterials(formattedMaterials);
@@ -135,9 +141,9 @@ export default function PembelianPage() {
     loadData();
   }, []);
 
-  const existingSuppliers = Array.from(
+  const existingSuppliers = (Array.from(
     new Set(purchases.map(p => p.supplier?.trim()).filter(Boolean))
-  ) as string[];
+  ) as string[]).sort((a, b) => a.localeCompare(b, 'id'));
 
   const [activeType, activeIdStr] = selectedMaterialKey ? selectedMaterialKey.split('-') : ['', ''];
   const activeMat = materials.find(m => m.type === activeType && m.id === Number(activeIdStr));
@@ -234,13 +240,15 @@ export default function PembelianPage() {
   };
 
   // Filtered materials for selection
-  const filteredMaterials = materials.filter(m => {
-    if (materialFilterTab === 'FABRIC' && m.type !== 'fabric') return false;
-    if (materialFilterTab === 'RAW' && m.type !== 'raw') return false;
-    const q = materialSearchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return m.name.toLowerCase().includes(q);
-  });
+  const filteredMaterials = materials
+    .filter(m => {
+      if (materialFilterTab === 'FABRIC' && m.type !== 'fabric') return false;
+      if (materialFilterTab === 'RAW' && m.type !== 'raw') return false;
+      const q = materialSearchQuery.toLowerCase().trim();
+      if (!q) return true;
+      return m.name.toLowerCase().includes(q);
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'id'));
 
   // Universal Date & Supplier Filtering Logic
   const today = getTodayDateString();

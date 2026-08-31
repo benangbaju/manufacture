@@ -173,10 +173,15 @@ export default function ProduksiPage() {
 
       const sortedArticles = (artList || []).slice().sort((a, b) => 
         (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' })
-      );
+      ).map(a => ({
+        ...a,
+        variants: (a.variants || []).slice().sort((v1: any, v2: any) => (v1.color || '').localeCompare(v2.color || '', 'id')),
+      }));
+
+      const sortedFabrics = (fabList || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'id'));
 
       setArticles(sortedArticles);
-      setFabrics(fabList || []);
+      setFabrics(sortedFabrics);
       setMappings(mapList || []);
       setRecipes(recList || []);
       setPurchases(purchaseList || []);

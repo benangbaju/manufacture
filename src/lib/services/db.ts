@@ -131,7 +131,10 @@ export async function deleteDbVariant(id: number) {
 // ==========================================
 export async function getDbFabricStock() {
   if (!isSupabaseConfigured()) return [];
-  const { data, error } = await supabase.from('fabric_stock').select('*').order('id');
+  const { data, error } = await supabase
+    .from('fabric_stock')
+    .select('*')
+    .order('name', { ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -170,7 +173,10 @@ export async function deleteDbFabric(id: number) {
 
 export async function getDbRawMaterials() {
   if (!isSupabaseConfigured()) return [];
-  const { data, error } = await supabase.from('raw_materials').select('*').order('id');
+  const { data, error } = await supabase
+    .from('raw_materials')
+    .select('*')
+    .order('name', { ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -441,7 +447,10 @@ export async function deleteDbFabricMapping(id: number) {
 // ==========================================
 export async function getDbChannels() {
   if (!isSupabaseConfigured()) return [];
-  const { data, error } = await supabase.from('sales_channels').select('*').order('id');
+  const { data, error } = await supabase
+    .from('sales_channels')
+    .select('*')
+    .order('name', { ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -1690,9 +1699,9 @@ export async function getDbInitialBalances() {
 
   const [settingsRes, fabRes, rawRes, varRes] = await Promise.all([
     supabase.from('app_settings').select('*'),
-    supabase.from('fabric_stock').select('*').order('id'),
-    supabase.from('raw_materials').select('*').order('id'),
-    supabase.from('product_variants').select('*, articles(id, name)').order('article_id'),
+    supabase.from('fabric_stock').select('*').order('name', { ascending: true }),
+    supabase.from('raw_materials').select('*').order('name', { ascending: true }),
+    supabase.from('product_variants').select('*, articles(id, name)').order('color', { ascending: true }),
   ]);
 
   const settingsMap: Record<string, string> = {};
@@ -1700,16 +1709,24 @@ export async function getDbInitialBalances() {
     settingsMap[s.key] = s.value;
   });
 
+  const sortedVariants = (varRes.data || [])
+    .map((v: any) => ({
+      ...v,
+      article_name: v.articles?.name || 'Artikel',
+    }))
+    .sort((a: any, b: any) => {
+      const artComp = (a.article_name || '').localeCompare(b.article_name || '', 'id');
+      if (artComp !== 0) return artComp;
+      return (a.color || '').localeCompare(b.color || '', 'id');
+    });
+
   return {
     initialCash: Number(settingsMap['initial_cash_balance'] || 0),
     cutoffDate: settingsMap['cutoff_date'] || new Date().toISOString().split('T')[0],
     cutoffNotes: settingsMap['cutoff_notes'] || '',
     fabrics: fabRes.data || [],
     rawMaterials: rawRes.data || [],
-    variants: (varRes.data || []).map((v: any) => ({
-      ...v,
-      article_name: v.articles?.name || 'Artikel',
-    })),
+    variants: sortedVariants,
   };
 }
 
