@@ -41,7 +41,17 @@ alter table product_variants
 alter table product_recipes
   add column if not exists variant_id integer references product_variants(id) on delete cascade;
 
+-- Hapus constraint unik lama (article_id, raw_material_id) agar tiap varian warna bisa menggunakan bahan baku yang sama
+alter table if exists product_recipes
+  drop constraint if exists product_recipes_article_id_raw_material_id_key;
+
+drop index if exists product_recipes_article_id_raw_material_id_key;
+
 create index if not exists idx_product_recipes_variant on product_recipes(variant_id);
+
+create unique index if not exists idx_product_recipes_variant_raw_material 
+  on product_recipes (variant_id, raw_material_id) 
+  where variant_id is not null;
 
 
 -- 3. Pembaruan VIEW: v_current_cash_balance (Menghitung Saldo Kas Awal)
