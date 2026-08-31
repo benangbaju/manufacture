@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
-import { getDbChannels, createDbChannel, deleteDbChannel } from "@/lib/services/db";
-import { Store, Plus, Trash2, Search, ShoppingBag } from 'lucide-react';
+import { getDbChannels, createDbChannel, updateDbChannel, deleteDbChannel } from "@/lib/services/db";
+import { Store, Plus, Trash2, Pencil, Search, ShoppingBag, X } from 'lucide-react';
 
 interface ChannelItem {
   id: number;
@@ -23,6 +23,8 @@ export default function ChannelPage() {
   const [name, setName] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [modalLines, setModalLines] = useState<string[]>([]);
+  const [editingChannel, setEditingChannel] = useState<ChannelItem | null>(null);
+  const [editName, setEditName] = useState('');
   const [deletingChannel, setDeletingChannel] = useState<ChannelItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,6 +61,27 @@ export default function ChannelPage() {
       await loadData();
     } catch (err: any) {
       alert('Gagal menambah channel: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditChannel = (ch: ChannelItem) => {
+    setEditingChannel(ch);
+    setEditName(ch.name);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChannel || !editName.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateDbChannel(editingChannel.id, editName.trim());
+      setEditingChannel(null);
+      await loadData();
+    } catch (err: any) {
+      alert('Gagal memperbarui channel: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -158,13 +181,22 @@ export default function ChannelPage() {
                     </div>
                   </div>
 
-                  <button 
-                    onClick={() => setDeletingChannel(ch)}
-                    className="p-2 text-[#5a6270] hover:text-[#c87070] hover:bg-[#241a1a] rounded-xl transition-colors border border-transparent hover:border-[#3a2020]"
-                    title="Hapus Channel"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button 
+                      onClick={() => openEditChannel(ch)}
+                      className="p-2 text-[#5a6270] hover:text-[#7eb3db] hover:bg-[#1a2838] rounded-xl transition-colors border border-transparent hover:border-[#233548]"
+                      title="Edit Channel"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setDeletingChannel(ch)}
+                      className="p-2 text-[#5a6270] hover:text-[#c87070] hover:bg-[#241a1a] rounded-xl transition-colors border border-transparent hover:border-[#3a2020]"
+                      title="Hapus Channel"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -224,6 +256,59 @@ export default function ChannelPage() {
           </form>
         </div>
       </div>
+
+      {/* Edit Channel Modal */}
+      {editingChannel && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
+              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
+                <Pencil className="w-4 h-4" />
+                <span>Edit Channel Penjualan</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingChannel(null)}
+                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form className="space-y-3 text-xs" onSubmit={handleSaveEdit}>
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Nama Channel <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingChannel(null)}
+                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !editName.trim()}
+                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

@@ -459,6 +459,18 @@ export async function deleteDbChannel(id: number) {
   if (error) throw error;
 }
 
+export async function updateDbChannel(id: number, name: string) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const { data, error } = await supabase
+    .from('sales_channels')
+    .update({ name: name.trim() })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // ==========================================
 // 6. PEMBELIAN BAHAN (PURCHASES)
 // ==========================================
@@ -515,8 +527,100 @@ export async function createDbPurchase(item: {
   return data;
 }
 
+export async function updateDbPurchase(
+  id: number,
+  updated: {
+    item_type: 'raw_material' | 'fabric';
+    raw_material_id?: number | null;
+    fabric_stock_id?: number | null;
+    qty: number;
+    unit_price: number;
+    supplier?: string;
+    purchase_date: string;
+  }
+) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+
+  // 1. Get old purchase to rollback stock
+  const { data: oldP } = await supabase.from('purchases').select('*').eq('id', id).single();
+  if (oldP) {
+    if (oldP.item_type === 'fabric' && oldP.fabric_stock_id) {
+      const { data: fs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', oldP.fabric_stock_id).single();
+      if (fs) {
+        await supabase.from('fabric_stock').update({
+          stock_qty: Math.max(0, Number(fs.stock_qty || 0) - Number(oldP.qty || 0))
+        }).eq('id', oldP.fabric_stock_id);
+      }
+    } else if (oldP.item_type === 'raw_material' && oldP.raw_material_id) {
+      const { data: rm } = await supabase.from('raw_materials').select('stock_qty').eq('id', oldP.raw_material_id).single();
+      if (rm) {
+        await supabase.from('raw_materials').update({
+          stock_qty: Math.max(0, Number(rm.stock_qty || 0) - Number(oldP.qty || 0))
+        }).eq('id', oldP.raw_material_id);
+      }
+    }
+  }
+
+  // 2. Update purchase record
+  const { data, error } = await supabase
+    .from('purchases')
+    .update({
+      item_type: updated.item_type,
+      raw_material_id: updated.raw_material_id ?? null,
+      fabric_stock_id: updated.fabric_stock_id ?? null,
+      qty: updated.qty,
+      unit_price: updated.unit_price,
+      supplier: updated.supplier || null,
+      purchase_date: updated.purchase_date,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  // 3. Apply new stock addition
+  if (updated.item_type === 'fabric' && updated.fabric_stock_id) {
+    const { data: newFs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', updated.fabric_stock_id).single();
+    if (newFs) {
+      await supabase.from('fabric_stock').update({
+        stock_qty: Number(newFs.stock_qty || 0) + updated.qty
+      }).eq('id', updated.fabric_stock_id);
+    }
+  } else if (updated.item_type === 'raw_material' && updated.raw_material_id) {
+    const { data: newRm } = await supabase.from('raw_materials').select('stock_qty').eq('id', updated.raw_material_id).single();
+    if (newRm) {
+      await supabase.from('raw_materials').update({
+        stock_qty: Number(newRm.stock_qty || 0) + updated.qty
+      }).eq('id', updated.raw_material_id);
+    }
+  }
+
+  return data;
+}
+
 export async function deleteDbPurchase(id: number) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+
+  // Rollback physical stock on purchase delete
+  const { data: oldP } = await supabase.from('purchases').select('*').eq('id', id).single();
+  if (oldP) {
+    if (oldP.item_type === 'fabric' && oldP.fabric_stock_id) {
+      const { data: fs } = await supabase.from('fabric_stock').select('stock_qty').eq('id', oldP.fabric_stock_id).single();
+      if (fs) {
+        await supabase.from('fabric_stock').update({
+          stock_qty: Math.max(0, Number(fs.stock_qty || 0) - Number(oldP.qty || 0))
+        }).eq('id', oldP.fabric_stock_id);
+      }
+    } else if (oldP.item_type === 'raw_material' && oldP.raw_material_id) {
+      const { data: rm } = await supabase.from('raw_materials').select('stock_qty').eq('id', oldP.raw_material_id).single();
+      if (rm) {
+        await supabase.from('raw_materials').update({
+          stock_qty: Math.max(0, Number(rm.stock_qty || 0) - Number(oldP.qty || 0))
+        }).eq('id', oldP.raw_material_id);
+      }
+    }
+  }
+
   const { error } = await supabase.from('purchases').delete().eq('id', id);
   if (error) throw error;
 }
@@ -1038,6 +1142,69 @@ export async function deleteDbSale(id: number) {
   if (error) throw error;
 }
 
+export async function updateDbSale(
+  id: number,
+  sale: {
+    variant_id: number;
+    channel_id: number;
+    item_grade: 'grade_a' | 'reject';
+    qty: number;
+    sale_price: number;
+    sale_date: string;
+  }
+) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+
+  // 1. Get old sale to revert stock
+  const { data: oldS } = await supabase.from('sales').select('*').eq('id', id).single();
+  if (oldS) {
+    const { data: pv } = await supabase.from('product_variants').select('stock_qty, stock_reject_qty').eq('id', oldS.variant_id).single();
+    if (pv) {
+      if (oldS.item_grade === 'grade_a') {
+        await supabase.from('product_variants').update({
+          stock_qty: Number(pv.stock_qty || 0) + Number(oldS.qty || 0),
+        }).eq('id', oldS.variant_id);
+      } else {
+        await supabase.from('product_variants').update({
+          stock_reject_qty: Number(pv.stock_reject_qty || 0) + Number(oldS.qty || 0),
+        }).eq('id', oldS.variant_id);
+      }
+    }
+  }
+
+  // 2. Update sale record
+  const { data: updatedSale, error } = await supabase
+    .from('sales')
+    .update({
+      variant_id: sale.variant_id,
+      channel_id: sale.channel_id,
+      item_grade: sale.item_grade,
+      qty: sale.qty,
+      sale_price: sale.sale_price,
+      sale_date: sale.sale_date,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  // 3. Deduct new stock
+  const { data: newPv } = await supabase.from('product_variants').select('stock_qty, stock_reject_qty').eq('id', sale.variant_id).single();
+  if (newPv) {
+    if (sale.item_grade === 'grade_a') {
+      await supabase.from('product_variants').update({
+        stock_qty: Math.max(0, Number(newPv.stock_qty || 0) - sale.qty),
+      }).eq('id', sale.variant_id);
+    } else {
+      await supabase.from('product_variants').update({
+        stock_reject_qty: Math.max(0, Number(newPv.stock_reject_qty || 0) - sale.qty),
+      }).eq('id', sale.variant_id);
+    }
+  }
+
+  return updatedSale;
+}
+
 // ==========================================
 // 9. PENGELUARAN OPERASIONAL (EXPENSES)
 // ==========================================
@@ -1064,6 +1231,31 @@ export async function deleteDbExpense(id: number) {
   if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
   const { error } = await supabase.from('expenses').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function updateDbExpense(
+  id: number,
+  expense: {
+    category: string;
+    amount: number;
+    expense_date: string;
+    notes?: string;
+  }
+) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase belum terkonfigurasi');
+  const { data, error } = await supabase
+    .from('expenses')
+    .update({
+      category: expense.category,
+      amount: expense.amount,
+      expense_date: expense.expense_date,
+      notes: expense.notes || null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 // ==========================================

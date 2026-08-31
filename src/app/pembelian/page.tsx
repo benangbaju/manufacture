@@ -10,6 +10,7 @@ import {
   getDbRawMaterials, 
   getDbPurchases, 
   createDbPurchase, 
+  updateDbPurchase,
   deleteDbPurchase 
 } from "@/lib/services/db";
 import { 
@@ -17,6 +18,7 @@ import {
   Scissors, 
   Tag, 
   Trash2, 
+  Pencil,
   CalendarDays, 
   Calendar,
   Clock,
@@ -24,7 +26,8 @@ import {
   Search,
   CheckCircle2,
   Store,
-  Layers
+  Layers,
+  X
 } from 'lucide-react';
 
 interface MaterialItem {
@@ -39,6 +42,8 @@ interface PurchaseRecord {
   id: number;
   purchase_date: string;
   item_type: 'raw_material' | 'fabric';
+  raw_material_id?: number | null;
+  fabric_stock_id?: number | null;
   qty: number;
   unit_price: number;
   supplier?: string;
@@ -64,6 +69,13 @@ export default function PembelianPage() {
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [supplier, setSupplier] = useState<string>('');
   const [purchaseDate, setPurchaseDate] = useState<string>(getTodayDateString());
+
+  // Edit Purchase States
+  const [editingPurchase, setEditingPurchase] = useState<PurchaseRecord | null>(null);
+  const [editQty, setEditQty] = useState<number>(0);
+  const [editUnitPrice, setEditUnitPrice] = useState<number>(0);
+  const [editSupplier, setEditSupplier] = useState<string>('');
+  const [editPurchaseDate, setEditPurchaseDate] = useState<string>(getTodayDateString());
 
   // History Filters & Pagination
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
@@ -174,6 +186,37 @@ export default function PembelianPage() {
       await loadData();
     } catch (err: any) {
       alert('Gagal mencatat pembelian: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditPurchase = (p: PurchaseRecord) => {
+    setEditingPurchase(p);
+    setEditQty(p.qty || 0);
+    setEditUnitPrice(p.unit_price || 0);
+    setEditSupplier(p.supplier || '');
+    setEditPurchaseDate(p.purchase_date || getTodayDateString());
+  };
+
+  const handleSaveEditPurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPurchase || editQty <= 0 || editUnitPrice <= 0) return;
+    setIsSubmitting(true);
+    try {
+      await updateDbPurchase(editingPurchase.id, {
+        item_type: editingPurchase.item_type,
+        raw_material_id: editingPurchase.raw_material_id,
+        fabric_stock_id: editingPurchase.fabric_stock_id,
+        qty: editQty,
+        unit_price: editUnitPrice,
+        supplier: editSupplier.trim() || undefined,
+        purchase_date: editPurchaseDate,
+      });
+      setEditingPurchase(null);
+      await loadData();
+    } catch (err: any) {
+      alert('Gagal memperbarui pembelian: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -717,13 +760,23 @@ export default function PembelianPage() {
                         ) : (
                           <span className="text-[#5a6270] italic">Tanpa Supplier</span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setDeletingPurchase(p)}
-                          className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
-                        >
-                          Hapus
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditPurchase(p)}
+                            className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingPurchase(p)}
+                            className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
+                          >
+                            Hapus
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -741,6 +794,122 @@ export default function PembelianPage() {
           />
         </div>
       </div>
+
+      {/* Edit Purchase Modal */}
+      {editingPurchase && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
+              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
+                <Pencil className="w-4 h-4" />
+                <span>Edit Catatan Pembelian #{editingPurchase.id}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPurchase(null)}
+                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form className="space-y-3 text-xs" onSubmit={handleSaveEditPurchase}>
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Nama Bahan
+                </label>
+                <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-[#e2e6ed] font-semibold">
+                  {editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.name : editingPurchase.raw_materials?.name}
+                  <span className="ml-2 text-[0.7rem] text-[#5a6270]">
+                    ({editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.unit || 'meter' : editingPurchase.raw_materials?.unit || 'pcs'})
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Tanggal Pembelian <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editPurchaseDate}
+                  onChange={e => setEditPurchaseDate(e.target.value)}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                    Jumlah ({editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.unit || 'meter' : editingPurchase.raw_materials?.unit || 'pcs'}) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={editQty || ''}
+                    onChange={e => setEditQty(Number(e.target.value))}
+                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#8ab896] font-bold outline-none focus:border-[#7eb3db]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                    Harga Satuan (Rp) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editUnitPrice || ''}
+                    onChange={e => setEditUnitPrice(Number(e.target.value))}
+                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#e2e6ed] font-bold outline-none focus:border-[#7eb3db]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Supplier / Toko
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Toko Kain Jaya"
+                  value={editSupplier}
+                  onChange={e => setEditSupplier(e.target.value)}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              {/* Edit Total Preview */}
+              <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+                <span className="text-[#8899aa]">Total Pengeluaran Baru:</span>
+                <span className="font-mono font-black text-[#8ab896]">
+                  Rp {(editQty * editUnitPrice).toLocaleString('id-ID')}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPurchase(null)}
+                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || editQty <= 0 || editUnitPrice <= 0}
+                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Sticky Floating Summary & Submit Bar */}
       {activeMat && (effectiveQty > 0 || unitPrice > 0) && (
@@ -768,7 +937,7 @@ export default function PembelianPage() {
       <DeleteConfirmModal
         isOpen={Boolean(deletingPurchase)}
         title="Hapus Catatan Pembelian"
-        message={`Apakah Anda yakin ingin menghapus data pembelian bahan ini?`}
+        message={`Apakah Anda yakin ingin menghapus data pembelian bahan ini? Stok gudang akan otomatis dikurangi kembali.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingPurchase(null)}
       />

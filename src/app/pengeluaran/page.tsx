@@ -5,16 +5,18 @@ import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import Pagination from "@/components/ui/Pagination";
-import { getDbExpenses, createDbExpense, deleteDbExpense } from "@/lib/services/db";
+import { getDbExpenses, createDbExpense, updateDbExpense, deleteDbExpense } from "@/lib/services/db";
 import { 
   Receipt, 
   Clock, 
   Plus, 
   Trash2, 
+  Pencil,
   CalendarDays, 
   DollarSign,
   Search,
-  Tag
+  Tag,
+  X
 } from 'lucide-react';
 
 interface ExpenseRecord {
@@ -48,6 +50,13 @@ export default function PengeluaranPage() {
   const [expenseDate, setExpenseDate] = useState<string>(getTodayDateString());
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Edit Expense States
+  const [editingExpense, setEditingExpense] = useState<ExpenseRecord | null>(null);
+  const [editCategory, setEditCategory] = useState<string>('');
+  const [editAmount, setEditAmount] = useState<number>(0);
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [editExpenseDate, setEditExpenseDate] = useState<string>(getTodayDateString());
 
   // Filters & Pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,6 +123,34 @@ export default function PengeluaranPage() {
       await loadData();
     } catch (err: any) {
       alert('Gagal mencatat pengeluaran: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditExpense = (e: ExpenseRecord) => {
+    setEditingExpense(e);
+    setEditCategory(e.category || categories[0]);
+    setEditAmount(e.amount || 0);
+    setEditNotes(e.notes || '');
+    setEditExpenseDate(e.expense_date || getTodayDateString());
+  };
+
+  const handleSaveEditExpense = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!editingExpense || editAmount <= 0 || !editCategory) return;
+    setIsSubmitting(true);
+    try {
+      await updateDbExpense(editingExpense.id, {
+        category: editCategory,
+        amount: editAmount,
+        expense_date: editExpenseDate,
+        notes: editNotes.trim() || undefined,
+      });
+      setEditingExpense(null);
+      await loadData();
+    } catch (err: any) {
+      alert('Gagal memperbarui pengeluaran: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -495,7 +532,15 @@ export default function PengeluaranPage() {
                       <span className="font-bold text-[#c87070] font-mono shrink-0">Rp {(e.amount || 0).toLocaleString('id-ID')}</span>
                     </div>
 
-                    <div className="flex justify-end pt-0.5">
+                    <div className="flex justify-end gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => openEditExpense(e)}
+                        className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1"
+                      >
+                        <Pencil className="w-2.5 h-2.5" />
+                        <span>Edit</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => setDeletingExpense(e)}
@@ -519,6 +564,102 @@ export default function PengeluaranPage() {
           />
         </div>
       </div>
+
+      {/* Edit Expense Modal */}
+      {editingExpense && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
+              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
+                <Pencil className="w-4 h-4" />
+                <span>Edit Catatan Biaya #{editingExpense.id}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingExpense(null)}
+                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form className="space-y-3 text-xs" onSubmit={handleSaveEditExpense}>
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Kategori Pengeluaran <span className="text-[#c87070]">*</span>
+                </label>
+                <select
+                  required
+                  value={editCategory}
+                  onChange={e => setEditCategory(e.target.value)}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                >
+                  {categories.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Tanggal Pengeluaran <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editExpenseDate}
+                  onChange={e => setEditExpenseDate(e.target.value)}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Jumlah Biaya (Rp) <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editAmount || ''}
+                  onChange={e => setEditAmount(Number(e.target.value))}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#c87070] font-bold outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Catatan / Keterangan (Opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Keterangan detail biaya..."
+                  value={editNotes}
+                  onChange={e => setEditNotes(e.target.value)}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db] resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || editAmount <= 0}
+                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Sticky Floating Summary & Submit Bar */}
       {amount > 0 && (

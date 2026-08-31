@@ -11,6 +11,7 @@ import {
   getDbSales, 
   getDbProductionBatches,
   createDbSale, 
+  updateDbSale,
   deleteDbSale 
 } from "@/lib/services/db";
 import { 
@@ -19,13 +20,15 @@ import {
   Clock, 
   Check, 
   Trash2, 
+  Pencil,
   CalendarDays, 
   DollarSign, 
   Tag,
   Plus,
   ShoppingBag,
   TrendingUp,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 
 interface VariantItem {
@@ -81,6 +84,16 @@ export default function PenjualanPage() {
   const [qty, setQty] = useState<number>(0);
   const [unitPrice, setUnitPrice] = useState<number>(0);
   const [saleDate, setBatchDate] = useState<string>(getTodayDateString());
+
+  // Edit Sale State
+  const [editingSale, setEditingSale] = useState<SaleRecord | null>(null);
+  const [editArticleId, setEditArticleId] = useState<number | null>(null);
+  const [editVariantId, setEditVariantId] = useState<number | null>(null);
+  const [editChannelId, setEditChannelId] = useState<number | null>(null);
+  const [editItemGrade, setEditItemGrade] = useState<'grade_a' | 'reject'>('grade_a');
+  const [editQty, setEditQty] = useState<number>(0);
+  const [editUnitPrice, setEditUnitPrice] = useState<number>(0);
+  const [editSaleDate, setEditSaleDate] = useState<string>(getTodayDateString());
 
   // Filters (Default: ALL)
   const [salesSearchQuery, setSalesSearchQuery] = useState('');
@@ -227,6 +240,40 @@ export default function PenjualanPage() {
       await loadData();
     } catch (err: any) {
       alert('Gagal mencatat penjualan: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditSale = (s: SaleRecord) => {
+    setEditingSale(s);
+    setEditArticleId(s.article_id || null);
+    setEditVariantId(s.variant_id || null);
+    setEditChannelId(s.channel_id || null);
+    setEditItemGrade(s.item_grade || 'grade_a');
+    setEditQty(s.qty || 0);
+    setEditUnitPrice(s.unit_price || (s.total_price && s.qty ? Math.round(s.total_price / s.qty) : 0));
+    setEditSaleDate(s.sale_date || getTodayDateString());
+  };
+
+  const handleSaveEditSale = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSale || !editVariantId || !editChannelId || editQty <= 0 || editUnitPrice <= 0) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateDbSale(editingSale.id, {
+        variant_id: editVariantId,
+        channel_id: editChannelId,
+        item_grade: editItemGrade,
+        qty: editQty,
+        sale_price: editUnitPrice,
+        sale_date: editSaleDate,
+      });
+      setEditingSale(null);
+      await loadData();
+    } catch (err: any) {
+      alert('Gagal memperbarui penjualan: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -825,12 +872,23 @@ export default function PenjualanPage() {
                         }`}>
                           {s.item_grade === 'grade_a' ? 'Grade A' : 'Reject'}
                         </span>
-                        <button
-                          onClick={() => setDeletingSale(s)}
-                          className="text-[#c87070] hover:underline"
-                        >
-                          Hapus
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditSale(s)}
+                            className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1"
+                          >
+                            <Pencil className="w-2.5 h-2.5" />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingSale(s)}
+                            className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
+                          >
+                            Hapus
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -848,6 +906,137 @@ export default function PenjualanPage() {
           />
         </div>
       </div>
+
+      {/* Edit Sale Modal */}
+      {editingSale && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
+              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
+                <Pencil className="w-4 h-4" />
+                <span>Edit Catatan Penjualan #{editingSale.id}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSale(null)}
+                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form className="space-y-3 text-xs" onSubmit={handleSaveEditSale}>
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Produk / Varian
+                </label>
+                <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-[#e2e6ed] font-semibold">
+                  {editingSale.articles?.name} — {editingSale.variants?.color}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                    Channel Penjualan <span className="text-[#c87070]">*</span>
+                  </label>
+                  <select
+                    required
+                    value={editChannelId || ''}
+                    onChange={e => setEditChannelId(Number(e.target.value))}
+                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                  >
+                    {channels.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                    Kualitas Grade <span className="text-[#c87070]">*</span>
+                  </label>
+                  <select
+                    value={editItemGrade}
+                    onChange={e => setEditItemGrade(e.target.value as 'grade_a' | 'reject')}
+                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                  >
+                    <option value="grade_a">Grade A (Bagus)</option>
+                    <option value="reject">Reject (Afkir)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Tanggal Penjualan <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editSaleDate}
+                  onChange={e => setEditSaleDate(e.target.value)}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                    Jumlah (pcs) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editQty || ''}
+                    onChange={e => setEditQty(Number(e.target.value))}
+                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#8ab896] font-bold outline-none focus:border-[#7eb3db]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                    Harga Jual Satuan (Rp) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={editUnitPrice || ''}
+                    onChange={e => setEditUnitPrice(Number(e.target.value))}
+                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#e2e6ed] font-bold outline-none focus:border-[#7eb3db]"
+                  />
+                </div>
+              </div>
+
+              {/* Total Preview */}
+              <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+                <span className="text-[#8899aa]">Total Penjualan Baru:</span>
+                <span className="font-mono font-black text-[#8ab896]">
+                  Rp {(editQty * editUnitPrice).toLocaleString('id-ID')}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingSale(null)}
+                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || editQty <= 0 || editUnitPrice <= 0}
+                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Sticky Floating Summary & Submit Bar */}
       {activeArticle && (qty > 0 || unitPrice > 0) && (
@@ -875,7 +1064,7 @@ export default function PenjualanPage() {
       <DeleteConfirmModal
         isOpen={Boolean(deletingSale)}
         title="Hapus Data Penjualan"
-        message={`Apakah Anda yakin ingin menghapus catatan penjualan #${deletingSale?.id}?`}
+        message={`Apakah Anda yakin ingin menghapus catatan penjualan #${deletingSale?.id}? Stok produk akan otomatis dikembalikan ke gudang.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeletingSale(null)}
       />
