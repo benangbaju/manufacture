@@ -129,7 +129,7 @@ export default function CommandPalette() {
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-start justify-center pt-16 sm:pt-24 p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 bg-black/80 flex items-start justify-center pt-16 sm:pt-24 p-4 animate-in fade-in duration-150"
       onClick={() => setIsOpen(false)}
     >
       <div 

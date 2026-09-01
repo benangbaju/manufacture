@@ -78,7 +78,17 @@ body {
   font-family: var(--font-sans);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* WebKit / macOS GPU Compositing Fixes to prevent blinking on older MacBooks */
+aside,
+.fixed,
+.sticky,
+[role="dialog"] {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
 }
 
 html.light body,

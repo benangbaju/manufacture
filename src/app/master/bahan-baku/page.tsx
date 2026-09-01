@@ -4,8 +4,13 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
+import { sortMasterItems } from "@/lib/utils/sorting";
+import { formatNumber } from "@/lib/utils/formatters";
 import { getDbRawMaterials, createDbRawMaterial, updateDbRawMaterial, deleteDbRawMaterial } from "@/lib/services/db";
-import { Tag, Plus, Pencil, Trash2, X, Search, CheckCircle2, AlertCircle, ArrowUpDown } from 'lucide-react';
+import { Tag, Plus, Pencil, Trash2, X, CheckCircle2, AlertCircle, ArrowUpDown } from 'lucide-react';
 
 interface BahanItem {
   id: number;
@@ -109,22 +114,15 @@ export default function BahanBakuPage() {
     }
   };
 
-  // Filtered & Sorted raw materials
-  const filteredData = data
-    .filter(r => {
+  // Filtered & Sorted raw materials via sortMasterItems
+  const filteredData = sortMasterItems(
+    data.filter(r => {
       const q = searchQuery.toLowerCase().trim();
       if (!q) return true;
       return r.name.toLowerCase().includes(q) || r.unit.toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      if (sortBy === 'name-asc') return a.name.localeCompare(b.name, 'id');
-      if (sortBy === 'name-desc') return b.name.localeCompare(a.name, 'id');
-      if (sortBy === 'stock-desc') return Number(b.stock_qty || 0) - Number(a.stock_qty || 0);
-      if (sortBy === 'stock-asc') return Number(a.stock_qty || 0) - Number(b.stock_qty || 0);
-      if (sortBy === 'newest') return b.id - a.id;
-      if (sortBy === 'oldest') return a.id - b.id;
-      return a.name.localeCompare(b.name, 'id');
-    });
+    }),
+    sortBy
+  );
 
   const totalStockCount = data.reduce((a, b) => a + Number(b.stock_qty || 0), 0);
   const lowStockCount = data.filter(r => Number(r.stock_qty || 0) < 100).length;
@@ -153,22 +151,26 @@ export default function BahanBakuPage() {
         description="Master komponen non-kain (kancing, renda, karet, label, resleting, benang) dengan satuan fleksibel (pcs, cm, meter, roll, cone) yang dikonsumsi per pcs produk" 
       />
 
-      {/* Top Stat Overview Cards */}
+      {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Jenis Aksesoris BOM</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{data.length} <span className="text-xs font-normal text-[#5a6270]">Bahan</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Stok Keseluruhan</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{totalStockCount.toLocaleString('id-ID')} <span className="text-xs font-normal text-[#5a6270]">unit</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330] col-span-2 sm:col-span-1">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Menipis (&lt;100)</span>
-          <p className={`text-xl sm:text-2xl font-black font-mono ${lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8ab896]'}`}>
-            {lowStockCount} <span className="text-xs font-normal text-[#5a6270]">Bahan</span>
-          </p>
-        </div>
+        <KpiStatCard
+          title="Jenis Aksesoris BOM"
+          value={<span className="text-[#e2e6ed]">{data.length} <span className="text-xs font-normal text-[#5a6270]">Bahan</span></span>}
+          icon={Tag}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Total Stok Keseluruhan"
+          value={<span className="text-[#7eb3db]">{formatNumber(totalStockCount)} <span className="text-xs font-normal text-[#5a6270]">unit</span></span>}
+          icon={Tag}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Stok Menipis (<100)"
+          value={<span className={lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8ab896]'}>{lowStockCount} <span className="text-xs font-normal text-[#5a6270]">Bahan</span></span>}
+          icon={AlertCircle}
+          iconColor={lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8ab896]'}
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -176,25 +178,12 @@ export default function BahanBakuPage() {
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
           {/* Header with Search & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari bahan baku, kancing, renda, label..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari bahan baku, kancing, renda, label..."
+              className="flex-1"
+            />
 
             {/* Sorting Dropdown & Counter */}
             <div className="flex items-center gap-2 shrink-0">
@@ -261,7 +250,7 @@ export default function BahanBakuPage() {
                               ? 'bg-[#201e1a] text-[#c8a870] border-[#3a3020]' 
                               : 'bg-[#1a2a20] text-[#8ab896] border-[#2a3828]'
                           }`}>
-                            {Number(d.stock_qty || 0).toLocaleString('id-ID')} {d.unit}
+                            {formatNumber(Number(d.stock_qty || 0))} {d.unit}
                           </span>
                         </td>
                         <td className="p-3.5 text-right">
@@ -411,84 +400,81 @@ export default function BahanBakuPage() {
         </div>
       </div>
 
-      {/* Edit Modal */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3040] rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#1e2330]">
-              <h3 className="text-sm font-bold text-[#e2e6ed]">Edit Bahan Baku #{editingItem.id}</h3>
-              <button onClick={() => setEditingItem(null)} className="text-[#5a6270] hover:text-[#e2e6ed]">
-                <X className="w-4 h-4" />
-              </button>
+      {/* Edit Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        title={editingItem ? `Edit Bahan Baku #${editingItem.id}` : ''}
+        icon={Pencil}
+      >
+        {editingItem && (
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Bahan</label>
+              <input
+                type="text"
+                required
+                value={editingItem.name}
+                onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
+              />
             </div>
-            <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Bahan</label>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan</label>
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {UNIT_PRESETS.slice(0, 5).map(u => (
+                    <button
+                      key={u}
+                      type="button"
+                      onClick={() => setEditingItem({ ...editingItem, unit: u })}
+                      className={`px-1.5 py-0.5 rounded text-[0.6rem] font-medium transition-all cursor-pointer ${
+                        editingItem.unit === u
+                          ? 'bg-[#3d5a80] text-white border border-[#4a6d8c]'
+                          : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="text"
                   required
-                  value={editingItem.name}
-                  onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                  value={editingItem.unit}
+                  onChange={e => setEditingItem({ ...editingItem, unit: e.target.value })}
                   className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Satuan</label>
-                  <div className="flex flex-wrap gap-1 mb-1.5">
-                    {UNIT_PRESETS.slice(0, 5).map(u => (
-                      <button
-                        key={u}
-                        type="button"
-                        onClick={() => setEditingItem({ ...editingItem, unit: u })}
-                        className={`px-1.5 py-0.5 rounded text-[0.6rem] font-medium transition-all ${
-                          editingItem.unit === u
-                            ? 'bg-[#3d5a80] text-white border border-[#4a6d8c]'
-                            : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
-                        }`}
-                      >
-                        {u}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={editingItem.unit}
-                    onChange={e => setEditingItem({ ...editingItem, unit: e.target.value })}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editingItem.stock_qty}
-                    onChange={e => setEditingItem({ ...editingItem, stock_qty: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#7eb3db] text-xs sm:text-sm font-mono font-bold focus:border-[#7eb3db] outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingItem.stock_qty}
+                  onChange={e => setEditingItem({ ...editingItem, stock_qty: Number(e.target.value) })}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#7eb3db] text-xs sm:text-sm font-mono font-bold focus:border-[#7eb3db] outline-none"
+                />
               </div>
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingItem(null)}
-                  className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <div className="flex gap-2 justify-end pt-2 border-t border-[#1e2330]">
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Simpan Perubahan
+              </button>
+            </div>
+          </form>
+        )}
+      </BaseModal>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

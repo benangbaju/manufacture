@@ -4,9 +4,13 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
-import Link from "next/link";
-import { getDbArticles, createDbArticle, updateDbArticle, deleteDbArticle } from "@/lib/services/db";
-import { Shirt, Plus, ArrowRight, Sparkles, Pencil, Trash2, X, Search, Layers, Check, Palette, ArrowUpDown } from 'lucide-react';
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
+import { formatNumber } from "@/lib/utils/formatters";
+import Link from 'next/link';
+import { getDbArticles, createDbArticle, updateDbArticle, deleteDbArticle, createDbVariant, deleteDbVariant } from "@/lib/services/db";
+import { Shirt, Plus, Pencil, Trash2, X, AlertCircle, ArrowUpDown, ArrowRight, ChevronRight, Palette, Layers } from 'lucide-react';
 
 interface ArticleItem {
   id: number;
@@ -172,24 +176,36 @@ export default function ArtikelPage() {
         description="Daftar produk baju induk dan konfigurasi varian warna SKU (tersimpan real-time di database Supabase)" 
       />
 
-      {/* Top Stat Overview Cards */}
+      {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Model Baju</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{articles.length} <span className="text-xs font-normal text-[#5a6270]">Artikel</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Varian Warna</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{totalVariants} <span className="text-xs font-normal text-[#5a6270]">SKU</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Siap Jual</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{totalStockReady} <span className="text-xs font-normal text-[#5a6270]">pcs</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Reject (Afkir)</span>
-          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">{totalStockReject} <span className="text-xs font-normal text-[#5a6270]">pcs</span></p>
-        </div>
+        <KpiStatCard
+          title="Total Model Baju"
+          value={<span className="text-[#e2e6ed]">{articles.length} <span className="text-xs font-normal text-[#5a6270]">Artikel</span></span>}
+          icon={Shirt}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Total Varian Warna"
+          value={<span className="text-[#7eb3db]">{totalVariants} <span className="text-xs font-normal text-[#5a6270]">SKU</span></span>}
+          icon={Palette}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Stok Siap Jual"
+          value={<span className="text-[#8ab896]">{formatNumber(totalStockReady)} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          icon={Layers}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="Stok Reject (Afkir)"
+          value={<span className="text-[#c8a870]">{formatNumber(totalStockReject)} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          icon={AlertCircle}
+          iconColor="text-[#c8a870]"
+          iconBg="bg-[#201e1a]"
+          iconBorder="border-[#3a3020]"
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -197,25 +213,12 @@ export default function ArtikelPage() {
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
           {/* Table Header & Search Bar & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari artikel atau varian warna..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari artikel atau varian warna..."
+              className="flex-1"
+            />
             
             {/* Sorting Dropdown & Item Counter */}
             <div className="flex items-center gap-2 shrink-0">
@@ -421,55 +424,52 @@ export default function ArtikelPage() {
         </div>
       </div>
 
-      {/* Edit Modal */}
-      {editingArticle && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3040] rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#1e2330]">
-              <h3 className="text-sm font-bold text-[#e2e6ed]">Edit Master Artikel #{editingArticle.id}</h3>
-              <button onClick={() => setEditingArticle(null)} className="text-[#5a6270] hover:text-[#e2e6ed]">
-                <X className="w-4 h-4" />
+      {/* Edit Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingArticle)}
+        onClose={() => setEditingArticle(null)}
+        title={editingArticle ? `Edit Master Artikel #${editingArticle.id}` : ''}
+        icon={Pencil}
+      >
+        {editingArticle && (
+          <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Artikel</label>
+              <input
+                type="text"
+                required
+                value={editingArticle.name}
+                onChange={e => setEditingArticle({ ...editingArticle, name: e.target.value })}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Deskripsi</label>
+              <textarea
+                rows={3}
+                value={editingArticle.description || ''}
+                onChange={e => setEditingArticle({ ...editingArticle, description: e.target.value })}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none resize-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2 border-t border-[#1e2330]">
+              <button
+                type="button"
+                onClick={() => setEditingArticle(null)}
+                className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Simpan Perubahan
               </button>
             </div>
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Artikel</label>
-                <input
-                  type="text"
-                  required
-                  value={editingArticle.name}
-                  onChange={e => setEditingArticle({ ...editingArticle, name: e.target.value })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Deskripsi</label>
-                <textarea
-                  rows={3}
-                  value={editingArticle.description || ''}
-                  onChange={e => setEditingArticle({ ...editingArticle, description: e.target.value })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none resize-none"
-                />
-              </div>
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingArticle(null)}
-                  className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </BaseModal>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import BaseModal from "@/components/ui/BaseModal";
+import SearchInput from "@/components/ui/SearchInput";
 import { getDbChannels, createDbChannel, updateDbChannel, deleteDbChannel } from "@/lib/services/db";
-import { Store, Plus, Trash2, Pencil, Search, ShoppingBag, X } from 'lucide-react';
+import { Store, Plus, Pencil, Trash2, X, CheckCircle2, ShoppingBag } from 'lucide-react';
 
 interface ChannelItem {
   id: number;
@@ -129,27 +131,14 @@ export default function ChannelPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Header Bar with Search */}
+          {/* Header Bar with Search via SearchInput */}
           <div className="glass-card rounded-2xl p-3 border-[#1e2330] flex items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari channel penjualan..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-7 py-1 bg-transparent text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari channel penjualan..."
+              className="flex-1"
+            />
             <span className="text-xs text-[#8899aa] font-semibold shrink-0 pr-2">
               Total {channels.length} Channel
             </span>
@@ -257,58 +246,48 @@ export default function ChannelPage() {
         </div>
       </div>
 
-      {/* Edit Channel Modal */}
-      {editingChannel && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
-              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
-                <Pencil className="w-4 h-4" />
-                <span>Edit Channel Penjualan</span>
-              </div>
+      {/* Edit Channel Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingChannel)}
+        onClose={() => setEditingChannel(null)}
+        title="Edit Channel Penjualan"
+        icon={Pencil}
+        maxWidth="sm"
+      >
+        {editingChannel && (
+          <form className="space-y-3 text-xs" onSubmit={handleSaveEdit}>
+            <div>
+              <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                Nama Channel <span className="text-[#c87070]">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1e2330]">
               <button
                 type="button"
                 onClick={() => setEditingChannel(null)}
-                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+                className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || !editName.trim()}
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
-
-            <form className="space-y-3 text-xs" onSubmit={handleSaveEdit}>
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Nama Channel <span className="text-[#c87070]">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingChannel(null)}
-                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !editName.trim()}
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </BaseModal>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

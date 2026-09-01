@@ -91,7 +91,7 @@ export default function PWAInstallButton({ variant = 'sidebar' }: PWAInstallButt
   };
 
   const modalElement = showIOSModal && (
-    <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4">
       <div className="bg-[var(--card-bg)] border border-[var(--color-border)] rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4 animate-in zoom-in-95 text-[var(--color-text-main)]">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -155,10 +155,10 @@ export default function PWAInstallButton({ variant = 'sidebar' }: PWAInstallButt
         <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-40 animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div
             onClick={() => handleInstallClick()}
-            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-[var(--card-bg)] border border-[var(--color-border)] shadow-xl hover:shadow-2xl hover:border-[#3d5a80] text-[var(--color-text-main)] cursor-pointer transition-all group backdrop-blur-md"
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-[var(--card-bg)] border border-[var(--color-border)] shadow-xl hover:shadow-2xl hover:border-[#3d5a80] text-[var(--color-text-main)] cursor-pointer transition-all group"
           >
             <div className="w-8 h-8 rounded-xl bg-[#1a2838] border border-[#2a3848] text-[#c8a870] flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-              <Download className="w-4 h-4 animate-bounce" />
+              <Download className="w-4 h-4" />
             </div>
             <div className="pr-1 text-left">
               <p className="text-xs font-bold text-[#e2e6ed] group-hover:text-[#3d5a80] transition-colors leading-tight">
@@ -202,7 +202,7 @@ export default function PWAInstallButton({ variant = 'sidebar' }: PWAInstallButt
                 ? 'bg-[#1a2030] text-[#6ea87a]' 
                 : 'bg-[#1a2838] border border-[#2a3848] text-[#c8a870] group-hover:scale-105'
             }`}>
-              {isInstalled ? <Check className="w-4 h-4" /> : <Download className="w-4 h-4 animate-pulse" />}
+              {isInstalled ? <Check className="w-4 h-4" /> : <Download className="w-4 h-4" />}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">

@@ -1,17 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import Pagination from "@/components/ui/Pagination";
+import MobileStickyFooter from "@/components/ui/MobileStickyFooter";
+import DateFilterGroup from "@/components/ui/DateFilterGroup";
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
+import QuickSuccessAlert from "@/components/ui/QuickSuccessAlert";
+import { usePagination } from "@/hooks/usePagination";
+import { formatRupiah, formatCompactRupiah, formatNumber } from "@/lib/utils/formatters";
+import { getTodayDateString, filterByDateRange, DateFilterOption } from "@/lib/utils/date";
 import { 
   getDbArticles, 
   getDbChannels, 
   getDbSales, 
   getDbProductionBatches,
   createDbSale, 
-  updateDbSale,
+  updateDbSale, 
   deleteDbSale 
 } from "@/lib/services/db";
 import { 
@@ -20,15 +29,13 @@ import {
   Clock, 
   Check, 
   Trash2, 
-  Pencil,
-  CalendarDays, 
+  Pencil, 
   DollarSign, 
-  Tag,
-  Plus,
-  ShoppingBag,
-  TrendingUp,
-  Search,
-  X
+  Tag, 
+  Plus, 
+  ShoppingBag, 
+  TrendingUp, 
+  Search 
 } from 'lucide-react';
 
 interface VariantItem {
@@ -64,10 +71,7 @@ interface SaleRecord {
   channels?: { name: string };
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
 type GradeFilterOption = 'ALL' | 'GRADE_A' | 'REJECT';
-
-const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
 export default function PenjualanPage() {
   const [articles, setArticles] = useState<ArticleItem[]>([]);
@@ -83,7 +87,7 @@ export default function PenjualanPage() {
   const [selectedChannelId, setSelectedChannelId] = useState<number | null>(null);
   const [qty, setQty] = useState<number>(0);
   const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [saleDate, setBatchDate] = useState<string>(getTodayDateString());
+  const [saleDate, setSaleDate] = useState<string>(getTodayDateString());
 
   // Edit Sale State
   const [editingSale, setEditingSale] = useState<SaleRecord | null>(null);
@@ -95,14 +99,12 @@ export default function PenjualanPage() {
   const [editUnitPrice, setEditUnitPrice] = useState<number>(0);
   const [editSaleDate, setEditSaleDate] = useState<string>(getTodayDateString());
 
-  // Filters (Default: ALL)
+  // Filters
   const [salesSearchQuery, setSalesSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
   const [gradeFilter, setGradeFilter] = useState<GradeFilterOption>('ALL');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modals & States
   const [showModal, setShowModal] = useState(false);
@@ -120,27 +122,19 @@ export default function PenjualanPage() {
         getDbSales(),
         getDbProductionBatches(),
       ]);
-
-      const sortedArticles = (artList || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id')).map(a => ({
-        ...a,
-        variants: (a.variants || []).slice().sort((v1: any, v2: any) => v1.color.localeCompare(v2.color, 'id')),
-      }));
-
-      const sortedChannels = (chList || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'id'));
-
-      setArticles(sortedArticles);
-      setChannels(sortedChannels);
+      setArticles(artList || []);
+      setChannels(chList || []);
       setSales(saleList || []);
       setBatches(batchList || []);
 
-      if (sortedArticles.length > 0 && !selectedArticleId) {
-        setSelectedArticleId(sortedArticles[0].id);
-        if (sortedArticles[0].variants && sortedArticles[0].variants.length > 0) {
-          setSelectedVariantId(sortedArticles[0].variants[0].id);
+      if (artList && artList.length > 0 && !selectedArticleId) {
+        setSelectedArticleId(artList[0].id);
+        if (artList[0].variants && artList[0].variants.length > 0) {
+          setSelectedVariantId(artList[0].variants[0].id);
         }
       }
-      if (sortedChannels.length > 0 && !selectedChannelId) {
-        setSelectedChannelId(sortedChannels[0].id);
+      if (chList && chList.length > 0 && !selectedChannelId) {
+        setSelectedChannelId(chList[0].id);
       }
     } catch (err) {
       console.error('Failed to load sales data:', err);
@@ -153,49 +147,34 @@ export default function PenjualanPage() {
     loadData();
   }, []);
 
-  // Compute variant unit cost (HPP) map from batches
-  const variantCostMap = new Map<number, { totalCost: number; totalQty: number }>();
-  batches.forEach(b => {
-    const vId = b.variant_id;
-    const cut = Number(b.total_cut || (b.qty_produced + b.qty_reject) || 0);
-    const prodCost = Number(b.total_production_cost || (b.fabric_cost + b.total_sewing_cost + (b.accessories_cost || 0)) || 0);
-    if (vId && cut > 0) {
-      const cur = variantCostMap.get(vId) || { totalCost: 0, totalQty: 0 };
-      variantCostMap.set(vId, {
-        totalCost: cur.totalCost + prodCost,
-        totalQty: cur.totalQty + cut,
-      });
-    }
-  });
-
-  const getVariantHpp = (variantId?: number | null) => {
-    if (variantId && variantCostMap.has(variantId)) {
-      const v = variantCostMap.get(variantId)!;
-      if (v.totalQty > 0) return Math.round(v.totalCost / v.totalQty);
-    }
-    return 38000;
-  };
-
   const activeArticle = articles.find(a => a.id === selectedArticleId);
-  const activeVariant = activeArticle?.variants?.find((v: any) => v.id === selectedVariantId) || null;
+  const activeVariant = activeArticle?.variants?.find(v => v.id === selectedVariantId);
   const activeChannel = channels.find(c => c.id === selectedChannelId);
 
-  const currentAvailableStock = activeVariant
-    ? (itemGrade === 'grade_a' ? Number(activeVariant.stock_qty || 0) : Number(activeVariant.stock_reject_qty || 0))
+  // Available stock based on grade
+  const availableStock = activeVariant
+    ? (itemGrade === 'grade_a' ? activeVariant.stock_qty : activeVariant.stock_reject_qty)
     : 0;
 
-  const isStockInsufficient = qty > currentAvailableStock;
+  // HPP Calculation per Variant
+  const getVariantHpp = (variantId: number): number => {
+    const variantBatches = batches.filter(b => b.variant_id === variantId);
+    if (!variantBatches.length) return 0;
+    const totalCost = variantBatches.reduce((sum, b) => sum + (b.total_batch_cost || 0), 0);
+    const totalGood = variantBatches.reduce((sum, b) => sum + (b.qty_produced || 0), 0);
+    return totalGood > 0 ? totalCost / totalGood : 0;
+  };
+
+  const currentHpp = activeVariant ? getVariantHpp(activeVariant.id) : 0;
   const totalPrice = qty * unitPrice;
-
-  // Margin estimation for active form
-  const activeVariantHpp = getVariantHpp(activeVariant?.id);
-  const estimatedUnitMargin = unitPrice > 0 ? unitPrice - activeVariantHpp : 0;
+  const estimatedTotalCost = itemGrade === 'grade_a' ? qty * currentHpp : 0;
+  const estimatedGrossProfit = totalPrice - estimatedTotalCost;
+  const estimatedUnitMargin = itemGrade === 'grade_a' ? unitPrice - currentHpp : unitPrice;
   const estimatedUnitMarginPct = unitPrice > 0 ? Number(((estimatedUnitMargin / unitPrice) * 100).toFixed(1)) : 0;
-  const estimatedTotalMargin = estimatedUnitMargin * qty;
 
-  const handleArticleSelect = (id: number) => {
-    setSelectedArticleId(id);
-    const art = articles.find(a => a.id === id);
+  const handleArticleChange = (articleId: number) => {
+    setSelectedArticleId(articleId);
+    const art = articles.find(a => a.id === articleId);
     if (art && art.variants && art.variants.length > 0) {
       setSelectedVariantId(art.variants[0].id);
     } else {
@@ -204,38 +183,32 @@ export default function PenjualanPage() {
   };
 
   const handleSubmit = async (continueEntry: boolean = false) => {
-    if (!activeArticle || !activeVariant || !activeChannel || qty <= 0 || unitPrice <= 0 || isStockInsufficient) return;
+    if (!selectedArticleId || !selectedVariantId || !selectedChannelId || qty <= 0 || unitPrice <= 0) return;
 
     setIsSubmitting(true);
     try {
       await createDbSale({
-        sale_date: saleDate,
-        article_id: activeArticle.id,
-        variant_id: activeVariant.id,
-        channel_id: activeChannel.id,
+        article_id: selectedArticleId,
+        variant_id: selectedVariantId,
+        channel_id: selectedChannelId,
         item_grade: itemGrade,
         qty,
         sale_price: unitPrice,
-        total_price: totalPrice,
+        sale_date: saleDate,
       });
 
-      const gradeLabel = itemGrade === 'grade_a' ? 'Grade A (Bagus)' : 'Barang Reject (Afkir)';
       const lines = [
         `Tanggal: ${saleDate}`,
-        `Kategori: ${gradeLabel}`,
-        `Produk: ${activeArticle.name} - ${activeVariant.color}`,
-        `Channel: ${activeChannel.name}`,
-        `Jumlah Terjual: ${qty} pcs`,
-        `Harga Satuan: Rp ${unitPrice.toLocaleString('id-ID')}`,
-        `Estimasi HPP Satuan: Rp ${activeVariantHpp.toLocaleString('id-ID')}`,
-        `Estimasi Margin: ${estimatedUnitMargin >= 0 ? '+' : ''}Rp ${estimatedUnitMargin.toLocaleString('id-ID')} / pcs (${estimatedUnitMarginPct}%)`,
-        `Total Pemasukan: Rp ${totalPrice.toLocaleString('id-ID')}`,
-        `Total Laba Kotor: Rp ${estimatedTotalMargin.toLocaleString('id-ID')}`,
-        `Sisa Stok ${gradeLabel}: ${currentAvailableStock - qty} pcs`,
+        `Produk: ${activeArticle?.name} - ${activeVariant?.color}`,
+        `Kualitas: ${itemGrade === 'grade_a' ? 'Grade A (Bagus)' : 'Reject (Obral)'}`,
+        `Channel: ${activeChannel?.name}`,
+        `Jumlah: ${qty} pcs @ ${formatRupiah(unitPrice)}`,
+        `Total Omset: ${formatRupiah(totalPrice)}`,
+        itemGrade === 'grade_a' && currentHpp > 0 ? `Est. Laba Kotor: ${formatRupiah(estimatedGrossProfit)} (${estimatedUnitMarginPct}%)` : 'Stok gudang otomatis berkurang.',
       ];
 
       if (continueEntry) {
-        setQuickSuccessMsg(`Penjualan dicatat: ${qty} pcs ${activeArticle.name} (${activeVariant.color}) senilai Rp ${totalPrice.toLocaleString('id-ID')}`);
+        setQuickSuccessMsg(`Penjualan berhasil dicatat: ${activeArticle?.name} (${activeVariant?.color}) ${qty} pcs - ${formatRupiah(totalPrice)}`);
         setTimeout(() => setQuickSuccessMsg(null), 4000);
       } else {
         setModalLines(lines);
@@ -246,7 +219,8 @@ export default function PenjualanPage() {
       setUnitPrice(0);
       await loadData();
     } catch (err: any) {
-      alert('Gagal mencatat penjualan: ' + err.message);
+      console.error('Failed to create sale:', err);
+      alert(err.message || 'Gagal menyimpan transaksi penjualan.');
     } finally {
       setIsSubmitting(false);
     }
@@ -254,33 +228,35 @@ export default function PenjualanPage() {
 
   const openEditSale = (s: SaleRecord) => {
     setEditingSale(s);
-    setEditArticleId(s.article_id || null);
-    setEditVariantId(s.variant_id || null);
-    setEditChannelId(s.channel_id || null);
-    setEditItemGrade(s.item_grade || 'grade_a');
-    setEditQty(s.qty || 0);
-    setEditUnitPrice(s.unit_price || (s.total_price && s.qty ? Math.round(s.total_price / s.qty) : 0));
-    setEditSaleDate(s.sale_date || getTodayDateString());
+    setEditArticleId(s.article_id);
+    setEditVariantId(s.variant_id);
+    setEditChannelId(s.channel_id);
+    setEditItemGrade(s.item_grade);
+    setEditQty(s.qty);
+    setEditUnitPrice(s.unit_price);
+    setEditSaleDate(s.sale_date);
   };
 
-  const handleSaveEditSale = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSale || !editVariantId || !editChannelId || editQty <= 0 || editUnitPrice <= 0) return;
+  const handleSaveEditSale = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!editingSale || editQty <= 0 || editUnitPrice <= 0 || !editChannelId) return;
 
     setIsSubmitting(true);
     try {
       await updateDbSale(editingSale.id, {
-        variant_id: editVariantId,
+        variant_id: editingSale.variant_id,
         channel_id: editChannelId,
         item_grade: editItemGrade,
         qty: editQty,
         sale_price: editUnitPrice,
         sale_date: editSaleDate,
       });
+
       setEditingSale(null);
       await loadData();
     } catch (err: any) {
-      alert('Gagal memperbarui penjualan: ' + err.message);
+      console.error('Failed to update sale:', err);
+      alert(err.message || 'Gagal memperbarui transaksi penjualan.');
     } finally {
       setIsSubmitting(false);
     }
@@ -292,57 +268,45 @@ export default function PenjualanPage() {
       await deleteDbSale(deletingSale.id);
       setDeletingSale(null);
       await loadData();
-    } catch (err: any) {
-      alert('Gagal menghapus data penjualan: ' + err.message);
+    } catch (err) {
+      console.error('Failed to delete sale:', err);
+      alert('Gagal menghapus catatan penjualan.');
     }
   };
 
-  // Universal Date, Grade & Search Filtering Logic
-  const todayStr = getTodayDateString();
-  const now = new Date();
-  const filteredSales = sales.filter(s => {
-    // Search Query
-    if (salesSearchQuery) {
-      const q = salesSearchQuery.toLowerCase().trim();
-      const artName = (s.articles?.name || '').toLowerCase();
-      const color = (s.variants?.color || '').toLowerCase();
-      const channel = (s.channels?.name || '').toLowerCase();
-      if (!artName.includes(q) && !color.includes(q) && !channel.includes(q)) return false;
+  // Filtered Sales Calculation
+  const filteredSales = useMemo(() => {
+    let result = filterByDateRange(sales, 'sale_date', dateFilter, customStartDate, customEndDate);
+    if (gradeFilter === 'GRADE_A') {
+      result = result.filter(s => s.item_grade === 'grade_a');
+    } else if (gradeFilter === 'REJECT') {
+      result = result.filter(s => s.item_grade === 'reject');
     }
-
-    // Grade Filter
-    if (gradeFilter === 'GRADE_A' && s.item_grade !== 'grade_a') return false;
-    if (gradeFilter === 'REJECT' && s.item_grade !== 'reject') return false;
-
-    // Date Filter
-    if (dateFilter === 'ALL') return true;
-    if (dateFilter === 'TODAY') return s.sale_date === todayStr;
-    if (dateFilter === '7_DAYS') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      return new Date(s.sale_date) >= sevenDaysAgo;
+    if (salesSearchQuery.trim()) {
+      const q = salesSearchQuery.toLowerCase();
+      result = result.filter(s => 
+        (s.articles?.name && s.articles.name.toLowerCase().includes(q)) ||
+        (s.variants?.color && s.variants.color.toLowerCase().includes(q)) ||
+        (s.channels?.name && s.channels.name.toLowerCase().includes(q))
+      );
     }
-    if (dateFilter === '30_DAYS') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      return new Date(s.sale_date) >= thirtyDaysAgo;
-    }
-    if (dateFilter === 'THIS_MONTH') {
-      const sDate = new Date(s.sale_date);
-      return sDate.getMonth() === now.getMonth() && sDate.getFullYear() === now.getFullYear();
-    }
-    if (dateFilter === 'CUSTOM') {
-      if (!customStartDate && !customEndDate) return true;
-      const sDate = new Date(s.sale_date);
-      if (customStartDate && sDate < new Date(customStartDate)) return false;
-      if (customEndDate && sDate > new Date(customEndDate)) return false;
-      return true;
-    }
-    return true;
-  });
+    return result;
+  }, [sales, dateFilter, customStartDate, customEndDate, gradeFilter, salesSearchQuery]);
 
   const totalFilteredNominal = filteredSales.reduce((acc, curr) => acc + (curr.total_price || 0), 0);
   const totalFilteredQty = filteredSales.reduce((acc, curr) => acc + curr.qty, 0);
+  const totalAllRevenue = sales.reduce((a, b) => a + (b.total_price || 0), 0);
+  const totalAllPcs = sales.reduce((a, b) => a + (b.qty || 0), 0);
+  const totalRejectPcs = sales.filter(s => s.item_grade === 'reject').reduce((a, b) => a + (b.qty || 0), 0);
+
+  // Pagination Hook
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedItems: pagedSales,
+  } = usePagination(filteredSales, { initialPageSize: 10 });
 
   return (
     <div>
@@ -353,50 +317,44 @@ export default function PenjualanPage() {
 
       {/* Top Stat Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Omzet Penjualan</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
-            Rp {(sales.reduce((a, b) => a + (b.total_price || 0), 0) / 1000000).toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">Juta</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Pcs Terjual</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
-            {sales.reduce((a, b) => a + (b.qty || 0), 0).toLocaleString('id-ID')} <span className="text-xs font-normal text-[#5a6270]">pcs</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Transaksi</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">
-            {sales.length} <span className="text-xs font-normal text-[#5a6270]">Pesanan</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Penjualan Reject</span>
-          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">
-            {sales.filter(s => s.item_grade === 'reject').reduce((a, b) => a + (b.qty || 0), 0)} <span className="text-xs font-normal text-[#5a6270]">pcs</span>
-          </p>
-        </div>
+        <KpiStatCard
+          title="Total Omzet Penjualan"
+          value={<span className="text-[#8ab896]">{formatCompactRupiah(totalAllRevenue)}</span>}
+          icon={DollarSign}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="Total Pcs Terjual"
+          value={<span className="text-[#7eb3db]">{formatNumber(totalAllPcs)} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          icon={ShoppingBag}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Total Transaksi"
+          value={<span className="text-[#e2e6ed]">{sales.length} <span className="text-xs font-normal text-[#5a6270]">Pesanan</span></span>}
+          icon={Clock}
+          iconColor="text-[#e2e6ed]"
+        />
+        <KpiStatCard
+          title="Penjualan Reject"
+          value={<span className="text-[#c8a870]">{totalRejectPcs} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          icon={Tag}
+          iconColor="text-[#c8a870]"
+          iconBg="bg-[#201e1a]"
+          iconBorder="border-[#3a3020]"
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Form Container */}
         <div className="lg:col-span-2 glass-card rounded-2xl p-5 md:p-6 border-[#1e2330]">
-          {quickSuccessMsg && (
-            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
-              <div className="flex items-center gap-2">
-                <Check className="w-4 h-4 shrink-0" />
-                <span>{quickSuccessMsg}</span>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setQuickSuccessMsg(null)}
-                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          <QuickSuccessAlert
+            message={quickSuccessMsg}
+            onClose={() => setQuickSuccessMsg(null)}
+            icon={Check}
+          />
 
           {articles.length === 0 && !loading ? (
             <div className="p-8 text-center">
@@ -409,283 +367,236 @@ export default function PenjualanPage() {
               </p>
             </div>
           ) : (
-            <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }}>
-              {/* Step 1: Grade Selector */}
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }}>
+              {/* Quality Grade Switcher */}
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-5 h-5 rounded-full bg-[#121822] text-[#7eb3db] font-bold text-xs flex items-center justify-center border border-[#233548]">1</span>
-                  <label className="text-sm font-bold text-[#e2e6ed] tracking-tight">Kategori Kualitas Barang yang Dijual</label>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                  1. Kualitas Barang Terjual <span className="text-[#c87070]">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setItemGrade('grade_a');
-                      setQty(0);
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    onClick={() => setItemGrade('grade_a')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       itemGrade === 'grade_a'
-                        ? 'bg-[#1a2a20] border-[#2a3828] text-[#8ab896] ring-1 ring-[#8ab896]'
-                        : 'bg-[#0c0f17] border-[#1e2330] text-[#5a6270] hover:text-[#8899aa]'
+                        ? 'bg-[#162a20] border-[#2a4030] text-[#8ab896] shadow-sm'
+                        : 'bg-[#0c0f17] border-[#1e2330] text-[#8899aa] hover:border-[#2a3848]'
                     }`}
                   >
-                    <p className="font-bold text-xs sm:text-sm text-[#8ab896]">Baju Jadi Grade A</p>
-                    <p className="text-[0.65rem] text-[#5a6270] mt-0.5">Penjualan standar reguler (memotong stok Grade A)</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs">Grade A (Barang Bagus)</span>
+                      {itemGrade === 'grade_a' && <span className="w-2 h-2 rounded-full bg-[#8ab896]" />}
+                    </div>
+                    <p className="text-[0.65rem] text-[#5a6270]">Penjualan reguler harga standar toko</p>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setItemGrade('reject');
-                      setQty(0);
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    onClick={() => setItemGrade('reject')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       itemGrade === 'reject'
-                        ? 'bg-[#201e1a] border-[#3a3020] text-[#c8a870] ring-1 ring-[#c8a870]'
-                        : 'bg-[#0c0f17] border-[#1e2330] text-[#5a6270] hover:text-[#8899aa]'
+                        ? 'bg-[#201e1a] border-[#3a3020] text-[#c8a870] shadow-sm'
+                        : 'bg-[#0c0f17] border-[#1e2330] text-[#8899aa] hover:border-[#2a3848]'
                     }`}
                   >
-                    <p className="font-bold text-xs sm:text-sm text-[#c8a870]">Barang Reject / Cuci Gudang</p>
-                    <p className="text-[0.65rem] text-[#5a6270] mt-0.5">Obral cacat produksi (memotong stok Reject)</p>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs">Reject (Barang Afkir / Cacat)</span>
+                      {itemGrade === 'reject' && <span className="w-2 h-2 rounded-full bg-[#c8a870]" />}
+                    </div>
+                    <p className="text-[0.65rem] text-[#5a6270]">Obral / cuci gudang recovery modal kain</p>
                   </button>
                 </div>
               </div>
 
-              {/* Step 2: Date, Article, Channel */}
-              <div className="grid sm:grid-cols-3 gap-4">
+              {/* Step 2: Select Article & Variant */}
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                    Tanggal Transaksi <span className="text-[#c87070]">*</span>
+                  <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                    2. Pilih Artikel Model <span className="text-[#c87070]">*</span>
                   </label>
-                  <input
-                    type="date"
-                    required
-                    value={saleDate}
-                    onChange={(e) => setBatchDate(e.target.value)}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                    Pilih Artikel <span className="text-[#c87070]">*</span>
-                  </label>
-                  <select
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
-                    value={selectedArticleId || ''}
-                    onChange={(e) => handleArticleSelect(Number(e.target.value))}
-                    required
-                  >
-                    {articles.map(a => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                    Channel Penjualan <span className="text-[#c87070]">*</span>
-                  </label>
-                  <select
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium cursor-pointer"
-                    value={selectedChannelId || ''}
-                    onChange={(e) => setSelectedChannelId(Number(e.target.value))}
-                    required
-                  >
-                    {channels.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Step 3: Variant Selection */}
-              {activeArticle && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-[#8899aa]">Pilih Varian Warna</label>
-                    <span className="text-[0.7rem] text-[#5a6270]">
-                      Stok {itemGrade === 'grade_a' ? 'Grade A' : 'Reject'}: <strong className={currentAvailableStock > 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{currentAvailableStock} pcs</strong>
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {activeArticle.variants.map(v => {
-                      const avail = itemGrade === 'grade_a' ? v.stock_qty : (v.stock_reject_qty || 0);
-                      const isSel = selectedVariantId === v.id;
+                  <div className="flex gap-2 overflow-x-auto pb-1 max-w-full">
+                    {articles.map((art) => {
+                      const isSelected = selectedArticleId === art.id;
                       return (
                         <button
-                          key={v.id}
+                          key={art.id}
                           type="button"
-                          onClick={() => setSelectedVariantId(v.id)}
-                          className={`p-3 rounded-xl text-left transition-all border ${
-                            isSel
-                              ? 'bg-[#121822] text-[#e2e6ed] border-[#233548] ring-1 ring-[#7eb3db] shadow-sm'
-                              : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
+                          onClick={() => handleArticleChange(art.id)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#3d5a80] text-white shadow-sm'
+                              : 'bg-[#0c0f17] hover:bg-[#1a2030] text-[#8899aa] hover:text-[#e2e6ed] border border-[#1e2330]'
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <p className="font-bold text-sm">{v.color}</p>
-                            {isSel && <Check className="w-4 h-4 text-[#7eb3db]" />}
-                          </div>
-                          <p className="text-[0.65rem] text-[#5a6270] mt-2">
-                            Stok: <strong className={avail > 0 ? (itemGrade === 'grade_a' ? 'text-[#8ab896]' : 'text-[#c8a870]') : 'text-[#c87070]'}>{avail} pcs</strong>
-                          </p>
+                          {art.name}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-              )}
 
-              {/* Step 4: Qty & Price Inputs */}
+                {activeArticle && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                      3. Pilih Warna / Varian <span className="text-[#c87070]">*</span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {activeArticle.variants?.map((v) => {
+                        const isSelected = selectedVariantId === v.id;
+                        const stock = itemGrade === 'grade_a' ? v.stock_qty : v.stock_reject_qty;
+                        return (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => setSelectedVariantId(v.id)}
+                            className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#1a2838] border-[#3d5a80] text-[#7eb3db] shadow-sm'
+                                : 'bg-[#0c0f17] border-[#1e2330] text-[#8899aa] hover:border-[#2a3848] hover:text-[#e2e6ed]'
+                            }`}
+                          >
+                            <div className="font-semibold truncate mb-0.5">{v.color}</div>
+                            <div className="text-[0.65rem] text-[#5a6270] font-mono flex items-center justify-between">
+                              <span>Stok:</span>
+                              <strong className={stock > 0 ? (itemGrade === 'grade_a' ? 'text-[#8ab896]' : 'text-[#c8a870]') : 'text-[#c87070]'}>
+                                {stock} pcs
+                              </strong>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Step 4: Channel & Date */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                    Channel Penjualan <span className="text-[#c87070]">*</span>
+                  </label>
+                  <select
+                    value={selectedChannelId || ''}
+                    onChange={(e) => setSelectedChannelId(Number(e.target.value))}
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] outline-none focus:border-[#7eb3db] font-medium cursor-pointer"
+                  >
+                    {channels.map((ch) => (
+                      <option key={ch.id} value={ch.id}>{ch.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                    Tanggal Penjualan <span className="text-[#c87070]">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={saleDate}
+                    onChange={(e) => setSaleDate(e.target.value)}
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                  />
+                </div>
+              </div>
+
+              {/* Step 5: Quantity & Price */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-[#8899aa] uppercase tracking-wider block">
+                      Jumlah Terjual (pcs) <span className="text-[#c87070]">*</span>
+                    </label>
+                    <span className="text-[0.65rem] text-[#5a6270]">
+                      Sisa Gudang: <strong className={availableStock > 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{availableStock} pcs</strong>
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="0"
+                    value={qty || ''}
+                    onChange={(e) => setQty(Number(e.target.value))}
+                    className="w-full p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-sm font-bold font-mono text-[#8ab896] outline-none focus:border-[#7eb3db]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                    Harga Jual Satuan (Rp) <span className="text-[#c87070]">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[#5a6270]">Rp</span>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="0"
+                      value={unitPrice || ''}
+                      onChange={(e) => setUnitPrice(Number(e.target.value))}
+                      className="w-full p-2.5 pl-9 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-sm font-bold font-mono text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Calculation Hub */}
               {activeVariant && (
-                <div className="space-y-4 pt-2 border-t border-[#1e2330]">
-                  {isStockInsufficient && (
-                    <div className="p-3 bg-[#241a1a] border border-[#3a2020] rounded-xl text-xs text-[#c87070] flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>Jumlah yang dijual ({qty} pcs) melebihi stok yang tersedia ({currentAvailableStock} pcs).</span>
+                <div className="space-y-2">
+                  <div className="p-4 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider block font-bold">Total Omzet Penjualan</span>
+                      <span className="text-[0.7rem] text-[#5a6270]">
+                        {qty} pcs × {formatRupiah(unitPrice)}
+                      </span>
                     </div>
-                  )}
-
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                          Jumlah Terjual (Pcs) <span className="text-[#c87070]">*</span>
-                        </label>
-                        <span className="text-[0.65rem] text-[#5a6270]">Maks: {currentAvailableStock} pcs</span>
-                      </div>
-
-                      {/* Quick Qty Chips */}
-                      {currentAvailableStock > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {[1, 2, 5, 10, 20].filter(n => n <= currentAvailableStock).map(n => (
-                            <button
-                              key={n}
-                              type="button"
-                              onClick={() => setQty(n)}
-                              className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border ${
-                                qty === n
-                                  ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]'
-                                  : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
-                              }`}
-                            >
-                              {n} pcs
-                            </button>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => setQty(currentAvailableStock)}
-                            className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border ${
-                              qty === currentAvailableStock
-                                ? 'bg-[#121822] text-[#8ab896] border-[#233548] ring-1 ring-[#8ab896]'
-                                : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
-                            }`}
-                          >
-                            Semua ({currentAvailableStock})
-                          </button>
-                        </div>
-                      )}
-
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        required
-                        min={1}
-                        max={currentAvailableStock || undefined}
-                        value={qty || ''}
-                        onChange={(e) => setQty(Number(e.target.value))}
-                        className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                          Harga Jual Satuan per Pcs (Rp) <span className="text-[#c87070]">*</span>
-                        </label>
-                        <span className="text-[0.65rem] text-[#5a6270]">Pilih preset</span>
-                      </div>
-
-                      {/* Quick Price Chips */}
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {(itemGrade === 'grade_a' ? [75000, 85000, 95000, 120000, 150000] : [25000, 35000, 45000, 50000]).map(pr => (
-                          <button
-                            key={pr}
-                            type="button"
-                            onClick={() => setUnitPrice(pr)}
-                            className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
-                              unitPrice === pr
-                                ? 'bg-[#121822] text-[#8ab896] border-[#233548] ring-1 ring-[#8ab896]'
-                                : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
-                            }`}
-                          >
-                            {(pr / 1000).toFixed(0)}k
-                          </button>
-                        ))}
-                      </div>
-
-                      <input
-                        type="number"
-                        inputMode="numeric"
-                        required
-                        min={1}
-                        value={unitPrice || ''}
-                        onChange={(e) => setUnitPrice(Number(e.target.value))}
-                        className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
-                        placeholder="0"
-                      />
-                      {unitPrice > 0 && (
-                        <p className="text-[0.7rem] text-[#8ab896] mt-1 font-mono font-semibold">
-                          Rp {unitPrice.toLocaleString('id-ID')} / pcs
-                        </p>
-                      )}
+                    <div className="text-right">
+                      <span className="text-base sm:text-lg font-black text-[#8ab896] font-mono">
+                        {formatRupiah(totalPrice)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Real-time Margin & Profit Preview */}
-                  {unitPrice > 0 && activeVariant && (
-                    <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl space-y-1.5 text-xs">
-                      <div className="flex justify-between text-[#8899aa]">
-                        <span>HPP Satuan ({activeVariant.color}):</span>
-                        <span className="font-mono text-[#e2e6ed]">Rp {activeVariantHpp.toLocaleString('id-ID')} / pcs</span>
-                      </div>
-                      <div className="flex justify-between items-center pt-1 border-t border-[#1e2330]">
-                        <span className="font-bold text-[#8899aa]">Estimasi Margin Satuan:</span>
-                        <span className={`font-mono font-bold ${estimatedUnitMargin >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
-                          {estimatedUnitMargin >= 0 ? '+' : ''}Rp {estimatedUnitMargin.toLocaleString('id-ID')} ({estimatedUnitMarginPct}%)
+                  {/* Profit Margin Preview for Grade A */}
+                  {itemGrade === 'grade_a' && currentHpp > 0 && unitPrice > 0 && (
+                    <div className="p-3 bg-[#121822] border border-[#2a3c50] rounded-xl flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-[#7eb3db]" />
+                        <span className="text-[#8899aa]">
+                          HPP Pokok: <strong className="text-[#e2e6ed] font-mono">{formatRupiah(currentHpp)}</strong>
                         </span>
                       </div>
-                    </div>
-                  )}
-
-                  {totalPrice > 0 && (
-                    <div className="p-3.5 bg-[#0e1219] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
-                      <span className="text-[#8899aa]">Total Pemasukan Kas:</span>
                       <div className="text-right">
-                        <span className="text-base font-black text-[#8ab896] block font-mono">Rp {totalPrice.toLocaleString('id-ID')}</span>
-                        <span className={`text-[0.65rem] font-mono ${estimatedTotalMargin >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
-                          Estimasi Laba: {estimatedTotalMargin >= 0 ? '+' : ''}Rp {estimatedTotalMargin.toLocaleString('id-ID')}
+                        <span className={`font-bold font-mono ${estimatedGrossProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
+                          Margin: {formatRupiah(estimatedUnitMargin)} / pcs ({estimatedUnitMarginPct}%)
                         </span>
                       </div>
                     </div>
                   )}
 
-                  <div className="grid sm:grid-cols-2 gap-2 pt-1">
+                  {/* Stock Warning */}
+                  {qty > availableStock && (
+                    <div className="p-3 bg-[#241a1a] border border-[#3a2828] rounded-xl text-xs text-[#c87070] flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>Jumlah {qty} pcs melebihi stok gudang ({availableStock} pcs). Stok akan menjadi minus.</span>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
                     <button
-                      type="submit"
-                      disabled={isSubmitting || isStockInsufficient}
-                      className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                      type="button"
+                      disabled={isSubmitting || !activeArticle || !activeVariant || !activeChannel || qty <= 0 || unitPrice <= 0}
+                      onClick={() => handleSubmit(false)}
+                      className="w-full sm:flex-1 py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Penjualan'}</span>
+                      <span>{isSubmitting ? 'Menyimpan...' : 'Simpan & Lihat Rincian'}</span>
                     </button>
                     <button
                       type="button"
-                      disabled={isSubmitting || isStockInsufficient}
+                      disabled={isSubmitting || !activeArticle || !activeVariant || !activeChannel || qty <= 0 || unitPrice <= 0}
                       onClick={() => handleSubmit(true)}
-                      className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                      className="w-full sm:w-auto px-5 py-3 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] hover:text-[#e2e6ed] border border-[#2a3040] font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       <Check className="w-4 h-4" />
                       <span>Simpan & Input Lagi</span>
@@ -716,48 +627,34 @@ export default function PenjualanPage() {
               </div>
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Omset:</span>
-                <span className="font-extrabold text-[#8ab896] text-xs font-mono">Rp {(totalFilteredNominal / 1000).toFixed(0)}k</span>
+                <span className="font-extrabold text-[#8ab896] text-xs font-mono">{formatCompactRupiah(totalFilteredNominal)}</span>
               </div>
               <div className="p-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex flex-col justify-between">
                 <span className="text-[0.65rem] text-[#5a6270]">Laba Kotor:</span>
                 <span className={`font-extrabold font-mono text-xs ${
                   filteredSales.reduce((acc, s) => acc + (s.total_price - (s.qty * getVariantHpp(s.variant_id))), 0) >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'
                 }`}>
-                  Rp {(filteredSales.reduce((acc, s) => acc + (s.total_price - (s.qty * getVariantHpp(s.variant_id))), 0) / 1000).toFixed(0)}k
+                  {formatCompactRupiah(filteredSales.reduce((acc, s) => acc + (s.total_price - (s.qty * getVariantHpp(s.variant_id))), 0))}
                 </span>
               </div>
             </div>
 
-            {/* Search Bar with Instant Clear */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari artikel, warna, atau channel..."
-                value={salesSearchQuery}
-                onChange={e => setSalesSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {salesSearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSalesSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            {/* Search Bar via SearchInput */}
+            <SearchInput
+              value={salesSearchQuery}
+              onChange={setSalesSearchQuery}
+              placeholder="Cari artikel, warna, atau channel..."
+            />
 
             {/* Grade Filter Tabs */}
             <div className="grid grid-cols-3 gap-1">
               <button
                 type="button"
                 onClick={() => setGradeFilter('ALL')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all cursor-pointer ${
                   gradeFilter === 'ALL'
                     ? 'bg-[#3d5a80] text-white'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
                 }`}
               >
                 Semua Grade
@@ -765,10 +662,10 @@ export default function PenjualanPage() {
               <button
                 type="button"
                 onClick={() => setGradeFilter('GRADE_A')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all cursor-pointer ${
                   gradeFilter === 'GRADE_A'
-                    ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3828]'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    ? 'bg-[#162a20] text-[#8ab896] border border-[#2a4030]'
+                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
                 }`}
               >
                 Grade A
@@ -776,10 +673,10 @@ export default function PenjualanPage() {
               <button
                 type="button"
                 onClick={() => setGradeFilter('REJECT')}
-                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
+                className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all cursor-pointer ${
                   gradeFilter === 'REJECT'
                     ? 'bg-[#201e1a] text-[#c8a870] border border-[#3a3020]'
-                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
                 }`}
               >
                 Reject
@@ -787,119 +684,81 @@ export default function PenjualanPage() {
             </div>
 
             {/* Universal Date Filter Tabs */}
-            <div className="grid grid-cols-3 gap-1 pt-0.5">
-              {[
-                { label: 'Semua', val: 'ALL' as const },
-                { label: 'Hari Ini', val: 'TODAY' as const },
-                { label: '7 Hari', val: '7_DAYS' as const },
-                { label: '30 Hari', val: '30_DAYS' as const },
-                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
-                { label: 'Kustom', val: 'CUSTOM' as const },
-              ].map(tab => (
-                <button
-                  key={tab.val}
-                  type="button"
-                  onClick={() => setDateFilter(tab.val)}
-                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                    dateFilter === tab.val
-                      ? 'bg-[#3d5a80] text-white'
-                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Date Range Inputs */}
-            {dateFilter === 'CUSTOM' && (
-              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
-                <div>
-                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={e => setCustomStartDate(e.target.value)}
-                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={e => setCustomEndDate(e.target.value)}
-                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
-                  />
-                </div>
-              </div>
-            )}
+            <DateFilterGroup
+              value={dateFilter}
+              onChange={setDateFilter}
+              customStartDate={customStartDate}
+              customEndDate={customEndDate}
+              onCustomStartChange={setCustomStartDate}
+              onCustomEndChange={setCustomEndDate}
+            />
           </div>
 
+          {/* Sales History Rows */}
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[420px]">
             {filteredSales.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#5a6270]">
-                Belum ada transaksi penjualan dicatat.
+                Belum ada transaksi penjualan sesuai filter.
               </div>
             ) : (
-              filteredSales
-                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-                .map(s => {
-                  const saleHpp = getVariantHpp(s.variant_id);
-                  const saleMargin = (s.unit_price || Math.round(s.total_price / s.qty)) - saleHpp;
-                  const saleMarginPct = s.unit_price > 0 ? Number(((saleMargin / s.unit_price) * 100).toFixed(1)) : 0;
-                  return (
-                    <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                      <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
-                        <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{s.articles?.name} — {s.variants?.color}</span>
-                        <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{s.sale_date}</span>
-                      </div>
+              pagedSales.map((s) => {
+                const hpp = getVariantHpp(s.variant_id);
+                const grossProfit = s.total_price - (s.qty * hpp);
+                const marginPct = s.unit_price > 0 ? Number((((s.unit_price - hpp) / s.unit_price) * 100).toFixed(1)) : 0;
 
-                      <div className="flex items-center justify-between text-[0.7rem]">
-                        <span className="text-[#8899aa]">{s.channels?.name} ({s.qty} pcs @ Rp {(s.unit_price || Math.round(s.total_price / s.qty)).toLocaleString('id-ID')})</span>
-                        <span className="font-bold text-[#8ab896] font-mono">Rp {(s.total_price || 0).toLocaleString('id-ID')}</span>
+                return (
+                  <div key={s.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                    <div className="flex items-start justify-between gap-1 text-xs">
+                      <div>
+                        <span className="font-bold text-[#e2e6ed]">{s.articles?.name}</span>
+                        <span className="text-[0.7rem] text-[#8899aa] ml-1.5">({s.variants?.color})</span>
                       </div>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem]">{s.sale_date}</span>
+                    </div>
 
-                      <div className="flex items-center justify-between bg-[#0c0f17] p-1.5 rounded-lg text-[0.65rem] border border-[#1e2330]">
-                        <span className="text-[#8899aa]">
-                          HPP: <strong className="text-[#e2e6ed]">Rp {saleHpp.toLocaleString('id-ID')}</strong>
-                        </span>
-                        <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
-                          saleMargin >= 0 
-                            ? 'bg-[#1a2a20] text-[#8ab896] border border-[#2a3a30]' 
-                            : 'bg-[#2a1a1a] text-[#c87070] border border-[#3a2020]'
-                        }`}>
-                          Margin: {saleMargin >= 0 ? '+' : ''}Rp {saleMargin.toLocaleString('id-ID')}/pcs ({saleMarginPct}%)
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[0.65rem] pt-1">
-                        <span className={`px-2 py-0.5 rounded font-semibold ${
-                          s.item_grade === 'grade_a' ? 'bg-[#1a2a20] text-[#8ab896]' : 'bg-[#201e1a] text-[#c8a870]'
+                    <div className="flex items-center justify-between text-[0.7rem]">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-1.5 py-0.2 rounded text-[0.6rem] font-extrabold uppercase ${
+                          s.item_grade === 'grade_a' ? 'bg-[#162a20] text-[#8ab896] border border-[#2a4030]' : 'bg-[#201e1a] text-[#c8a870] border border-[#3a3020]'
                         }`}>
                           {s.item_grade === 'grade_a' ? 'Grade A' : 'Reject'}
                         </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEditSale(s)}
-                            className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1"
-                          >
-                            <Pencil className="w-2.5 h-2.5" />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingSale(s)}
-                            className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
-                          >
-                            Hapus
-                          </button>
-                        </div>
+                        <span className="text-[#7eb3db] font-semibold">🏪 {s.channels?.name}</span>
                       </div>
+                      <span className="font-bold text-[#8ab896] font-mono">{formatRupiah(s.total_price)}</span>
                     </div>
-                  );
-                })
+
+                    <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] pt-1">
+                      <span>{s.qty} pcs @ {formatRupiah(s.unit_price)}</span>
+                      {s.item_grade === 'grade_a' && hpp > 0 ? (
+                        <span className={grossProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>
+                          Laba: {formatRupiah(grossProfit)} ({marginPct}%)
+                        </span>
+                      ) : (
+                        <span className="italic">Obral Reject</span>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => openEditSale(s)}
+                        className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1 cursor-pointer"
+                      >
+                        <Pencil className="w-2.5 h-2.5" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingSale(s)}
+                        className="text-[#c87070] hover:text-[#e07070] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all cursor-pointer"
+                      >
+                        Hapus
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -914,158 +773,137 @@ export default function PenjualanPage() {
         </div>
       </div>
 
-      {/* Edit Sale Modal */}
-      {editingSale && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
-              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
-                <Pencil className="w-4 h-4" />
-                <span>Edit Catatan Penjualan #{editingSale.id}</span>
+      {/* Edit Sale Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingSale)}
+        onClose={() => setEditingSale(null)}
+        title={editingSale ? `Edit Catatan Penjualan #${editingSale.id}` : ''}
+        icon={Pencil}
+      >
+        {editingSale && (
+          <form className="space-y-3 text-xs" onSubmit={handleSaveEditSale}>
+            <div>
+              <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                Produk / Varian
+              </label>
+              <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-[#e2e6ed] font-semibold">
+                {editingSale.articles?.name} — {editingSale.variants?.color}
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Channel Penjualan <span className="text-[#c87070]">*</span>
+                </label>
+                <select
+                  required
+                  value={editChannelId || ''}
+                  onChange={e => setEditChannelId(Number(e.target.value))}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                >
+                  {channels.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Kualitas Grade <span className="text-[#c87070]">*</span>
+                </label>
+                <select
+                  value={editItemGrade}
+                  onChange={e => setEditItemGrade(e.target.value as 'grade_a' | 'reject')}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                >
+                  <option value="grade_a">Grade A (Bagus)</option>
+                  <option value="reject">Reject (Afkir)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                Tanggal Penjualan <span className="text-[#c87070]">*</span>
+              </label>
+              <input
+                type="date"
+                required
+                value={editSaleDate}
+                onChange={e => setEditSaleDate(e.target.value)}
+                className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Jumlah (pcs) <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editQty || ''}
+                  onChange={e => setEditQty(Number(e.target.value))}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#8ab896] font-bold outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Harga Jual Satuan (Rp) <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editUnitPrice || ''}
+                  onChange={e => setEditUnitPrice(Number(e.target.value))}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#e2e6ed] font-bold outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+            </div>
+
+            {/* Total Preview */}
+            <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+              <span className="text-[#8899aa]">Total Penjualan Baru:</span>
+              <span className="font-mono font-black text-[#8ab896]">
+                {formatRupiah(editQty * editUnitPrice)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setEditingSale(null)}
-                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+                className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || editQty <= 0 || editUnitPrice <= 0}
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
+          </form>
+        )}
+      </BaseModal>
 
-            <form className="space-y-3 text-xs" onSubmit={handleSaveEditSale}>
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Produk / Varian
-                </label>
-                <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-[#e2e6ed] font-semibold">
-                  {editingSale.articles?.name} — {editingSale.variants?.color}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                    Channel Penjualan <span className="text-[#c87070]">*</span>
-                  </label>
-                  <select
-                    required
-                    value={editChannelId || ''}
-                    onChange={e => setEditChannelId(Number(e.target.value))}
-                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                  >
-                    {channels.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                    Kualitas Grade <span className="text-[#c87070]">*</span>
-                  </label>
-                  <select
-                    value={editItemGrade}
-                    onChange={e => setEditItemGrade(e.target.value as 'grade_a' | 'reject')}
-                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                  >
-                    <option value="grade_a">Grade A (Bagus)</option>
-                    <option value="reject">Reject (Afkir)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Tanggal Penjualan <span className="text-[#c87070]">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={editSaleDate}
-                  onChange={e => setEditSaleDate(e.target.value)}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                    Jumlah (pcs) <span className="text-[#c87070]">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editQty || ''}
-                    onChange={e => setEditQty(Number(e.target.value))}
-                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#8ab896] font-bold outline-none focus:border-[#7eb3db]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                    Harga Jual Satuan (Rp) <span className="text-[#c87070]">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editUnitPrice || ''}
-                    onChange={e => setEditUnitPrice(Number(e.target.value))}
-                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#e2e6ed] font-bold outline-none focus:border-[#7eb3db]"
-                  />
-                </div>
-              </div>
-
-              {/* Total Preview */}
-              <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
-                <span className="text-[#8899aa]">Total Penjualan Baru:</span>
-                <span className="font-mono font-black text-[#8ab896]">
-                  Rp {(editQty * editUnitPrice).toLocaleString('id-ID')}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingSale(null)}
-                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || editQty <= 0 || editUnitPrice <= 0}
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Sticky Floating Summary & Submit Bar */}
-      {activeArticle && (qty > 0 || unitPrice > 0) && (
-        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
-          <div className="min-w-0">
-            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
-              {activeArticle.name} - {activeVariant?.color} ({qty} pcs)
-            </span>
-            <span className="text-sm font-black text-[#8ab896] font-mono">
-              Rp {totalPrice.toLocaleString('id-ID')}
-            </span>
-          </div>
-          <button
-            type="button"
-            disabled={isSubmitting || qty <= 0 || unitPrice <= 0}
-            onClick={() => handleSubmit(false)}
-            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
-          >
-            {isSubmitting ? '...' : 'Simpan'}
-          </button>
-        </div>
-      )}
+      {/* Reusable Mobile Sticky Footer */}
+      <MobileStickyFooter
+        show={Boolean(activeArticle && (qty > 0 || unitPrice > 0))}
+        title={activeArticle ? `${activeArticle.name} - ${activeVariant?.color}` : ''}
+        subTitle={`${qty} pcs`}
+        primaryValue={formatRupiah(totalPrice)}
+        valueColor="text-[#8ab896]"
+        isSubmitting={isSubmitting}
+        disabled={isSubmitting || qty <= 0 || unitPrice <= 0}
+        onSubmit={() => handleSubmit(false)}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

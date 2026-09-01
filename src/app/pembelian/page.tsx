@@ -1,10 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import Pagination from "@/components/ui/Pagination";
+import MobileStickyFooter from "@/components/ui/MobileStickyFooter";
+import DateFilterGroup from "@/components/ui/DateFilterGroup";
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
+import QuickSuccessAlert from "@/components/ui/QuickSuccessAlert";
+import { usePagination } from "@/hooks/usePagination";
+import { formatRupiah, formatCompactRupiah } from "@/lib/utils/formatters";
+import { getTodayDateString, filterByDateRange, DateFilterOption } from "@/lib/utils/date";
 import { 
   getDbFabricStock, 
   getDbRawMaterials, 
@@ -18,16 +27,12 @@ import {
   Scissors, 
   Tag, 
   Trash2, 
-  Pencil,
-  CalendarDays, 
-  Calendar,
-  Clock,
-  Plus,
-  Search,
-  CheckCircle2,
-  Store,
-  Layers,
-  X
+  Pencil, 
+  Clock, 
+  Plus, 
+  Search, 
+  Store, 
+  Layers 
 } from 'lucide-react';
 
 interface MaterialItem {
@@ -51,10 +56,6 @@ interface PurchaseRecord {
   fabric_stock?: { name: string; unit: string };
 }
 
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
-
-const getTodayDateString = () => new Date().toISOString().split('T')[0];
-
 export default function PembelianPage() {
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
   const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
@@ -77,14 +78,12 @@ export default function PembelianPage() {
   const [editSupplier, setEditSupplier] = useState<string>('');
   const [editPurchaseDate, setEditPurchaseDate] = useState<string>(getTodayDateString());
 
-  // History Filters & Pagination
+  // History Filters
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [supplierFilter, setSupplierFilter] = useState<string>('ALL');
   const [historySearchQuery, setHistorySearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modals & State
   const [showModal, setShowModal] = useState(false);
@@ -103,35 +102,30 @@ export default function PembelianPage() {
       ]);
 
       const formattedMaterials: MaterialItem[] = [
-        ...(fabrics || [])
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name, 'id'))
-          .map(f => ({
-            id: f.id,
-            type: 'fabric' as const,
-            name: f.name,
-            unit: f.unit || 'meter',
-            currentStock: Number(f.stock_qty || 0),
-          })),
-        ...(rawMats || [])
-          .slice()
-          .sort((a, b) => a.name.localeCompare(b.name, 'id'))
-          .map(r => ({
-            id: r.id,
-            type: 'raw' as const,
-            name: r.name,
-            unit: r.unit || 'pcs',
-            currentStock: Number(r.stock_qty || 0),
-          })),
+        ...fabrics.map((f: any) => ({
+          id: f.id,
+          type: 'fabric' as const,
+          name: f.name,
+          unit: f.unit || 'meter',
+          currentStock: Number(f.stock_qty || 0),
+        })),
+        ...rawMats.map((r: any) => ({
+          id: r.id,
+          type: 'raw' as const,
+          name: r.name,
+          unit: r.unit || 'pcs',
+          currentStock: Number(r.stock_qty || 0),
+        })),
       ];
 
       setMaterials(formattedMaterials);
       setPurchases(purchaseList || []);
-      if (formattedMaterials.length > 0 && !selectedMaterialKey) {
+
+      if (!selectedMaterialKey && formattedMaterials.length > 0) {
         setSelectedMaterialKey(`${formattedMaterials[0].type}-${formattedMaterials[0].id}`);
       }
     } catch (err) {
-      console.error('Failed to load purchases:', err);
+      console.error('Failed to load purchase data:', err);
     } finally {
       setLoading(false);
     }
@@ -141,18 +135,12 @@ export default function PembelianPage() {
     loadData();
   }, []);
 
-  const existingSuppliers = (Array.from(
-    new Set(purchases.map(p => p.supplier?.trim()).filter(Boolean))
-  ) as string[]).sort((a, b) => a.localeCompare(b, 'id'));
-
-  const [activeType, activeIdStr] = selectedMaterialKey ? selectedMaterialKey.split('-') : ['', ''];
-  const activeMat = materials.find(m => m.type === activeType && m.id === Number(activeIdStr));
-
-  // Conversion logic: 1 yard = 0.9144 meter
+  const activeMat = materials.find(m => `${m.type}-${m.id}` === selectedMaterialKey);
   const isFabric = activeMat?.type === 'fabric';
+
   const effectiveQty = isFabric && inputUnit === 'yard' ? Number((qty * 0.9144).toFixed(2)) : qty;
   const effectiveUnit = isFabric ? 'meter' : (activeMat?.unit || 'pcs');
-  const totalPrice = qty * unitPrice;
+  const totalPrice = effectiveQty * unitPrice;
 
   const handleSavePurchase = async (continueEntry: boolean = false) => {
     if (!activeMat || effectiveQty <= 0 || unitPrice <= 0) return;
@@ -161,26 +149,26 @@ export default function PembelianPage() {
     try {
       await createDbPurchase({
         item_type: activeMat.type === 'fabric' ? 'fabric' : 'raw_material',
-        fabric_stock_id: activeMat.type === 'fabric' ? activeMat.id : null,
-        raw_material_id: activeMat.type === 'raw' ? activeMat.id : null,
+        fabric_stock_id: activeMat.type === 'fabric' ? activeMat.id : undefined,
+        raw_material_id: activeMat.type === 'raw' ? activeMat.id : undefined,
         qty: effectiveQty,
         unit_price: unitPrice,
-        supplier: supplier.trim() || undefined,
         purchase_date: purchaseDate,
+        supplier: supplier.trim() || undefined,
       });
 
       const lines = [
         `Tanggal: ${purchaseDate}`,
-        `Bahan: ${activeMat.name}`,
-        `Jumlah Masuk: +${effectiveQty} ${effectiveUnit}` + (inputUnit === 'yard' ? ` (dari ${qty} yard)` : ''),
-        `Harga Satuan: Rp ${unitPrice.toLocaleString('id-ID')}`,
-        `Supplier: ${supplier.trim() || 'Tanpa Supplier'}`,
-        `Total Pengeluaran: Rp ${totalPrice.toLocaleString('id-ID')}`,
-        `Stok di gudang otomatis bertambah.`,
+        `Bahan: ${activeMat.name} (${activeMat.type === 'fabric' ? 'Kain Roll' : 'Bahan Baku'})`,
+        `Jumlah Masuk: +${effectiveQty} ${effectiveUnit} ${isFabric && inputUnit === 'yard' ? `(konversi dari ${qty} yard)` : ''}`,
+        `Harga Satuan: ${formatRupiah(unitPrice)} / ${effectiveUnit}`,
+        `Total Pengeluaran: ${formatRupiah(totalPrice)}`,
+        supplier ? `Supplier: ${supplier}` : `Tanpa Supplier`,
+        `Stok fisik gudang otomatis bertambah.`,
       ];
 
       if (continueEntry) {
-        setQuickSuccessMsg(`Berhasil mencatat: ${activeMat.name} (+${effectiveQty} ${effectiveUnit}) senilai Rp ${totalPrice.toLocaleString('id-ID')}`);
+        setQuickSuccessMsg(`Berhasil restock ${activeMat.name} (+${effectiveQty} ${effectiveUnit}) - ${formatRupiah(totalPrice)}`);
         setTimeout(() => setQuickSuccessMsg(null), 4000);
       } else {
         setModalLines(lines);
@@ -190,8 +178,9 @@ export default function PembelianPage() {
       setQty(0);
       setUnitPrice(0);
       await loadData();
-    } catch (err: any) {
-      alert('Gagal mencatat pembelian: ' + err.message);
+    } catch (err) {
+      console.error('Failed to create purchase:', err);
+      alert('Gagal menyimpan data pembelian bahan.');
     } finally {
       setIsSubmitting(false);
     }
@@ -199,15 +188,16 @@ export default function PembelianPage() {
 
   const openEditPurchase = (p: PurchaseRecord) => {
     setEditingPurchase(p);
-    setEditQty(p.qty || 0);
-    setEditUnitPrice(p.unit_price || 0);
+    setEditQty(p.qty);
+    setEditUnitPrice(p.unit_price);
     setEditSupplier(p.supplier || '');
-    setEditPurchaseDate(p.purchase_date || getTodayDateString());
+    setEditPurchaseDate(p.purchase_date);
   };
 
-  const handleSaveEditPurchase = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveEditPurchase = async (ev: React.FormEvent) => {
+    ev.preventDefault();
     if (!editingPurchase || editQty <= 0 || editUnitPrice <= 0) return;
+
     setIsSubmitting(true);
     try {
       await updateDbPurchase(editingPurchase.id, {
@@ -216,13 +206,15 @@ export default function PembelianPage() {
         fabric_stock_id: editingPurchase.fabric_stock_id,
         qty: editQty,
         unit_price: editUnitPrice,
-        supplier: editSupplier.trim() || undefined,
         purchase_date: editPurchaseDate,
+        supplier: editSupplier.trim() || undefined,
       });
+
       setEditingPurchase(null);
       await loadData();
-    } catch (err: any) {
-      alert('Gagal memperbarui pembelian: ' + err.message);
+    } catch (err) {
+      console.error('Failed to update purchase:', err);
+      alert('Gagal memperbarui data pembelian.');
     } finally {
       setIsSubmitting(false);
     }
@@ -234,62 +226,59 @@ export default function PembelianPage() {
       await deleteDbPurchase(deletingPurchase.id);
       setDeletingPurchase(null);
       await loadData();
-    } catch (err: any) {
-      alert('Gagal menghapus riwayat pembelian: ' + err.message);
+    } catch (err) {
+      console.error('Failed to delete purchase:', err);
+      alert('Gagal menghapus data pembelian.');
     }
   };
 
-  // Filtered materials for selection
-  const filteredMaterials = materials
-    .filter(m => {
+  // Unique suppliers list
+  const existingSuppliers = Array.from(
+    new Set(purchases.map(p => p.supplier).filter((s): s is string => Boolean(s && s.trim())))
+  );
+
+  // Filtered Materials for Selector
+  const filteredMaterials = useMemo(() => {
+    return materials.filter(m => {
       if (materialFilterTab === 'FABRIC' && m.type !== 'fabric') return false;
       if (materialFilterTab === 'RAW' && m.type !== 'raw') return false;
-      const q = materialSearchQuery.toLowerCase().trim();
-      if (!q) return true;
-      return m.name.toLowerCase().includes(q);
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, 'id'));
-
-  // Universal Date & Supplier Filtering Logic
-  const today = getTodayDateString();
-  const now = new Date();
-  const filteredPurchases = purchases.filter(p => {
-    if (supplierFilter !== 'ALL' && p.supplier !== supplierFilter) return false;
-
-    if (historySearchQuery) {
-      const q = historySearchQuery.toLowerCase().trim();
-      const name = (p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name) || '';
-      const supp = p.supplier || '';
-      if (!name.toLowerCase().includes(q) && !supp.toLowerCase().includes(q)) return false;
-    }
-
-    if (dateFilter === 'ALL') return true;
-    if (dateFilter === 'TODAY') return p.purchase_date === today;
-    if (dateFilter === '7_DAYS') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      return new Date(p.purchase_date) >= sevenDaysAgo;
-    }
-    if (dateFilter === '30_DAYS') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      return new Date(p.purchase_date) >= thirtyDaysAgo;
-    }
-    if (dateFilter === 'THIS_MONTH') {
-      const pDate = new Date(p.purchase_date);
-      return pDate.getMonth() === now.getMonth() && pDate.getFullYear() === now.getFullYear();
-    }
-    if (dateFilter === 'CUSTOM') {
-      const pDate = new Date(p.purchase_date);
-      if (customStartDate && pDate < new Date(customStartDate)) return false;
-      if (customEndDate && pDate > new Date(customEndDate)) return false;
+      if (materialSearchQuery.trim()) {
+        return m.name.toLowerCase().includes(materialSearchQuery.toLowerCase());
+      }
       return true;
+    });
+  }, [materials, materialFilterTab, materialSearchQuery]);
+
+  // Filtered Purchase History
+  const filteredPurchases = useMemo(() => {
+    let result = filterByDateRange(purchases, 'purchase_date', dateFilter, customStartDate, customEndDate);
+    if (supplierFilter !== 'ALL') {
+      result = result.filter(p => p.supplier === supplierFilter);
     }
-    return true;
-  });
+    if (historySearchQuery.trim()) {
+      const q = historySearchQuery.toLowerCase();
+      result = result.filter(p => {
+        const matName = p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name;
+        return (
+          (matName && matName.toLowerCase().includes(q)) ||
+          (p.supplier && p.supplier.toLowerCase().includes(q))
+        );
+      });
+    }
+    return result;
+  }, [purchases, dateFilter, customStartDate, customEndDate, supplierFilter, historySearchQuery]);
 
   const totalFilteredSpending = filteredPurchases.reduce((a, b) => a + (b.qty * b.unit_price), 0);
   const totalAllSpending = purchases.reduce((a, b) => a + (b.qty * b.unit_price), 0);
+
+  // Pagination Hook
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedItems: pagedPurchases,
+  } = usePagination(filteredPurchases, { initialPageSize: 10 });
 
   return (
     <div>
@@ -300,30 +289,36 @@ export default function PembelianPage() {
 
       {/* Top Stat Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Pengeluaran Belanja</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">
-            Rp {(totalAllSpending / 1000000).toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">Juta</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Transaksi Masuk</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
-            {purchases.length} <span className="text-xs font-normal text-[#5a6270]">Faktur</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Supplier Terdaftar</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
-            {existingSuppliers.length} <span className="text-xs font-normal text-[#5a6270]">Vendor</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Pilihan Bahan Tersedia</span>
-          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">
-            {materials.length} <span className="text-xs font-normal text-[#5a6270]">SKU Bahan</span>
-          </p>
-        </div>
+        <KpiStatCard
+          title="Total Pengeluaran Belanja"
+          value={<span className="text-[#e2e6ed]">{formatCompactRupiah(totalAllSpending)}</span>}
+          icon={PackagePlus}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="Total Transaksi Masuk"
+          value={<span className="text-[#7eb3db]">{purchases.length} <span className="text-xs font-normal text-[#5a6270]">Faktur</span></span>}
+          icon={Clock}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Supplier Terdaftar"
+          value={<span className="text-[#8ab896]">{existingSuppliers.length} <span className="text-xs font-normal text-[#5a6270]">Vendor</span></span>}
+          icon={Store}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="Pilihan Bahan Tersedia"
+          value={<span className="text-[#c8a870]">{materials.length} <span className="text-xs font-normal text-[#5a6270]">SKU Bahan</span></span>}
+          icon={Layers}
+          iconColor="text-[#c8a870]"
+          iconBg="bg-[#201e1a]"
+          iconBorder="border-[#3a3020]"
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -339,69 +334,27 @@ export default function PembelianPage() {
             </div>
           </div>
 
-          {quickSuccessMsg && (
-            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{quickSuccessMsg}</span>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setQuickSuccessMsg(null)}
-                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          <QuickSuccessAlert
+            message={quickSuccessMsg}
+            onClose={() => setQuickSuccessMsg(null)}
+            icon={PackagePlus}
+          />
 
-          <form onSubmit={(e) => { e.preventDefault(); handleSavePurchase(false); }} className="space-y-4">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Tanggal Pembelian <span className="text-[#c87070]">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={purchaseDate}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                  Nama Supplier / Toko (Opsional)
-                </label>
-                <input
-                  type="text"
-                  list="supplier-options"
-                  value={supplier}
-                  onChange={(e) => setSupplier(e.target.value)}
-                  placeholder="Contoh: Toko Kain Mitra Jaya..."
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium placeholder-[#3a4454]"
-                />
-                <datalist id="supplier-options">
-                  {existingSuppliers.map((s, idx) => (
-                    <option key={idx} value={s} />
-                  ))}
-                </datalist>
-              </div>
-            </div>
-
-            {/* Material Selection with Category Tabs & Search */}
+          <div className="space-y-4">
+            {/* Step 1: Material Selection Filter */}
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                  Pilih Bahan Baku / Roll Kain <span className="text-[#c87070]">*</span>
+                <label className="text-xs font-semibold text-[#8899aa] uppercase tracking-wider block">
+                  1. Pilih Bahan yang Ingin Direstock <span className="text-[#c87070]">*</span>
                 </label>
-                <div className="flex gap-1">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setMaterialFilterTab('ALL')}
-                    className={`px-2.5 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all ${
-                      materialFilterTab === 'ALL' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all cursor-pointer ${
+                      materialFilterTab === 'ALL'
+                        ? 'bg-[#3d5a80] text-white'
+                        : 'bg-[#121620] text-[#5a6270] hover:text-[#8899aa]'
                     }`}
                   >
                     Semua ({materials.length})
@@ -409,8 +362,10 @@ export default function PembelianPage() {
                   <button
                     type="button"
                     onClick={() => setMaterialFilterTab('FABRIC')}
-                    className={`px-2.5 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all ${
-                      materialFilterTab === 'FABRIC' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all cursor-pointer ${
+                      materialFilterTab === 'FABRIC'
+                        ? 'bg-[#3d5a80] text-white'
+                        : 'bg-[#121620] text-[#5a6270] hover:text-[#8899aa]'
                     }`}
                   >
                     Kain Roll
@@ -418,62 +373,57 @@ export default function PembelianPage() {
                   <button
                     type="button"
                     onClick={() => setMaterialFilterTab('RAW')}
-                    className={`px-2.5 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all ${
-                      materialFilterTab === 'RAW' ? 'bg-[#3d5a80] text-white' : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330]'
+                    className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-bold transition-all cursor-pointer ${
+                      materialFilterTab === 'RAW'
+                        ? 'bg-[#3d5a80] text-white'
+                        : 'bg-[#121620] text-[#5a6270] hover:text-[#8899aa]'
                     }`}
                   >
-                    Aksesoris BOM
+                    Bahan Baku
                   </button>
                 </div>
               </div>
 
-              {/* Material Search Input */}
-              <div className="relative mb-2">
-                <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cari bahan..."
-                  value={materialSearchQuery}
-                  onChange={e => setMaterialSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-                />
-              </div>
+              {/* Material Search Filter via SearchInput */}
+              <SearchInput
+                value={materialSearchQuery}
+                onChange={setMaterialSearchQuery}
+                placeholder="Ketik nama bahan untuk memfilter daftar..."
+                className="mb-2"
+              />
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[170px] overflow-y-auto p-1 bg-[#0c0f17] rounded-xl border border-[#1e2330]">
+              {/* Material Chips Selector */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1 bg-[#0c0f17] border border-[#1e2330] rounded-xl">
                 {filteredMaterials.length === 0 ? (
-                  <div className="col-span-full p-4 text-center text-xs text-[#5a6270]">
-                    Tidak ada bahan yang cocok dengan pencarian.
+                  <div className="col-span-full py-4 text-center text-xs text-[#5a6270]">
+                    Bahan tidak ditemukan.
                   </div>
                 ) : (
-                  filteredMaterials.map(m => {
-                    const key = `${m.type}-${m.id}`;
+                  filteredMaterials.map((mat) => {
+                    const key = `${mat.type}-${mat.id}`;
                     const isSelected = selectedMaterialKey === key;
-                    const isFab = m.type === 'fabric';
                     return (
                       <button
                         key={key}
                         type="button"
                         onClick={() => setSelectedMaterialKey(key)}
-                        className={`p-2.5 rounded-xl text-left transition-all border ${
-                          isSelected 
-                            ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]' 
-                            : 'bg-[#0e1219] text-[#b0b8c4] border-[#1e2330] hover:bg-[#1a2030]'
+                        className={`p-2.5 rounded-xl border text-left text-xs transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#1a2838] border-[#3d5a80] text-[#7eb3db] shadow-sm'
+                            : 'bg-[#121620] border-[#1e2838] text-[#8899aa] hover:border-[#2a3848] hover:text-[#e2e6ed]'
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            {isFab ? (
-                              <Scissors className="w-3 h-3 text-[#7eb3db] shrink-0" />
-                            ) : (
-                              <Tag className="w-3 h-3 text-[#c8a870] shrink-0" />
-                            )}
-                            <span className="font-bold text-xs truncate">{m.name}</span>
-                          </div>
-                          {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />}
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="font-semibold truncate">{mat.name}</span>
+                          <span className={`text-[0.6rem] px-1 py-0.2 rounded font-bold shrink-0 ${
+                            mat.type === 'fabric' ? 'bg-[#3d5a80]/20 text-[#7eb3db]' : 'bg-[#1a2030] text-[#8899aa]'
+                          }`}>
+                            {mat.type === 'fabric' ? 'Kain' : 'Bahan'}
+                          </span>
                         </div>
-                        <p className="text-[0.65rem] text-[#5a6270] mt-1">
-                          Stok saat ini: <strong className="text-[#8ab896] font-mono">{m.currentStock} {m.unit}</strong>
-                        </p>
+                        <div className="text-[0.65rem] text-[#5a6270] font-mono">
+                          Stok: <span className={mat.currentStock > 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{mat.currentStock} {mat.unit}</span>
+                        </div>
                       </button>
                     );
                   })
@@ -481,19 +431,62 @@ export default function PembelianPage() {
               </div>
             </div>
 
+            {/* Selected Material Info Badge */}
             {activeMat && (
-              <div className="space-y-4 pt-2 border-t border-[#1e2330]">
-                {isFabric && (
-                  <div className="flex items-center justify-between p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs">
-                    <span className="text-[#8899aa] font-medium">Satuan Input Pembelian:</span>
-                    <div className="flex gap-1 bg-[#12161f] p-0.5 rounded-lg border border-[#2a3040]">
+              <div className="p-3 bg-[#121822] border border-[#2a3c50] rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-[#7eb3db]" />
+                  <span className="text-[#8899aa]">Bahan Terpilih:</span>
+                  <span className="font-bold text-[#e2e6ed]">{activeMat.name}</span>
+                </div>
+                <div className="text-[0.7rem] text-[#5a6270] font-mono">
+                  Sisa Gudang: <strong className="text-[#8ab896]">{activeMat.currentStock} {activeMat.unit}</strong>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Detail Pembelian */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                  Tanggal Pembelian <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                  Nama Supplier / Toko (Opsional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Toko Bahan Sinar Jaya"
+                  value={supplier}
+                  onChange={(e) => setSupplier(e.target.value)}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] outline-none focus:border-[#7eb3db] placeholder-[#4a5568]"
+                />
+              </div>
+            </div>
+
+            {/* Step 3: Quantity & Price */}
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-[#8899aa] uppercase tracking-wider block">
+                    Jumlah Pembelian <span className="text-[#c87070]">*</span>
+                  </label>
+                  {isFabric && (
+                    <div className="flex items-center gap-1 text-[0.65rem] font-bold">
                       <button
                         type="button"
                         onClick={() => setInputUnit('meter')}
-                        className={`px-3 py-1 rounded-md font-bold text-xs transition-all ${
-                          inputUnit === 'meter'
-                            ? 'bg-[#3d5a80] text-white'
-                            : 'text-[#5a6270] hover:text-[#8899aa]'
+                        className={`px-2 py-0.5 rounded cursor-pointer ${
+                          inputUnit === 'meter' ? 'bg-[#3d5a80] text-white' : 'bg-[#121620] text-[#5a6270]'
                         }`}
                       >
                         Meter
@@ -501,175 +494,116 @@ export default function PembelianPage() {
                       <button
                         type="button"
                         onClick={() => setInputUnit('yard')}
-                        className={`px-3 py-1 rounded-md font-bold text-xs transition-all ${
-                          inputUnit === 'yard'
-                            ? 'bg-[#3d5a80] text-white'
-                            : 'text-[#5a6270] hover:text-[#8899aa]'
+                        className={`px-2 py-0.5 rounded cursor-pointer ${
+                          inputUnit === 'yard' ? 'bg-[#3d5a80] text-white' : 'bg-[#121620] text-[#5a6270]'
                         }`}
                       >
-                        Yard (Konversi Auto)
+                        Yard
                       </button>
                     </div>
-                  </div>
-                )}
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                        Jumlah Dibeli ({isFabric ? inputUnit : activeMat.unit}) <span className="text-[#c87070]">*</span>
-                      </label>
-                      <span className="text-[0.65rem] text-[#5a6270]">Preset kuantiti</span>
-                    </div>
-
-                    {/* Quick Qty Chips */}
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {(isFabric ? [20, 50, 100, 200, 500] : [50, 100, 500, 1000, 5000]).map(n => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setQty(n)}
-                          className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
-                            qty === n
-                              ? 'bg-[#121822] text-[#7eb3db] border-[#233548] ring-1 ring-[#7eb3db]'
-                              : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
-                          }`}
-                        >
-                          {n >= 1000 ? `${n/1000}rb` : n}
-                        </button>
-                      ))}
-                    </div>
-
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      required
-                      min={0.1}
-                      step={0.1}
-                      value={qty || ''}
-                      onChange={(e) => setQty(Number(e.target.value))}
-                      className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
-                      placeholder="0"
-                    />
-                    {isFabric && inputUnit === 'yard' && qty > 0 && (
-                      <div className="p-2 bg-[#121822] border border-[#233548] rounded-lg text-[0.7rem] text-[#7eb3db] mt-1.5 flex items-center justify-between font-mono">
-                        <span>Konversi ke Meter:</span>
-                        <strong className="text-[#8ab896]">+{effectiveQty} Meter</strong>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                        Harga Beli per {isFabric ? inputUnit : activeMat.unit} (Rp) <span className="text-[#c87070]">*</span>
-                      </label>
-                      <span className="text-[0.65rem] text-[#5a6270]">Preset harga</span>
-                    </div>
-
-                    {/* Quick Price Chips */}
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {(isFabric ? [28000, 32000, 35000, 40000, 45000] : [200, 500, 1000, 2500, 5000]).map(pr => (
-                        <button
-                          key={pr}
-                          type="button"
-                          onClick={() => setUnitPrice(pr)}
-                          className={`px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono ${
-                            unitPrice === pr
-                              ? 'bg-[#121822] text-[#8ab896] border-[#233548] ring-1 ring-[#8ab896]'
-                              : 'bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030]'
-                          }`}
-                        >
-                          {pr >= 1000 ? `${(pr / 1000).toFixed(0)}k` : `${pr}`}
-                        </button>
-                      ))}
-                    </div>
-
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      required
-                      min={1}
-                      value={unitPrice || ''}
-                      onChange={(e) => setUnitPrice(Number(e.target.value))}
-                      className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] focus:border-[#7eb3db] outline-none font-mono"
-                      placeholder="0"
-                    />
-                    {unitPrice > 0 && (
-                      <p className="text-[0.7rem] text-[#8ab896] mt-1 font-mono font-semibold">
-                        Rp {unitPrice.toLocaleString('id-ID')} / {isFabric ? inputUnit : activeMat.unit}
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {totalPrice > 0 && (
-                  <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-[#8899aa]">Total Pengeluaran Restock:</span>
-                    <span className="text-base font-black text-[#8ab896] font-mono">Rp {totalPrice.toLocaleString('id-ID')}</span>
-                  </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0"
+                    value={qty || ''}
+                    onChange={(e) => setQty(Number(e.target.value))}
+                    className="w-full p-2.5 pr-14 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-sm font-bold font-mono text-[#8ab896] outline-none focus:border-[#7eb3db]"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#5a6270] font-semibold">
+                    {isFabric ? inputUnit : (activeMat?.unit || 'pcs')}
+                  </span>
+                </div>
+                {isFabric && inputUnit === 'yard' && qty > 0 && (
+                  <p className="text-[0.65rem] text-[#7eb3db] mt-1">
+                    ≈ {effectiveQty} meter (1 yard = 0.9144m)
+                  </p>
                 )}
+              </div>
 
-                <div className="grid sm:grid-cols-2 gap-2 pt-1">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => handleSavePurchase(true)}
-                    className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Simpan & Tambah Lagi</span>
-                  </button>
+              <div>
+                <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                  Harga Beli Satuan (Rp) <span className="text-[#c87070]">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[#5a6270]">Rp</span>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="0"
+                    value={unitPrice || ''}
+                    onChange={(e) => setUnitPrice(Number(e.target.value))}
+                    className="w-full p-2.5 pl-9 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-sm font-bold font-mono text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+                  />
                 </div>
               </div>
-            )}
-          </form>
+            </div>
+
+            {/* Live Calculation Hub */}
+            <div className="p-4 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+              <div className="space-y-0.5">
+                <span className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider block font-bold">Total Pembayaran Bahan</span>
+                <span className="text-[0.7rem] text-[#5a6270]">
+                  {effectiveQty} {effectiveUnit} × {formatRupiah(unitPrice)}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-base sm:text-lg font-black text-[#8ab896] font-mono">
+                  {formatRupiah(totalPrice)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isSubmitting || !activeMat || effectiveQty <= 0 || unitPrice <= 0}
+                onClick={() => handleSavePurchase(false)}
+                className="w-full sm:flex-1 py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pembelian & Lihat Faktur'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting || !activeMat || effectiveQty <= 0 || unitPrice <= 0}
+                onClick={() => handleSavePurchase(true)}
+                className="w-full sm:w-auto px-5 py-3 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] hover:text-[#e2e6ed] border border-[#2a3040] font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              >
+                <span>Simpan & Input Lagi</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Riwayat Pembelian */}
-        <div className="glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col h-fit">
-          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2.5">
-            <div className="flex items-center justify-between">
+        <div className="glass-card rounded-2xl p-4 sm:p-5 border-[#1e2330] flex flex-col justify-between">
+          <div className="space-y-3 mb-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1e2330]">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#7eb3db]" />
-                <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Pengadaan</h2>
+                <h3 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Pembelian</h3>
               </div>
               <span className="text-[0.7rem] text-[#8899aa] font-medium">{filteredPurchases.length} Faktur</span>
             </div>
 
-            <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+            {/* Total Filtered Stat Banner */}
+            <div className="p-2.5 bg-[#121620] border border-[#1e2838] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#5a6270]">Total Belanja Terfilter:</span>
-              <span className="font-extrabold text-[#7eb3db] font-mono">Rp {totalFilteredSpending.toLocaleString('id-ID')}</span>
+              <span className="font-extrabold text-[#7eb3db] font-mono">{formatRupiah(totalFilteredSpending)}</span>
             </div>
 
-            {/* History Search with Instant Clear */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari bahan atau supplier..."
-                value={historySearchQuery}
-                onChange={e => setHistorySearchQuery(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {historySearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setHistorySearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            {/* History Search with Instant Clear via SearchInput */}
+            <SearchInput
+              value={historySearchQuery}
+              onChange={setHistorySearchQuery}
+              placeholder="Cari bahan atau supplier..."
+            />
 
             {/* Supplier Filter */}
             {existingSuppliers.length > 0 && (
@@ -687,54 +621,15 @@ export default function PembelianPage() {
               </div>
             )}
 
-            {/* Universal Filter Tabs */}
-            <div className="grid grid-cols-3 gap-1 pt-0.5">
-              {[
-                { label: 'Semua', val: 'ALL' as const },
-                { label: 'Hari Ini', val: 'TODAY' as const },
-                { label: '7 Hari', val: '7_DAYS' as const },
-                { label: '30 Hari', val: '30_DAYS' as const },
-                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
-                { label: 'Kustom', val: 'CUSTOM' as const },
-              ].map(tab => (
-                <button
-                  key={tab.val}
-                  type="button"
-                  onClick={() => setDateFilter(tab.val)}
-                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                    dateFilter === tab.val
-                      ? 'bg-[#3d5a80] text-white'
-                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Date Range Inputs */}
-            {dateFilter === 'CUSTOM' && (
-              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
-                <div>
-                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={e => setCustomStartDate(e.target.value)}
-                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={e => setCustomEndDate(e.target.value)}
-                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
-                  />
-                </div>
-              </div>
-            )}
+            {/* Universal Date Filter Tabs */}
+            <DateFilterGroup
+              value={dateFilter}
+              onChange={setDateFilter}
+              customStartDate={customStartDate}
+              customEndDate={customEndDate}
+              onCustomStartChange={setCustomStartDate}
+              onCustomEndChange={setCustomEndDate}
+            />
           </div>
 
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[420px]">
@@ -743,52 +638,50 @@ export default function PembelianPage() {
                 Belum ada transaksi pembelian bahan sesuai filter.
               </div>
             ) : (
-              filteredPurchases
-                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-                .map(p => {
-                  const matName = p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name;
-                  const matUnit = p.item_type === 'fabric' ? (p.fabric_stock?.unit || 'meter') : (p.raw_materials?.unit || 'pcs');
-                  const totalItemCost = p.qty * p.unit_price;
+              pagedPurchases.map(p => {
+                const matName = p.item_type === 'fabric' ? p.fabric_stock?.name : p.raw_materials?.name;
+                const matUnit = p.item_type === 'fabric' ? (p.fabric_stock?.unit || 'meter') : (p.raw_materials?.unit || 'pcs');
+                const totalItemCost = p.qty * p.unit_price;
 
-                  return (
-                    <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                      <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
-                        <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{matName || 'Bahan'}</span>
-                        <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{p.purchase_date}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[0.7rem]">
-                        <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit} @ Rp {p.unit_price.toLocaleString('id-ID')}</span>
-                        <span className="font-bold text-[#e2e6ed] font-mono">Rp {totalItemCost.toLocaleString('id-ID')}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] pt-1">
-                        {p.supplier ? (
-                          <span className="px-1.5 py-0.5 bg-[#15202b] text-[#7eb3db] border border-[#233548] rounded font-medium">
-                            🏪 {p.supplier}
-                          </span>
-                        ) : (
-                          <span className="text-[#5a6270] italic">Tanpa Supplier</span>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openEditPurchase(p)}
-                            className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1"
-                          >
-                            <Pencil className="w-3 h-3" />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeletingPurchase(p)}
-                            className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
-                          >
-                            Hapus
-                          </button>
-                        </div>
+                return (
+                  <div key={p.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                    <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
+                      <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{matName || 'Bahan'}</span>
+                      <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{p.purchase_date}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[0.7rem]">
+                      <span className="text-[#8ab896] font-semibold">+{p.qty} {matUnit} @ {formatRupiah(p.unit_price)}</span>
+                      <span className="font-bold text-[#e2e6ed] font-mono">{formatRupiah(totalItemCost)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] pt-1">
+                      {p.supplier ? (
+                        <span className="px-1.5 py-0.5 bg-[#15202b] text-[#7eb3db] border border-[#233548] rounded font-medium">
+                          🏪 {p.supplier}
+                        </span>
+                      ) : (
+                        <span className="text-[#5a6270] italic">Tanpa Supplier</span>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditPurchase(p)}
+                          className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingPurchase(p)}
+                          className="text-[#c87070] hover:text-[#e07070] font-semibold px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all cursor-pointer"
+                        >
+                          Hapus
+                        </button>
                       </div>
                     </div>
-                  );
-                })
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -803,143 +696,122 @@ export default function PembelianPage() {
         </div>
       </div>
 
-      {/* Edit Purchase Modal */}
-      {editingPurchase && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
-              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
-                <Pencil className="w-4 h-4" />
-                <span>Edit Catatan Pembelian #{editingPurchase.id}</span>
+      {/* Edit Purchase Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingPurchase)}
+        onClose={() => setEditingPurchase(null)}
+        title={editingPurchase ? `Edit Catatan Pembelian #${editingPurchase.id}` : ''}
+        icon={Pencil}
+      >
+        {editingPurchase && (
+          <form className="space-y-3 text-xs" onSubmit={handleSaveEditPurchase}>
+            <div>
+              <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                Nama Bahan
+              </label>
+              <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-[#e2e6ed] font-semibold">
+                {editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.name : editingPurchase.raw_materials?.name}
+                <span className="ml-2 text-[0.7rem] text-[#5a6270]">
+                  ({editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.unit || 'meter' : editingPurchase.raw_materials?.unit || 'pcs'})
+                </span>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                Tanggal Pembelian <span className="text-[#c87070]">*</span>
+              </label>
+              <input
+                type="date"
+                required
+                value={editPurchaseDate}
+                onChange={e => setEditPurchaseDate(e.target.value)}
+                className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Jumlah ({editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.unit || 'meter' : editingPurchase.raw_materials?.unit || 'pcs'}) <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={editQty || ''}
+                  onChange={e => setEditQty(Number(e.target.value))}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#8ab896] font-bold outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+              <div>
+                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                  Harga Satuan (Rp) <span className="text-[#c87070]">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={editUnitPrice || ''}
+                  onChange={e => setEditUnitPrice(Number(e.target.value))}
+                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#e2e6ed] font-bold outline-none focus:border-[#7eb3db]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+                Supplier / Toko
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Toko Kain Jaya"
+                value={editSupplier}
+                onChange={e => setEditSupplier(e.target.value)}
+                className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+              />
+            </div>
+
+            {/* Edit Total Preview */}
+            <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+              <span className="text-[#8899aa]">Total Pengeluaran Baru:</span>
+              <span className="font-mono font-black text-[#8ab896]">
+                {formatRupiah(editQty * editUnitPrice)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setEditingPurchase(null)}
-                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
+                className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || editQty <= 0 || editUnitPrice <= 0}
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
               </button>
             </div>
+          </form>
+        )}
+      </BaseModal>
 
-            <form className="space-y-3 text-xs" onSubmit={handleSaveEditPurchase}>
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Nama Bahan
-                </label>
-                <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-[#e2e6ed] font-semibold">
-                  {editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.name : editingPurchase.raw_materials?.name}
-                  <span className="ml-2 text-[0.7rem] text-[#5a6270]">
-                    ({editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.unit || 'meter' : editingPurchase.raw_materials?.unit || 'pcs'})
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Tanggal Pembelian <span className="text-[#c87070]">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={editPurchaseDate}
-                  onChange={e => setEditPurchaseDate(e.target.value)}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                    Jumlah ({editingPurchase.item_type === 'fabric' ? editingPurchase.fabric_stock?.unit || 'meter' : editingPurchase.raw_materials?.unit || 'pcs'}) <span className="text-[#c87070]">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={editQty || ''}
-                    onChange={e => setEditQty(Number(e.target.value))}
-                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#8ab896] font-bold outline-none focus:border-[#7eb3db]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                    Harga Satuan (Rp) <span className="text-[#c87070]">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={editUnitPrice || ''}
-                    onChange={e => setEditUnitPrice(Number(e.target.value))}
-                    className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#e2e6ed] font-bold outline-none focus:border-[#7eb3db]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Supplier / Toko
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Toko Kain Jaya"
-                  value={editSupplier}
-                  onChange={e => setEditSupplier(e.target.value)}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                />
-              </div>
-
-              {/* Edit Total Preview */}
-              <div className="p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
-                <span className="text-[#8899aa]">Total Pengeluaran Baru:</span>
-                <span className="font-mono font-black text-[#8ab896]">
-                  Rp {(editQty * editUnitPrice).toLocaleString('id-ID')}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingPurchase(null)}
-                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || editQty <= 0 || editUnitPrice <= 0}
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Sticky Floating Summary & Submit Bar */}
-      {activeMat && (effectiveQty > 0 || unitPrice > 0) && (
-        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
-          <div className="min-w-0">
-            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
-              {activeMat.name} (+{effectiveQty} {effectiveUnit})
-            </span>
-            <span className="text-sm font-black text-[#8ab896] font-mono">
-              Rp {totalPrice.toLocaleString('id-ID')}
-            </span>
-          </div>
-          <button
-            type="button"
-            disabled={isSubmitting || effectiveQty <= 0 || unitPrice <= 0}
-            onClick={() => handleSavePurchase(false)}
-            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50"
-          >
-            {isSubmitting ? '...' : 'Simpan'}
-          </button>
-        </div>
-      )}
+      {/* Reusable Mobile Sticky Footer */}
+      <MobileStickyFooter
+        show={Boolean(activeMat && (effectiveQty > 0 || unitPrice > 0))}
+        title={activeMat ? activeMat.name : ''}
+        subTitle={`+${effectiveQty} ${effectiveUnit}`}
+        primaryValue={formatRupiah(totalPrice)}
+        valueColor="text-[#8ab896]"
+        isSubmitting={isSubmitting}
+        disabled={isSubmitting || effectiveQty <= 0 || unitPrice <= 0}
+        onSubmit={() => handleSavePurchase(false)}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
@@ -950,10 +822,10 @@ export default function PembelianPage() {
         onCancel={() => setDeletingPurchase(null)}
       />
 
-      {/* Success Modal */}
+      {/* Success Notification Modal */}
       <ConfirmModal 
         isOpen={showModal} 
-        title="Pembelian Berhasil Dicatat!" 
+        title="Restock Bahan Berhasil!" 
         lines={modalLines} 
         onClose={() => setShowModal(false)} 
       />

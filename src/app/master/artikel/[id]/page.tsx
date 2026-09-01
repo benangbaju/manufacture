@@ -4,6 +4,8 @@ import { useState, useEffect, use } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
 import Link from "next/link";
 import { 
   getDbArticleDetail, 
@@ -149,24 +151,36 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
         }
       />
 
-      {/* Top Article Metrics */}
+      {/* Top Article Metrics via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Varian Warna</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{variants.length} <span className="text-xs font-normal text-[#5a6270]">SKU</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Siap Jual</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{totalGoodStock} <span className="text-xs font-normal text-[#5a6270]">pcs</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Stok Reject</span>
-          <p className="text-xl sm:text-2xl font-black text-[#c8a870] font-mono">{totalRejectStock} <span className="text-xs font-normal text-[#5a6270]">pcs</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Resep Bahan (BOM)</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{recipes.length} <span className="text-xs font-normal text-[#5a6270]">Item</span></p>
-        </div>
+        <KpiStatCard
+          title="Varian Warna"
+          value={<span className="text-[#7eb3db]">{variants.length} <span className="text-xs font-normal text-[#5a6270]">SKU</span></span>}
+          icon={Palette}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Stok Siap Jual"
+          value={<span className="text-[#8ab896]">{totalGoodStock} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          icon={CheckCircle2}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="Stok Reject"
+          value={<span className="text-[#c8a870]">{totalRejectStock} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          icon={AlertTriangle}
+          iconColor="text-[#c8a870]"
+          iconBg="bg-[#201e1a]"
+          iconBorder="border-[#3a3020]"
+        />
+        <KpiStatCard
+          title="Resep Bahan (BOM)"
+          value={<span className="text-[#e2e6ed]">{recipes.length} <span className="text-xs font-normal text-[#5a6270]">Item</span></span>}
+          icon={Layers}
+          iconColor="text-[#e2e6ed]"
+        />
       </div>
 
       {!article ? (
@@ -401,70 +415,67 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      {/* Edit Variant Modal */}
-      {editingVariant && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3040] rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#1e2330]">
-              <h3 className="text-sm font-bold text-[#e2e6ed]">Edit Varian Warna</h3>
-              <button onClick={() => setEditingVariant(null)} className="text-[#5a6270] hover:text-[#e2e6ed]">
-                <X className="w-4 h-4" />
-              </button>
+      {/* Edit Variant Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingVariant)}
+        onClose={() => setEditingVariant(null)}
+        title="Edit Varian Warna"
+        icon={Pencil}
+      >
+        {editingVariant && (
+          <form onSubmit={handleSaveEdit} className="space-y-4 text-xs">
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Warna</label>
+              <input
+                type="text"
+                required
+                value={editingVariant.color}
+                onChange={(e) => setEditingVariant({ ...editingVariant, color: e.target.value })}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none"
+              />
             </div>
-            <form onSubmit={handleSaveEdit} className="space-y-4">
+
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Warna</label>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok Siap Jual</label>
                 <input
-                  type="text"
-                  required
-                  value={editingVariant.color}
-                  onChange={(e) => setEditingVariant({ ...editingVariant, color: e.target.value })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#4a6d8c] outline-none"
+                  type="number"
+                  min="0"
+                  value={editingVariant.stock_qty || 0}
+                  onChange={(e) => setEditingVariant({ ...editingVariant, stock_qty: Number(e.target.value) })}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#8ab896] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
                 />
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok Siap Jual</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editingVariant.stock_qty || 0}
-                    onChange={(e) => setEditingVariant({ ...editingVariant, stock_qty: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#8ab896] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok Reject</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={editingVariant.stock_reject_qty || 0}
-                    onChange={(e) => setEditingVariant({ ...editingVariant, stock_reject_qty: Number(e.target.value) })}
-                    className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c8a870] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok Reject</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editingVariant.stock_reject_qty || 0}
+                  onChange={(e) => setEditingVariant({ ...editingVariant, stock_reject_qty: Number(e.target.value) })}
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c8a870] text-xs sm:text-sm font-bold focus:border-[#4a6d8c] outline-none"
+                />
               </div>
+            </div>
 
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingVariant(null)}
-                  className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <div className="flex gap-2 justify-end pt-2 border-t border-[#1e2330]">
+              <button
+                type="button"
+                onClick={() => setEditingVariant(null)}
+                className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Simpan Perubahan
+              </button>
+            </div>
+          </form>
+        )}
+      </BaseModal>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

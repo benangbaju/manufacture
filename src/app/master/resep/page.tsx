@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
 import Link from 'next/link';
 import { 
   getDbRecipes, 
@@ -15,7 +17,6 @@ import {
   Layers, 
   Plus, 
   Trash2, 
-  Search, 
   Shirt, 
   Tag, 
   CheckCircle2, 
@@ -395,26 +396,28 @@ export default function ResepPage() {
         description="Atur seluruh aksesoris rasio-tetap per varian warna (misal: Baju Putih pakai kancing putih, Baju Hitam pakai kancing hitam)" 
       />
 
-      {/* Top Stat Overview Cards */}
+      {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Varian Warna Ter-Resep</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">
-            {variantRecipeMap.size} <span className="text-xs font-normal text-[#5a6270]">SKU Varian</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Formulasi Terpasang</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
-            {recipes.length} <span className="text-xs font-normal text-[#5a6270]">Komponen</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330] col-span-2 sm:col-span-1">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Pilihan Bahan Baku / Aksesoris</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
-            {materials.length} <span className="text-xs font-normal text-[#5a6270]">Master Bahan</span>
-          </p>
-        </div>
+        <KpiStatCard
+          title="Varian Warna Ter-Resep"
+          value={<span className="text-[#e2e6ed]">{variantRecipeMap.size} <span className="text-xs font-normal text-[#5a6270]">SKU Varian</span></span>}
+          icon={Shirt}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Total Formulasi Terpasang"
+          value={<span className="text-[#7eb3db]">{recipes.length} <span className="text-xs font-normal text-[#5a6270]">Komponen</span></span>}
+          icon={Layers}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Pilihan Bahan Baku / Aksesoris"
+          value={<span className="text-[#8ab896]">{materials.length} <span className="text-xs font-normal text-[#5a6270]">Master Bahan</span></span>}
+          icon={Tag}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
       </div>
 
       {articles.length === 0 ? (
@@ -441,20 +444,13 @@ export default function ResepPage() {
                 <span className="text-[0.65rem] text-[#5a6270]">{articles.length} Model</span>
               </div>
 
-              {/* Search article or color */}
-              <div className="relative mb-3">
-                <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Cari artikel atau warna..."
-                  value={articleSearch}
-                  onChange={e => setArticleSearch(e.target.value)}
-                  className="w-full pl-8 pr-6 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-                />
-                {articleSearch && (
-                  <button onClick={() => setArticleSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs">✕</button>
-                )}
-              </div>
+              {/* Search article or color via SearchInput */}
+              <SearchInput
+                value={articleSearch}
+                onChange={setArticleSearch}
+                placeholder="Cari artikel atau warna..."
+                className="mb-3"
+              />
 
               {/* Article Accordion / List */}
               <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">

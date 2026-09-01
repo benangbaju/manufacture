@@ -1,22 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import Pagination from "@/components/ui/Pagination";
+import MobileStickyFooter from "@/components/ui/MobileStickyFooter";
+import DateFilterGroup from "@/components/ui/DateFilterGroup";
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
+import QuickSuccessAlert from "@/components/ui/QuickSuccessAlert";
+import { usePagination } from "@/hooks/usePagination";
+import { formatRupiah, formatCompactRupiah } from "@/lib/utils/formatters";
+import { getTodayDateString, filterByDateRange, DateFilterOption } from "@/lib/utils/date";
 import { getDbExpenses, createDbExpense, updateDbExpense, deleteDbExpense } from "@/lib/services/db";
 import { 
   Receipt, 
   Clock, 
   Plus, 
   Trash2, 
-  Pencil,
-  CalendarDays, 
+  Pencil, 
   DollarSign,
   Search,
   Tag,
-  X
+  TrendingDown,
+  FileSpreadsheet
 } from 'lucide-react';
 
 interface ExpenseRecord {
@@ -26,8 +35,6 @@ interface ExpenseRecord {
   amount: number;
   notes?: string;
 }
-
-type DateFilterOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS' | 'THIS_MONTH' | 'CUSTOM';
 
 const categories = [
   'Ads (Iklan)', 
@@ -41,8 +48,6 @@ const categories = [
   'Sewa Tempat / Ruko',
   'Lainnya'
 ];
-
-const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
 export default function PengeluaranPage() {
   const [category, setCategory] = useState('Ads (Iklan)');
@@ -59,14 +64,12 @@ export default function PengeluaranPage() {
   const [editNotes, setEditNotes] = useState<string>('');
   const [editExpenseDate, setEditExpenseDate] = useState<string>(getTodayDateString());
 
-  // Filters & Pagination
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilterOption>('ALL');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modals & States
   const [showModal, setShowModal] = useState(false);
@@ -106,13 +109,13 @@ export default function PengeluaranPage() {
       const lines = [
         `Tanggal: ${expenseDate}`,
         `Kategori: ${category}`,
-        `Jumlah Biaya: Rp ${amount.toLocaleString('id-ID')}`,
+        `Jumlah Biaya: ${formatRupiah(amount)}`,
         notes ? `Keterangan: ${notes}` : 'Tanpa catatan',
         `Otomatis tercatat sebagai pengurang laba di laporan laba rugi.`,
       ];
 
       if (continueEntry) {
-        setQuickSuccessMsg(`Pengeluaran dicatat: ${category} senilai Rp ${amount.toLocaleString('id-ID')}`);
+        setQuickSuccessMsg(`Pengeluaran dicatat: ${category} senilai ${formatRupiah(amount)}`);
         setTimeout(() => setQuickSuccessMsg(null), 4000);
       } else {
         setModalLines(lines);
@@ -122,36 +125,9 @@ export default function PengeluaranPage() {
       setAmount(0);
       setNotes('');
       await loadData();
-    } catch (err: any) {
-      alert('Gagal mencatat pengeluaran: ' + err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const openEditExpense = (e: ExpenseRecord) => {
-    setEditingExpense(e);
-    setEditCategory(e.category || categories[0]);
-    setEditAmount(e.amount || 0);
-    setEditNotes(e.notes || '');
-    setEditExpenseDate(e.expense_date || getTodayDateString());
-  };
-
-  const handleSaveEditExpense = async (ev: React.FormEvent) => {
-    ev.preventDefault();
-    if (!editingExpense || editAmount <= 0 || !editCategory) return;
-    setIsSubmitting(true);
-    try {
-      await updateDbExpense(editingExpense.id, {
-        category: editCategory,
-        amount: editAmount,
-        expense_date: editExpenseDate,
-        notes: editNotes.trim() || undefined,
-      });
-      setEditingExpense(null);
-      await loadData();
-    } catch (err: any) {
-      alert('Gagal memperbarui pengeluaran: ' + err.message);
+    } catch (err) {
+      console.error('Gagal mencatat pengeluaran:', err);
+      alert('Gagal mencatat pengeluaran.');
     } finally {
       setIsSubmitting(false);
     }
@@ -163,59 +139,80 @@ export default function PengeluaranPage() {
       await deleteDbExpense(deletingExpense.id);
       setDeletingExpense(null);
       await loadData();
-    } catch (err: any) {
-      alert('Gagal menghapus catatan pengeluaran: ' + err.message);
+    } catch (err) {
+      console.error('Gagal menghapus pengeluaran:', err);
+      alert('Gagal menghapus catatan pengeluaran.');
     }
   };
 
-  // Date, Category & Search Filtering Logic
-  const todayStr = getTodayDateString();
-  const now = new Date();
-  const filteredExpenses = expenses.filter(e => {
-    if (categoryFilter !== 'ALL' && e.category !== categoryFilter) return false;
+  const openEditExpense = (e: ExpenseRecord) => {
+    setEditingExpense(e);
+    setEditCategory(e.category);
+    setEditAmount(e.amount);
+    setEditNotes(e.notes || '');
+    setEditExpenseDate(e.expense_date);
+  };
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase().trim();
-      const cat = (e.category || '').toLowerCase();
-      const note = (e.notes || '').toLowerCase();
-      if (!cat.includes(q) && !note.includes(q)) return false;
-    }
+  const handleSaveEditExpense = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!editingExpense || editAmount <= 0) return;
 
-    if (dateFilter === 'ALL') return true;
-    if (dateFilter === 'TODAY') return e.expense_date === todayStr;
-    if (dateFilter === '7_DAYS') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      return new Date(e.expense_date) >= sevenDaysAgo;
-    }
-    if (dateFilter === '30_DAYS') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      return new Date(e.expense_date) >= thirtyDaysAgo;
-    }
-    if (dateFilter === 'THIS_MONTH') {
-      const eDate = new Date(e.expense_date);
-      return eDate.getMonth() === now.getMonth() && eDate.getFullYear() === now.getFullYear();
-    }
-    if (dateFilter === 'CUSTOM') {
-      if (!customStartDate && !customEndDate) return true;
-      const eDate = new Date(e.expense_date);
-      if (customStartDate && eDate < new Date(customStartDate)) return false;
-      if (customEndDate && eDate > new Date(customEndDate)) return false;
-      return true;
-    }
-    return true;
-  });
+    setIsSubmitting(true);
+    try {
+      await updateDbExpense(editingExpense.id, {
+        category: editCategory,
+        amount: editAmount,
+        expense_date: editExpenseDate,
+        notes: editNotes.trim() || undefined,
+      });
 
-  const totalFilteredNominal = filteredExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+      setEditingExpense(null);
+      await loadData();
+    } catch (err) {
+      console.error('Gagal update pengeluaran:', err);
+      alert('Gagal memperbarui catatan pengeluaran.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // KPI Calculations
   const totalAllNominal = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
-  // Find biggest spending category
-  const categoryTotals = expenses.reduce((acc: Record<string, number>, curr) => {
-    acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+  const categoryBreakdown = expenses.reduce((acc, curr) => {
+    acc[curr.category] = (acc[curr.category] || 0) + (curr.amount || 0);
     return acc;
-  }, {});
-  const biggestCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
+  }, {} as Record<string, number>);
+
+  const sortedCategories = Object.entries(categoryBreakdown).sort((a, b) => b[1] - a[1]);
+  const biggestCategory = sortedCategories[0];
+
+  // Filtering Logic
+  const filteredExpenses = useMemo(() => {
+    let result = filterByDateRange(expenses, 'expense_date', dateFilter, customStartDate, customEndDate);
+    if (categoryFilter !== 'ALL') {
+      result = result.filter(e => e.category === categoryFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(e => 
+        e.category.toLowerCase().includes(q) || 
+        (e.notes && e.notes.toLowerCase().includes(q))
+      );
+    }
+    return result;
+  }, [expenses, dateFilter, customStartDate, customEndDate, categoryFilter, searchQuery]);
+
+  const totalFilteredNominal = filteredExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+  // Pagination Hook
+  const {
+    currentPage,
+    setCurrentPage,
+    pageSize,
+    setPageSize,
+    paginatedItems: pagedExpenses,
+  } = usePagination(filteredExpenses, { initialPageSize: 10 });
 
   return (
     <div>
@@ -226,33 +223,37 @@ export default function PengeluaranPage() {
 
       {/* Top Stat Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Beban Operasional</span>
-          <p className="text-xl sm:text-2xl font-black text-[#c87070] font-mono">
-            Rp {(totalAllNominal / 1000000).toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">Juta</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Transaksi Biaya</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">
-            {expenses.length} <span className="text-xs font-normal text-[#5a6270]">Kuitansi</span>
-          </p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Kategori Terbesar</span>
-          <p className="text-sm sm:text-base font-bold text-[#e2e6ed] truncate">
-            {biggestCategory ? biggestCategory[0] : '-'}
-          </p>
-          {biggestCategory && (
-            <p className="text-[0.65rem] text-[#c8a870] font-mono mt-0.5">Rp {(biggestCategory[1] / 1000).toFixed(0)}k</p>
-          )}
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Rata-rata per Biaya</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">
-            Rp {expenses.length > 0 ? (Math.round(totalAllNominal / expenses.length) / 1000).toFixed(0) : 0}k
-          </p>
-        </div>
+        <KpiStatCard
+          title="Total Beban Operasional"
+          value={<span className="text-[#c87070]">{formatCompactRupiah(totalAllNominal)}</span>}
+          icon={Receipt}
+          iconColor="text-[#c87070]"
+          iconBg="bg-[#241a1a]"
+          iconBorder="border-[#3a2828]"
+        />
+        <KpiStatCard
+          title="Total Transaksi Biaya"
+          value={<span className="text-[#7eb3db]">{expenses.length} <span className="text-xs font-normal text-[#5a6270]">Kuitansi</span></span>}
+          icon={FileSpreadsheet}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Kategori Terbesar"
+          value={<span className="text-sm sm:text-base font-bold text-[#e2e6ed] truncate">{biggestCategory ? biggestCategory[0] : '-'}</span>}
+          subtitle={biggestCategory ? formatCompactRupiah(biggestCategory[1]) : undefined}
+          icon={TrendingDown}
+          iconColor="text-[#c8a870]"
+          iconBg="bg-[#201e1a]"
+          iconBorder="border-[#3a3020]"
+        />
+        <KpiStatCard
+          title="Rata-rata per Biaya"
+          value={<span className="text-[#8ab896]">{formatCompactRupiah(expenses.length > 0 ? Math.round(totalAllNominal / expenses.length) : 0)}</span>}
+          icon={DollarSign}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -268,186 +269,131 @@ export default function PengeluaranPage() {
             </div>
           </div>
 
-          {quickSuccessMsg && (
-            <div className="mb-4 p-3 bg-[#1a2a20] border border-[#2a3a30] text-[#8ab896] rounded-xl text-xs flex items-center justify-between animate-in fade-in duration-200">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-4 h-4 shrink-0" />
-                <span>{quickSuccessMsg}</span>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setQuickSuccessMsg(null)}
-                className="text-[#8ab896]/70 hover:text-[#8ab896] text-xs font-bold px-1"
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          <QuickSuccessAlert
+            message={quickSuccessMsg}
+            onClose={() => setQuickSuccessMsg(null)}
+            icon={Receipt}
+          />
 
-          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleSubmit(false); }}>
-            {/* Category Quick Chips */}
+          <div className="space-y-4">
             <div>
-              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
                 Pilih Kategori Beban <span className="text-[#c87070]">*</span>
               </label>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {categories.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCategory(c)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                      category === c
-                        ? 'bg-[#121822] border-[#233548] text-[#7eb3db] ring-1 ring-[#7eb3db]'
-                        : 'bg-[#0c0f17] border-[#1e2330] text-[#8899aa] hover:bg-[#1a2030]'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {categories.map((cat) => {
+                  const isSelected = category === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategory(cat)}
+                      className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#1a2838] border-[#3d5a80] text-[#7eb3db] shadow-sm'
+                          : 'bg-[#0c0f17] border-[#1e2330] text-[#8899aa] hover:border-[#2a3848] hover:text-[#e2e6ed]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">{cat}</span>
+                        {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#7eb3db] shrink-0" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
                   Tanggal Pengeluaran <span className="text-[#c87070]">*</span>
                 </label>
                 <input
                   type="date"
-                  required
                   value={expenseDate}
                   onChange={(e) => setExpenseDate(e.target.value)}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none font-medium"
+                  className="w-full p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
                 />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider">
-                    Nominal Biaya (Rp) <span className="text-[#c87070]">*</span>
-                  </label>
-                  <span className="text-[0.65rem] text-[#5a6270]">Tambah cepat</span>
+                <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                  Nominal Biaya (Rp) <span className="text-[#c87070]">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[#5a6270]">Rp</span>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="0"
+                    value={amount || ''}
+                    onChange={(e) => setAmount(Number(e.target.value))}
+                    className="w-full p-2.5 pl-9 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-sm font-bold font-mono text-[#c87070] outline-none focus:border-[#7eb3db]"
+                  />
                 </div>
-
-                {/* Quick Additive Chips */}
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {[
-                    { label: '+10k', val: 10000 },
-                    { label: '+50k', val: 50000 },
-                    { label: '+100k', val: 100000 },
-                    { label: '+500k', val: 500000 },
-                    { label: '+1Jt', val: 1000000 },
-                  ].map(chip => (
-                    <button
-                      key={chip.label}
-                      type="button"
-                      onClick={() => setAmount(prev => (prev || 0) + chip.val)}
-                      className="px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono bg-[#0c0f17] text-[#8899aa] border-[#1e2330] hover:bg-[#1a2030] hover:text-[#e2e6ed]"
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                  {amount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setAmount(0)}
-                      className="px-2 py-0.5 rounded-lg text-[0.65rem] font-semibold transition-all border font-mono bg-[#241a1a] text-[#c87070] border-[#3a2020] hover:bg-[#341e1e]"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
-
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  required
-                  min={1}
-                  value={amount || ''}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                  className="w-full p-2.5 text-lg font-bold bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#c87070] focus:border-[#7eb3db] outline-none font-mono"
-                  placeholder="0"
-                />
-                {amount > 0 && (
-                  <p className="text-[0.7rem] text-[#c87070] mt-1 font-mono font-semibold">
-                    Rp {amount.toLocaleString('id-ID')}
-                  </p>
-                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">
-                Keterangan / Catatan Tambahan (Opsional)
+              <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
+                Catatan Tambahan (Opsional)
               </label>
-              <input
-                type="text"
+              <textarea
+                rows={2}
+                placeholder="Contoh: Iklan Meta CP 30k, Beli 5 pack polymailer ukuran 30x40, dsb..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Contoh: Iklan TikTok Live, Lakban 5 roll, Konsumsi lembur"
-                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none placeholder-[#3a4454]"
+                className="w-full p-3 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] outline-none focus:border-[#7eb3db] resize-none placeholder-[#4a5568]"
               />
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-2 pt-1">
+            {/* Tombol Aksi Simpan */}
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
               <button
-                type="submit"
-                disabled={isSubmitting}
-                className="py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                type="button"
+                disabled={isSubmitting || !category || amount <= 0}
+                onClick={() => handleSubmit(false)}
+                className="w-full sm:flex-1 py-3 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Pengeluaran'}</span>
+                <span>{isSubmitting ? 'Menyimpan...' : 'Simpan & Lihat Rincian'}</span>
               </button>
               <button
                 type="button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !category || amount <= 0}
                 onClick={() => handleSubmit(true)}
-                className="py-3 bg-[#1a2838] hover:bg-[#233548] text-[#7eb3db] border border-[#2a3c50] font-semibold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.99] disabled:opacity-50"
+                className="w-full sm:w-auto px-5 py-3 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] hover:text-[#e2e6ed] border border-[#2a3040] font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                <Receipt className="w-4 h-4" />
-                <span>Simpan & Catat Lagi</span>
+                <span>Simpan & Input Lagi</span>
               </button>
             </div>
-          </form>
+          </div>
         </div>
 
-        {/* Right Column: Riwayat Pengeluaran */}
-        <div className="glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col h-fit">
-          <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] space-y-2.5">
-            <div className="flex items-center justify-between">
+        {/* Panel Riwayat Pengeluaran */}
+        <div className="glass-card rounded-2xl p-4 sm:p-5 border-[#1e2330] flex flex-col justify-between">
+          <div className="space-y-3 mb-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1e2330]">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-[#7eb3db]" />
-                <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Biaya</h2>
+                <h3 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Riwayat Pengeluaran</h3>
               </div>
               <span className="text-[0.7rem] text-[#8899aa] font-medium">{filteredExpenses.length} Kuitansi</span>
             </div>
 
-            <div className="p-2.5 bg-[#0c0f17] border border-[#1e2330] rounded-xl flex items-center justify-between text-xs">
+            {/* Total Filtered Stat Banner */}
+            <div className="p-2.5 bg-[#121620] border border-[#1e2838] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#5a6270]">Total Biaya Terfilter:</span>
-              <span className="font-extrabold text-[#c87070] text-sm font-mono">Rp {totalFilteredNominal.toLocaleString('id-ID')}</span>
+              <span className="font-extrabold text-[#c87070] font-mono">{formatRupiah(totalFilteredNominal)}</span>
             </div>
 
-            {/* Search Bar with Instant Clear */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari kategori atau catatan..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            {/* Search Bar via SearchInput */}
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari kategori atau catatan..."
+            />
 
             {/* Category Filter Dropdown */}
             <div>
@@ -463,54 +409,15 @@ export default function PengeluaranPage() {
               </select>
             </div>
 
-            {/* Universal Date Filters */}
-            <div className="grid grid-cols-3 gap-1 pt-0.5">
-              {[
-                { label: 'Semua', val: 'ALL' as const },
-                { label: 'Hari Ini', val: 'TODAY' as const },
-                { label: '7 Hari', val: '7_DAYS' as const },
-                { label: '30 Hari', val: '30_DAYS' as const },
-                { label: 'Bulan Ini', val: 'THIS_MONTH' as const },
-                { label: 'Kustom', val: 'CUSTOM' as const },
-              ].map(tab => (
-                <button
-                  key={tab.val}
-                  type="button"
-                  onClick={() => setDateFilter(tab.val)}
-                  className={`py-1 rounded-lg text-[0.65rem] font-bold transition-all ${
-                    dateFilter === tab.val
-                      ? 'bg-[#3d5a80] text-white'
-                      : 'bg-[#0c0f17] text-[#5a6270] border border-[#1e2330] hover:text-[#8899aa]'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom Date Range Inputs */}
-            {dateFilter === 'CUSTOM' && (
-              <div className="grid grid-cols-2 gap-2 pt-1 animate-in fade-in duration-150">
-                <div>
-                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Dari Tanggal</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={e => setCustomStartDate(e.target.value)}
-                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[0.6rem] text-[#8899aa] uppercase font-bold block mb-0.5">Sampai Tanggal</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={e => setCustomEndDate(e.target.value)}
-                    className="w-full p-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-lg text-xs text-[#e2e6ed] outline-none"
-                  />
-                </div>
-              </div>
-            )}
+            {/* Reusable Universal Date Filter Group */}
+            <DateFilterGroup
+              value={dateFilter}
+              onChange={setDateFilter}
+              customStartDate={customStartDate}
+              customEndDate={customEndDate}
+              onCustomStartChange={setCustomStartDate}
+              onCustomEndChange={setCustomEndDate}
+            />
           </div>
 
           <div className="divide-y divide-[#1e2330] overflow-y-auto max-h-[420px]">
@@ -519,39 +426,37 @@ export default function PengeluaranPage() {
                 Belum ada catatan pengeluaran operasional sesuai filter.
               </div>
             ) : (
-              filteredExpenses
-                .slice((currentPage - 1) * pageSize, currentPage * pageSize)
-                .map(e => (
-                  <div key={e.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
-                    <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
-                      <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{e.category}</span>
-                      <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{e.expense_date}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[0.7rem] gap-2">
-                      <span className="text-[#8899aa] break-words whitespace-normal leading-snug flex-1">{e.notes || 'Tanpa catatan'}</span>
-                      <span className="font-bold text-[#c87070] font-mono shrink-0">Rp {(e.amount || 0).toLocaleString('id-ID')}</span>
-                    </div>
-
-                    <div className="flex justify-end gap-1.5 pt-0.5">
-                      <button
-                        type="button"
-                        onClick={() => openEditExpense(e)}
-                        className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1"
-                      >
-                        <Pencil className="w-2.5 h-2.5" />
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingExpense(e)}
-                        className="text-[#c87070] hover:text-[#e07070] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all"
-                      >
-                        Hapus
-                      </button>
-                    </div>
+              pagedExpenses.map(e => (
+                <div key={e.id} className="p-3.5 hover:bg-white/[0.02] transition-colors space-y-1.5">
+                  <div className="flex flex-wrap items-start justify-between gap-1 text-xs">
+                    <span className="font-bold text-[#e2e6ed] break-words leading-snug flex-1 min-w-[140px]">{e.category}</span>
+                    <span className="font-mono text-[#5a6270] text-[0.7rem] shrink-0">{e.expense_date}</span>
                   </div>
-                ))
+
+                  <div className="flex items-center justify-between text-[0.7rem] gap-2">
+                    <span className="text-[#8899aa] break-words whitespace-normal leading-snug flex-1">{e.notes || 'Tanpa catatan'}</span>
+                    <span className="font-bold text-[#c87070] font-mono shrink-0">{formatRupiah(e.amount)}</span>
+                  </div>
+
+                  <div className="flex justify-end gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => openEditExpense(e)}
+                      className="text-[#7eb3db] hover:text-[#9ac4e6] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#1a2838] transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Pencil className="w-2.5 h-2.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingExpense(e)}
+                      className="text-[#c87070] hover:text-[#e07070] font-semibold text-[0.65rem] px-2 py-0.5 rounded hover:bg-[#241a1a] transition-all cursor-pointer"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
 
@@ -566,123 +471,100 @@ export default function PengeluaranPage() {
         </div>
       </div>
 
-      {/* Edit Expense Modal */}
-      {editingExpense && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3848] rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1e2838]">
-              <div className="flex items-center gap-2 text-[#7eb3db] font-bold text-sm">
-                <Pencil className="w-4 h-4" />
-                <span>Edit Catatan Biaya #{editingExpense.id}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingExpense(null)}
-                className="text-[#5a6270] hover:text-[#e2e6ed] p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form className="space-y-3 text-xs" onSubmit={handleSaveEditExpense}>
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Kategori Pengeluaran <span className="text-[#c87070]">*</span>
-                </label>
-                <select
-                  required
-                  value={editCategory}
-                  onChange={e => setEditCategory(e.target.value)}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                >
-                  {categories.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Tanggal Pengeluaran <span className="text-[#c87070]">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={editExpenseDate}
-                  onChange={e => setEditExpenseDate(e.target.value)}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Jumlah Biaya (Rp) <span className="text-[#c87070]">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={editAmount || ''}
-                  onChange={e => setEditAmount(Number(e.target.value))}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#c87070] font-bold outline-none focus:border-[#7eb3db]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
-                  Catatan / Keterangan (Opsional)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Keterangan detail biaya..."
-                  value={editNotes}
-                  onChange={e => setEditNotes(e.target.value)}
-                  className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db] resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingExpense(null)}
-                  className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || editAmount <= 0}
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-              </div>
-            </form>
+      {/* Edit Expense Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingExpense)}
+        onClose={() => setEditingExpense(null)}
+        title={editingExpense ? `Edit Catatan Biaya #${editingExpense.id}` : ''}
+        icon={Pencil}
+      >
+        <form className="space-y-3 text-xs" onSubmit={handleSaveEditExpense}>
+          <div>
+            <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+              Kategori Pengeluaran <span className="text-[#c87070]">*</span>
+            </label>
+            <select
+              required
+              value={editCategory}
+              onChange={e => setEditCategory(e.target.value)}
+              className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+            >
+              {categories.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
 
-      {/* Mobile Sticky Floating Summary & Submit Bar */}
-      {amount > 0 && (
-        <div className="sm:hidden fixed bottom-16 left-0 right-0 z-40 bg-[#121824]/95 backdrop-blur-md border-t border-[#2a3848] p-3 px-4 shadow-[0_-4px_20px_rgba(0,0,0,0.5)] flex items-center justify-between gap-3 animate-in slide-in-from-bottom duration-200">
-          <div className="min-w-0">
-            <span className="text-[0.65rem] text-[#8899aa] block truncate font-medium">
-              {category} {notes ? `(${notes})` : ''}
-            </span>
-            <span className="text-sm font-black text-[#c87070] font-mono">
-              Rp {amount.toLocaleString('id-ID')}
-            </span>
+          <div>
+            <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+              Tanggal Pengeluaran <span className="text-[#c87070]">*</span>
+            </label>
+            <input
+              type="date"
+              required
+              value={editExpenseDate}
+              onChange={e => setEditExpenseDate(e.target.value)}
+              className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db]"
+            />
           </div>
-          <button
-            type="button"
-            disabled={isSubmitting || amount <= 0}
-            onClick={() => handleSubmit(false)}
-            className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white font-bold text-xs rounded-xl shadow-sm shrink-0 disabled:opacity-50"
-          >
-            {isSubmitting ? '...' : 'Simpan'}
-          </button>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+              Jumlah Biaya (Rp) <span className="text-[#c87070]">*</span>
+            </label>
+            <input
+              type="number"
+              min="1"
+              required
+              value={editAmount || ''}
+              onChange={e => setEditAmount(Number(e.target.value))}
+              className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl font-mono text-[#c87070] font-bold outline-none focus:border-[#7eb3db]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider mb-1">
+              Catatan / Keterangan (Opsional)
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Keterangan detail biaya..."
+              value={editNotes}
+              onChange={e => setEditNotes(e.target.value)}
+              className="w-full p-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] outline-none focus:border-[#7eb3db] resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setEditingExpense(null)}
+              className="px-3.5 py-2 bg-[#1a2030] hover:bg-[#222a3a] text-[#8899aa] rounded-xl text-xs font-semibold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || editAmount <= 0}
+              className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {isSubmitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+          </div>
+        </form>
+      </BaseModal>
+
+      {/* Reusable Mobile Sticky Footer */}
+      <MobileStickyFooter
+        show={amount > 0}
+        title={category}
+        subTitle={notes}
+        primaryValue={formatRupiah(amount)}
+        valueColor="text-[#c87070]"
+        isSubmitting={isSubmitting}
+        disabled={isSubmitting || amount <= 0}
+        onSubmit={() => handleSubmit(false)}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

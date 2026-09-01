@@ -18,15 +18,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem('manufaktur_theme') as Theme | null;
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      setThemeState(savedTheme);
+    const existing = document.documentElement.getAttribute('data-theme') as Theme | null;
+    const savedTheme = (localStorage.getItem('manufaktur_theme') as Theme | null) || existing || 'dark';
+    setThemeState(savedTheme);
+    if (!existing || existing !== savedTheme) {
       applyTheme(savedTheme);
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const initial = prefersDark ? 'dark' : 'dark'; // default dark for manufacture luxury look
-      setThemeState(initial);
-      applyTheme(initial);
     }
   }, []);
 

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import { formatRupiah, formatCompactRupiah } from "@/lib/utils/formatters";
 import { generateExcelReport, ReportData } from "@/lib/exportExcel";
 import { 
   getDbProductionBatches, 
@@ -343,51 +345,42 @@ export default function LaporanPage() {
         }
       />
 
-      {/* Summary KPI Cards */}
+      {/* Summary KPI Cards via KpiStatCard */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Total Pendapatan</p>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] mt-1 font-mono">
-            Rp {revenue.toLocaleString('id-ID')}
-          </p>
-          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            <span>Grade A ({regularQtySold} pcs): Rp {(regularRevenue / 1000).toFixed(0)}k</span>
-            <span>Reject ({rejectQtySold} pcs): Rp {(rejectRevenue / 1000).toFixed(0)}k</span>
-          </div>
-        </div>
-
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">HPP Terjual (COGS)</p>
-          <p className="text-xl sm:text-2xl font-black text-[#c8a870] mt-1 font-mono">
-            Rp {cogs.toLocaleString('id-ID')}
-          </p>
-          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            <span>Laba Kotor:</span>
-            <strong className="text-[#8ab896] font-mono">Rp {grossProfit.toLocaleString('id-ID')} ({grossMargin}%)</strong>
-          </div>
-        </div>
-
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Biaya Operasional (Opex)</p>
-          <p className="text-xl sm:text-2xl font-black text-[#c87070] mt-1 font-mono">
-            Rp {expenses.toLocaleString('id-ID')}
-          </p>
-          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            <span>{expenseList.length} pos beban</span>
-            <span>{revenue > 0 ? ((expenses / revenue) * 100).toFixed(1) : 0}% omset</span>
-          </div>
-        </div>
-
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <p className="text-[0.65rem] text-[#8899aa] uppercase tracking-wider font-semibold">Laba Bersih (Net Profit)</p>
-          <p className={`text-xl sm:text-2xl font-black mt-1 font-mono ${netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
-            Rp {netProfit.toLocaleString('id-ID')}
-          </p>
-          <div className="flex items-center justify-between text-[0.65rem] text-[#5a6270] mt-2 pt-2 border-t border-[#1e2330]">
-            <span>Margin Bersih:</span>
-            <strong className={netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{netMargin}%</strong>
-          </div>
-        </div>
+        <KpiStatCard
+          title="Total Pendapatan"
+          value={<span className="text-[#8ab896]">{formatRupiah(revenue)}</span>}
+          subtitle={`Grade A (${regularQtySold} pcs) • Reject (${rejectQtySold} pcs)`}
+          icon={TrendingUp}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="HPP Terjual (COGS)"
+          value={<span className="text-[#c8a870]">{formatRupiah(cogs)}</span>}
+          subtitle={`Laba Kotor: ${formatRupiah(grossProfit)} (${grossMargin}%)`}
+          icon={Tag}
+          iconColor="text-[#c8a870]"
+          iconBg="bg-[#201e1a]"
+          iconBorder="border-[#3a3020]"
+        />
+        <KpiStatCard
+          title="Biaya Operasional (Opex)"
+          value={<span className="text-[#c87070]">{formatRupiah(expenses)}</span>}
+          subtitle={`${expenseList.length} pos • ${revenue > 0 ? ((expenses / revenue) * 100).toFixed(1) : 0}% omset`}
+          icon={Wallet}
+          iconColor="text-[#c87070]"
+          iconBg="bg-[#241a1a]"
+          iconBorder="border-[#3a2828]"
+        />
+        <KpiStatCard
+          title="Laba Bersih (Net Profit)"
+          value={<span className={netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}>{formatRupiah(netProfit)}</span>}
+          subtitle={`Margin Bersih: ${netMargin}%`}
+          icon={Coins}
+          iconColor={netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}
+        />
       </div>
 
       {/* Production Quality & Channel Performance */}
@@ -445,7 +438,7 @@ export default function LaporanPage() {
             <div className="p-3 bg-[#121822] border border-[#233548] rounded-xl flex items-center justify-between text-xs">
               <span className="text-[#8899aa]">Rata-rata HPP Produksi:</span>
               <span className="font-bold font-mono text-sm text-[#e2e6ed]">
-                Rp {avgHppPerUnitProduced.toLocaleString('id-ID')} / pcs
+                {formatRupiah(avgHppPerUnitProduced)} / pcs
               </span>
             </div>
           </div>
@@ -482,7 +475,7 @@ export default function LaporanPage() {
                       <td className="p-3 text-right font-mono text-[#c8a870]">{ch.rejectQty} pcs</td>
                       <td className="p-3 text-right font-mono font-bold text-[#e2e6ed]">{ch.totalQty} pcs</td>
                       <td className="p-3 text-right font-mono font-bold text-[#8ab896]">
-                        Rp {ch.totalRevenue.toLocaleString('id-ID')}
+                        {formatRupiah(ch.totalRevenue)}
                       </td>
                     </tr>
                   ))
@@ -504,30 +497,30 @@ export default function LaporanPage() {
             <div className="space-y-1.5 pt-1">
               <div className="flex justify-between font-semibold text-[#e2e6ed]">
                 <span>1. Total Pendapatan Penjualan</span>
-                <span className="font-mono text-[#8ab896]">Rp {revenue.toLocaleString('id-ID')}</span>
+                <span className="font-mono text-[#8ab896]">{formatRupiah(revenue)}</span>
               </div>
               <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-3">
                 <span>• Penjualan Normal (Grade A) - {regularQtySold} pcs</span>
-                <span className="font-mono text-[#8ab896]">Rp {regularRevenue.toLocaleString('id-ID')}</span>
+                <span className="font-mono text-[#8ab896]">{formatRupiah(regularRevenue)}</span>
               </div>
               <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-3">
                 <span>• Penjualan Cuci Gudang (Reject) - {rejectQtySold} pcs</span>
-                <span className="font-mono text-[#c8a870]">Rp {rejectRevenue.toLocaleString('id-ID')}</span>
+                <span className="font-mono text-[#c8a870]">{formatRupiah(rejectRevenue)}</span>
               </div>
             </div>
 
             <div className="space-y-1.5 pt-2">
               <div className="flex justify-between font-semibold text-[#c8a870]">
                 <span>2. (-) Beban Pokok Penjualan (HPP / COGS)</span>
-                <span className="font-mono font-bold">- Rp {cogs.toLocaleString('id-ID')}</span>
+                <span className="font-mono font-bold">- {formatRupiah(cogs)}</span>
               </div>
               <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-3">
                 <span>• HPP Unit Terjual Grade A</span>
-                <span className="font-mono">- Rp {regularCogs.toLocaleString('id-ID')}</span>
+                <span className="font-mono">- {formatRupiah(regularCogs)}</span>
               </div>
               <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-3">
                 <span>• HPP Unit Terjual Reject</span>
-                <span className="font-mono">- Rp {rejectCogs.toLocaleString('id-ID')}</span>
+                <span className="font-mono">- {formatRupiah(rejectCogs)}</span>
               </div>
             </div>
 
@@ -535,31 +528,31 @@ export default function LaporanPage() {
               <div className="flex justify-between">
                 <span className="font-bold text-[#e2e6ed]">3. (=) Laba Kotor (Gross Profit)</span>
                 <span className="font-black text-[#e2e6ed] font-mono">
-                  Rp {grossProfit.toLocaleString('id-ID')} 
+                  {formatRupiah(grossProfit)} 
                   <span className="text-xs text-[#5a6270] font-normal ml-1">({grossMargin}%)</span>
                 </span>
               </div>
               <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-2">
                 <span>• Margin Bersih Grade A</span>
-                <span className="font-mono text-[#8ab896]">Rp {regularGrossProfit.toLocaleString('id-ID')}</span>
+                <span className="font-mono text-[#8ab896]">{formatRupiah(regularGrossProfit)}</span>
               </div>
               <div className="flex justify-between text-[0.7rem] text-[#8899aa] pl-2">
                 <span>• Margin Penjualan Reject</span>
                 <span className={`font-mono ${rejectGrossProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
-                  Rp {rejectGrossProfit.toLocaleString('id-ID')}
+                  {formatRupiah(rejectGrossProfit)}
                 </span>
               </div>
             </div>
 
             <div className="flex justify-between pt-2">
               <span className="text-[#8899aa]">4. (-) Total Beban Operasional</span>
-              <span className="font-semibold text-[#c87070] font-mono">- Rp {expenses.toLocaleString('id-ID')}</span>
+              <span className="font-semibold text-[#c87070] font-mono">- {formatRupiah(expenses)}</span>
             </div>
 
             <div className="flex justify-between pt-3 bg-[#1a2a20] p-3 rounded-xl border border-[#2a3a30]">
               <span className="font-bold text-[#8ab896] text-sm">5. (=) Laba Bersih Akhir (Net Profit)</span>
               <span className={`font-black text-sm sm:text-base font-mono ${netProfit >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
-                Rp {netProfit.toLocaleString('id-ID')}
+                {formatRupiah(netProfit)}
               </span>
             </div>
           </div>
@@ -582,7 +575,7 @@ export default function LaporanPage() {
                   <span className="text-[#e2e6ed] font-medium">Pembelian Stok Bahan Baku (Kain & Aksesoris)</span>
                   <p className="text-[0.65rem] text-[#5a6270]">Total uang keluar belanja ke supplier di bulan ini</p>
                 </div>
-                <span className="font-mono font-bold text-[#c8a870]">- Rp {purchaseCost.toLocaleString('id-ID')}</span>
+                <span className="font-mono font-bold text-[#c8a870]">- {formatRupiah(purchaseCost)}</span>
               </div>
 
               <div className="flex justify-between pt-3">
@@ -590,7 +583,7 @@ export default function LaporanPage() {
                   <span className="text-[#e2e6ed] font-medium">Total Ongkos Jahit & Potong Batch</span>
                   <p className="text-[0.65rem] text-[#5a6270]">Biaya tukang jahit / CMT yang diproduksi bulan ini</p>
                 </div>
-                <span className="font-mono font-bold text-[#c8a870]">- Rp {batchSewingCost.toLocaleString('id-ID')}</span>
+                <span className="font-mono font-bold text-[#c8a870]">- {formatRupiah(batchSewingCost)}</span>
               </div>
 
               <div className="flex justify-between pt-3">
@@ -598,12 +591,12 @@ export default function LaporanPage() {
                   <span className="text-[#e2e6ed] font-medium">Biaya Operasional (Listrik, Gaji, Ads, dll)</span>
                   <p className="text-[0.65rem] text-[#5a6270]">Pengeluaran rutin non-manufaktur</p>
                 </div>
-                <span className="font-mono font-bold text-[#c87070]">- Rp {expenses.toLocaleString('id-ID')}</span>
+                <span className="font-mono font-bold text-[#c87070]">- {formatRupiah(expenses)}</span>
               </div>
 
               <div className="flex justify-between pt-3 bg-[#0c0f17] p-2.5 rounded-xl border border-[#1e2330]">
                 <span className="font-bold text-[#e2e6ed]">Total Uang Keluar Bulan Ini</span>
-                <span className="font-mono font-bold text-[#e2e6ed]">- Rp {totalCashOutflow.toLocaleString('id-ID')}</span>
+                <span className="font-mono font-bold text-[#e2e6ed]">- {formatRupiah(totalCashOutflow)}</span>
               </div>
             </div>
           </div>
@@ -611,7 +604,7 @@ export default function LaporanPage() {
           <div className="mt-4 p-3 bg-[#151a24] border border-[#2a3040] rounded-xl flex items-center justify-between text-xs">
             <span className="text-[#8899aa]">Arus Kas Bersih (Total Masuk - Total Keluar):</span>
             <span className={`font-mono font-extrabold text-sm ${netCashFlow >= 0 ? 'text-[#8ab896]' : 'text-[#c87070]'}`}>
-              {netCashFlow >= 0 ? '+' : ''} Rp {netCashFlow.toLocaleString('id-ID')}
+              {netCashFlow >= 0 ? '+' : ''} {formatRupiah(netCashFlow)}
             </span>
           </div>
         </div>

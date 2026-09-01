@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
 import { 
   getDbFabricMappings, 
   getDbArticles, 
@@ -11,7 +13,7 @@ import {
   saveDbFabricMapping, 
   deleteDbFabricMapping 
 } from "@/lib/services/db";
-import { Link2, Plus, Trash2, Scissors, Search, ArrowRight, Shirt, ArrowUpDown } from 'lucide-react';
+import { Link2, Plus, Trash2, Scissors, ArrowRight, Shirt, ArrowUpDown } from 'lucide-react';
 
 interface MappingRecord {
   id: number;
@@ -201,20 +203,28 @@ export default function PemetaanKainPage() {
         description="Hubungkan varian warna artikel ke jenis roll kain yang otomatis dipotong saat produksi berlangsung" 
       />
 
-      {/* Top Stat Overview Cards */}
+      {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Pemetaan Aktif</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{mappings.length} <span className="text-xs font-normal text-[#5a6270]">Relasi</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Artikel Terpetakan</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{uniqueArticlesMapped} <span className="text-xs font-normal text-[#5a6270]">dari {articles.length} Model</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330] col-span-2 sm:col-span-1">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Kain Roll Terhubung</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{uniqueFabricsMapped} <span className="text-xs font-normal text-[#5a6270]">dari {fabrics.length} Jenis</span></p>
-        </div>
+        <KpiStatCard
+          title="Total Pemetaan Aktif"
+          value={<span className="text-[#e2e6ed]">{mappings.length} <span className="text-xs font-normal text-[#5a6270]">Relasi</span></span>}
+          icon={Link2}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Artikel Terpetakan"
+          value={<span className="text-[#7eb3db]">{uniqueArticlesMapped} <span className="text-xs font-normal text-[#5a6270]">dari {articles.length} Model</span></span>}
+          icon={Shirt}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Kain Roll Terhubung"
+          value={<span className="text-[#8ab896]">{uniqueFabricsMapped} <span className="text-xs font-normal text-[#5a6270]">dari {fabrics.length} Jenis</span></span>}
+          icon={Scissors}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
       </div>
 
       {/* Unmapped Variants Alert Banner */}
@@ -249,25 +259,12 @@ export default function PemetaanKainPage() {
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
           {/* Header with Search & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari artikel, warna, atau kain..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari artikel, warna, atau kain..."
+              className="flex-1"
+            />
 
             {/* Sorting Dropdown & Counter */}
             <div className="flex items-center gap-2 shrink-0">

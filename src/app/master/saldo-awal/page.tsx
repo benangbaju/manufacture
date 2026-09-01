@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import SearchInput from "@/components/ui/SearchInput";
+import { formatRupiah, formatCompactRupiah, formatNumber } from "@/lib/utils/formatters";
 import Link from 'next/link';
 import { 
   getDbInitialBalances, 
@@ -16,14 +18,13 @@ import {
   Save, 
   CheckCircle2, 
   AlertCircle, 
-  Search, 
   HelpCircle, 
   Sparkles, 
-  ArrowRight,
-  TrendingUp,
-  Package,
-  Calendar,
-  FileText
+  ArrowRight, 
+  TrendingUp, 
+  Package, 
+  Calendar, 
+  FileText 
 } from 'lucide-react';
 
 interface FabricRow {
@@ -172,10 +173,10 @@ export default function SaldoAwalPage() {
       });
 
       setModalLines([
-        `Saldo Kas Awal: Rp ${initialCash.toLocaleString('id-ID')}`,
-        `Valuasi Bahan Mentah: Rp ${totalMaterialValuation.toLocaleString('id-ID')} (${fabrics.length} kain, ${rawMaterials.length} aksesoris)`,
-        `Valuasi Produk Jadi: Rp ${totalProductValuation.toLocaleString('id-ID')} (${variants.length} SKU varian)`,
-        `Total Modal/Aset Awal: Rp ${totalInitialEquity.toLocaleString('id-ID')}`,
+        `Saldo Kas Awal: ${formatRupiah(initialCash)}`,
+        `Valuasi Bahan Mentah: ${formatRupiah(totalMaterialValuation)} (${fabrics.length} kain, ${rawMaterials.length} aksesoris)`,
+        `Valuasi Produk Jadi: ${formatRupiah(totalProductValuation)} (${variants.length} SKU varian)`,
+        `Total Modal/Aset Awal: ${formatRupiah(totalInitialEquity)}`,
         `Tanggal Cut-off: ${cutoffDate}`,
       ]);
       setShowConfirmModal(true);
@@ -453,26 +454,19 @@ export default function SaldoAwalPage() {
       {/* ========================================================= */}
       {activeTab === 'materials' && (
         <div className="space-y-6">
-          {/* Top Info & Search Bar */}
+          {/* Top Info & Search Bar via SearchInput */}
           <div className="glass-card rounded-2xl p-4 border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari kain roll atau aksesoris..."
-                value={searchMaterial}
-                onChange={e => setSearchMaterial(e.target.value)}
-                className="w-full pl-9 pr-7 py-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchMaterial && (
-                <button onClick={() => setSearchMaterial('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs">✕</button>
-              )}
-            </div>
+            <SearchInput
+              value={searchMaterial}
+              onChange={setSearchMaterial}
+              placeholder="Cari kain roll atau aksesoris..."
+              className="flex-1"
+            />
 
             <div className="flex items-center gap-3 text-xs shrink-0">
               <span className="text-[#8899aa]">Valuasi Bahan:</span>
               <span className="font-mono font-bold text-[#8ab896] bg-[#1a2a20] px-2.5 py-1 rounded-xl border border-[#2a3828]">
-                Rp {totalMaterialValuation.toLocaleString('id-ID')}
+                {formatRupiah(totalMaterialValuation)}
               </span>
             </div>
           </div>
@@ -486,7 +480,7 @@ export default function SaldoAwalPage() {
                 </div>
                 <h4 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">A. Daftar Stok Kain Roll ({filteredFabrics.length})</h4>
               </div>
-              <span className="text-[0.7rem] text-[#5a6270]">Subtotal Kain: <strong className="text-[#7eb3db] font-mono">Rp {fabricValuation.toLocaleString('id-ID')}</strong></span>
+              <span className="text-[0.7rem] text-[#5a6270]">Subtotal Kain: <strong className="text-[#7eb3db] font-mono">{formatRupiah(fabricValuation)}</strong></span>
             </div>
 
             {filteredFabrics.length === 0 ? (
@@ -548,7 +542,7 @@ export default function SaldoAwalPage() {
                             </div>
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-[#e2e6ed]">
-                            Rp {subtotal.toLocaleString('id-ID')}
+                            {formatRupiah(subtotal)}
                           </td>
                         </tr>
                       );
@@ -568,7 +562,7 @@ export default function SaldoAwalPage() {
                 </div>
                 <h4 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">B. Daftar Aksesoris & Bahan Rasio-Tetap ({filteredRawMaterials.length})</h4>
               </div>
-              <span className="text-[0.7rem] text-[#5a6270]">Subtotal Aksesoris: <strong className="text-[#8ab896] font-mono">Rp {rawValuation.toLocaleString('id-ID')}</strong></span>
+              <span className="text-[0.7rem] text-[#5a6270]">Subtotal Aksesoris: <strong className="text-[#8ab896] font-mono">{formatRupiah(rawValuation)}</strong></span>
             </div>
 
             {filteredRawMaterials.length === 0 ? (
@@ -630,7 +624,7 @@ export default function SaldoAwalPage() {
                             </div>
                           </td>
                           <td className="p-3 text-right font-mono font-bold text-[#e2e6ed]">
-                            Rp {subtotal.toLocaleString('id-ID')}
+                            {formatRupiah(subtotal)}
                           </td>
                         </tr>
                       );
@@ -648,26 +642,19 @@ export default function SaldoAwalPage() {
       {/* ========================================================= */}
       {activeTab === 'products' && (
         <div className="space-y-6">
-          {/* Top Info & Search Bar */}
+          {/* Top Info & Search Bar via SearchInput */}
           <div className="glass-card rounded-2xl p-4 border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari nama artikel atau warna..."
-                value={searchProduct}
-                onChange={e => setSearchProduct(e.target.value)}
-                className="w-full pl-9 pr-7 py-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchProduct && (
-                <button onClick={() => setSearchProduct('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs">✕</button>
-              )}
-            </div>
+            <SearchInput
+              value={searchProduct}
+              onChange={setSearchProduct}
+              placeholder="Cari nama artikel atau warna..."
+              className="flex-1"
+            />
 
             <div className="flex items-center gap-3 text-xs shrink-0">
               <span className="text-[#8899aa]">Valuasi Produk:</span>
               <span className="font-mono font-bold text-[#c8a870] bg-[#201e1a] px-2.5 py-1 rounded-xl border border-[#3a3020]">
-                Rp {totalProductValuation.toLocaleString('id-ID')}
+                {formatRupiah(totalProductValuation)}
               </span>
             </div>
           </div>
@@ -757,7 +744,7 @@ export default function SaldoAwalPage() {
                           </td>
 
                           <td className="p-3 text-right font-mono font-bold text-[#e2e6ed]">
-                            Rp {subtotal.toLocaleString('id-ID')}
+                            {formatRupiah(subtotal)}
                           </td>
                         </tr>
                       );

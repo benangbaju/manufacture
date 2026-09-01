@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react';
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
+import BaseModal from "@/components/ui/BaseModal";
+import KpiStatCard from "@/components/ui/KpiStatCard";
+import SearchInput from "@/components/ui/SearchInput";
+import { sortMasterItems } from "@/lib/utils/sorting";
 import { getDbFabricStock, createDbFabric, updateDbFabric, deleteDbFabric } from "@/lib/services/db";
-import { Scissors, Plus, Pencil, Trash2, X, Search, CheckCircle2, AlertCircle, Sparkles, ArrowUpDown } from 'lucide-react';
+import { Scissors, Plus, Pencil, Trash2, X, CheckCircle2, AlertCircle, Sparkles, ArrowUpDown } from 'lucide-react';
 
 interface KainItem {
   id: number;
@@ -102,22 +106,15 @@ export default function KainPage() {
     }
   };
 
-  // Filtered & Sorted fabric data
-  const filteredData = data
-    .filter(k => {
+  // Filtered & Sorted fabric data via sortMasterItems
+  const filteredData = sortMasterItems(
+    data.filter(k => {
       const q = searchQuery.toLowerCase().trim();
       if (!q) return true;
       return k.name.toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      if (sortBy === 'name-asc') return a.name.localeCompare(b.name, 'id');
-      if (sortBy === 'name-desc') return b.name.localeCompare(a.name, 'id');
-      if (sortBy === 'stock-desc') return Number(b.stock_qty || 0) - Number(a.stock_qty || 0);
-      if (sortBy === 'stock-asc') return Number(a.stock_qty || 0) - Number(b.stock_qty || 0);
-      if (sortBy === 'newest') return b.id - a.id;
-      if (sortBy === 'oldest') return a.id - b.id;
-      return a.name.localeCompare(b.name, 'id');
-    });
+    }),
+    sortBy
+  );
 
   const totalVolume = data.reduce((a, b) => a + Number(b.stock_qty || 0), 0);
   const totalYards = (totalVolume / 0.9144).toFixed(1);
@@ -147,26 +144,34 @@ export default function KainPage() {
         description="Master roll kain per varian warna (kain dikelola terpisah karena yield potongnya variatif)" 
       />
 
-      {/* Top Stat Overview Cards */}
+      {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Jenis Kain</span>
-          <p className="text-xl sm:text-2xl font-black text-[#e2e6ed] font-mono">{data.length} <span className="text-xs font-normal text-[#5a6270]">Roll / Warna</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Total Stok (Meter)</span>
-          <p className="text-xl sm:text-2xl font-black text-[#7eb3db] font-mono">{totalVolume.toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">meter</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Setara Yard</span>
-          <p className="text-xl sm:text-2xl font-black text-[#8ab896] font-mono">{totalYards} <span className="text-xs font-normal text-[#5a6270]">yard</span></p>
-        </div>
-        <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
-          <span className="text-[0.65rem] font-bold text-[#8899aa] uppercase tracking-wider block mb-1">Kain Menipis (&lt;30m)</span>
-          <p className={`text-xl sm:text-2xl font-black font-mono ${lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8899aa]'}`}>
-            {lowStockCount} <span className="text-xs font-normal text-[#5a6270]">Jenis</span>
-          </p>
-        </div>
+        <KpiStatCard
+          title="Total Jenis Kain"
+          value={<span className="text-[#e2e6ed]">{data.length} <span className="text-xs font-normal text-[#5a6270]">Roll / Warna</span></span>}
+          icon={Scissors}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Total Stok (Meter)"
+          value={<span className="text-[#7eb3db]">{totalVolume.toFixed(1)} <span className="text-xs font-normal text-[#5a6270]">meter</span></span>}
+          icon={Scissors}
+          iconColor="text-[#7eb3db]"
+        />
+        <KpiStatCard
+          title="Setara Yard"
+          value={<span className="text-[#8ab896]">{totalYards} <span className="text-xs font-normal text-[#5a6270]">yard</span></span>}
+          icon={Scissors}
+          iconColor="text-[#8ab896]"
+          iconBg="bg-[#1a2a20]"
+          iconBorder="border-[#2a3a30]"
+        />
+        <KpiStatCard
+          title="Kain Menipis (<30m)"
+          value={<span className={lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8899aa]'}>{lowStockCount} <span className="text-xs font-normal text-[#5a6270]">Jenis</span></span>}
+          icon={AlertCircle}
+          iconColor={lowStockCount > 0 ? 'text-[#c8a870]' : 'text-[#8899aa]'}
+        />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -174,25 +179,12 @@ export default function KainPage() {
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden border-[#1e2330] flex flex-col">
           {/* Table Header with Search & Sort Filter */}
           <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Cari jenis kain atau warna..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-7 py-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] placeholder-[#4a5568] focus:border-[#7eb3db] outline-none"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed] text-xs font-bold"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari jenis kain atau warna..."
+              className="flex-1"
+            />
 
             {/* Sorting Dropdown & Counter */}
             <div className="flex items-center gap-2 shrink-0">
@@ -407,57 +399,54 @@ export default function KainPage() {
         </div>
       </div>
 
-      {/* Edit Modal */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#121620] border border-[#2a3040] rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#1e2330]">
-              <h3 className="text-sm font-bold text-[#e2e6ed]">Edit Kain Roll #{editingItem.id}</h3>
-              <button onClick={() => setEditingItem(null)} className="text-[#5a6270] hover:text-[#e2e6ed]">
-                <X className="w-4 h-4" />
+      {/* Edit Modal via BaseModal */}
+      <BaseModal
+        isOpen={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        title={editingItem ? `Edit Kain Roll #${editingItem.id}` : ''}
+        icon={Pencil}
+      >
+        {editingItem && (
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Kain</label>
+              <input
+                type="text"
+                required
+                value={editingItem.name}
+                onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok (Meter)</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={editingItem.stock_qty}
+                onChange={e => setEditingItem({ ...editingItem, stock_qty: Number(e.target.value) })}
+                className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#7eb3db] text-xs sm:text-sm font-mono font-bold focus:border-[#7eb3db] outline-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2 border-t border-[#1e2330]">
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a] cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Simpan Perubahan
               </button>
             </div>
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Nama Kain</label>
-                <input
-                  type="text"
-                  required
-                  value={editingItem.name}
-                  onChange={e => setEditingItem({ ...editingItem, name: e.target.value })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#e2e6ed] text-xs sm:text-sm focus:border-[#7eb3db] outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-[0.7rem] font-semibold text-[#8899aa] uppercase tracking-wider mb-1.5">Stok (Meter)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={editingItem.stock_qty}
-                  onChange={e => setEditingItem({ ...editingItem, stock_qty: Number(e.target.value) })}
-                  className="w-full p-2.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-[#7eb3db] text-xs sm:text-sm font-mono font-bold focus:border-[#7eb3db] outline-none"
-                />
-              </div>
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingItem(null)}
-                  className="px-4 py-2 bg-[#1a2030] text-[#b0b8c4] rounded-xl text-xs font-semibold hover:bg-[#222a3a]"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#3d5a80] hover:bg-[#4a6d8c] text-white rounded-xl text-xs font-semibold"
-                >
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+        )}
+      </BaseModal>
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

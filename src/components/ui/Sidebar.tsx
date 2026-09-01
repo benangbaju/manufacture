@@ -68,7 +68,7 @@ export default function Sidebar() {
   return (
     <aside className="
       fixed bottom-0 left-0 z-50 w-full h-16 
-      bg-[#0e1219]/95 backdrop-blur-md border-t border-[#1e2330]
+      bg-[#0e1219] border-t border-[#1e2330]
       flex items-center justify-around px-2
       shadow-[0_-4px_20px_rgba(0,0,0,0.4)]
       md:top-0 md:bottom-auto md:w-64 md:h-screen md:flex-col md:justify-between md:border-t-0 md:border-r md:border-[#1e2330] md:bg-[#0c0f17] md:px-3 md:py-5 overflow-y-auto
