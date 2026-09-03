@@ -215,3 +215,119 @@ export async function generateExcelReport(data: ReportData) {
   anchor.click();
   window.URL.revokeObjectURL(url);
 }
+
+export interface RecipeExportItem {
+  articleName: string;
+  variantColor: string;
+  materialName: string;
+  qty: number;
+  unit: string;
+}
+
+export async function exportRecipesToExcel(items: RecipeExportItem[]) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Manufaktur & Cashflow App';
+  workbook.created = new Date();
+
+  // SHEET 1: DETAIL FORMULASI BOM
+  const sheet = workbook.addWorksheet('Detail Resep BOM');
+  sheet.columns = [
+    { header: 'No', key: 'no', width: 6 },
+    { header: 'Model / Artikel Produk', key: 'articleName', width: 32 },
+    { header: 'Varian Warna', key: 'variantColor', width: 22 },
+    { header: 'Bahan Baku / Aksesoris (BOM)', key: 'materialName', width: 36 },
+    { header: 'Takaran (per pcs)', key: 'qty', width: 20 },
+    { header: 'Satuan', key: 'unit', width: 14 },
+  ];
+
+  // Header Styling
+  const headerRow = sheet.getRow(1);
+  headerRow.height = 28;
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  items.forEach((item, idx) => {
+    const row = sheet.addRow({
+      no: idx + 1,
+      articleName: item.articleName,
+      variantColor: item.variantColor,
+      materialName: item.materialName,
+      qty: item.qty,
+      unit: item.unit,
+    });
+    row.height = 20;
+    row.alignment = { vertical: 'middle' };
+    row.getCell('no').alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell('qty').alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell('unit').alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Zebra striping
+    if (idx % 2 === 1) {
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+    }
+  });
+
+  // SHEET 2: RINGKASAN RESEP PER VARIAN
+  const summarySheet = workbook.addWorksheet('Ringkasan per SKU Varian');
+  summarySheet.columns = [
+    { header: 'No', key: 'no', width: 6 },
+    { header: 'Model / Artikel', key: 'articleName', width: 30 },
+    { header: 'Varian Warna', key: 'variantColor', width: 20 },
+    { header: 'Jumlah Komponen', key: 'componentCount', width: 18 },
+    { header: 'Daftar Formulasi Komponen & Takaran', key: 'components', width: 65 },
+  ];
+
+  const sumHeaderRow = summarySheet.getRow(1);
+  sumHeaderRow.height = 28;
+  sumHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+  sumHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+  sumHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Group items by Article + Variant
+  const grouped = new Map<string, { articleName: string; variantColor: string; parts: string[]; count: number }>();
+  for (const item of items) {
+    const key = `${item.articleName}:::${item.variantColor}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        articleName: item.articleName,
+        variantColor: item.variantColor,
+        parts: [],
+        count: 0
+      });
+    }
+    const entry = grouped.get(key)!;
+    entry.count++;
+    entry.parts.push(`${item.qty} ${item.unit} ${item.materialName}`);
+  }
+
+  let summaryIdx = 1;
+  for (const entry of grouped.values()) {
+    const row = summarySheet.addRow({
+      no: summaryIdx++,
+      articleName: entry.articleName,
+      variantColor: entry.variantColor,
+      componentCount: entry.count,
+      components: entry.parts.join(' + '),
+    });
+    row.height = 22;
+    row.alignment = { vertical: 'middle' };
+    row.getCell('no').alignment = { vertical: 'middle', horizontal: 'center' };
+    row.getCell('componentCount').alignment = { vertical: 'middle', horizontal: 'center' };
+
+    if (summaryIdx % 2 === 1) {
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+    }
+  }
+
+  // Trigger browser download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `Data_Resep_BOM_Produk_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+}
+

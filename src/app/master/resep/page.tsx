@@ -27,8 +27,10 @@ import {
   PackageCheck,
   Palette,
   ArrowRight,
-  Share2
+  Share2,
+  FileSpreadsheet
 } from 'lucide-react';
+import { exportRecipesToExcel, RecipeExportItem } from '@/lib/exportExcel';
 
 interface RecipeItem {
   id: number;
@@ -82,6 +84,7 @@ export default function ResepPage() {
   // Multi-item editor rows for active variant
   const [editorRows, setEditorRows] = useState<EditorRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Copy options
   const [copySourceVariantId, setCopySourceVariantId] = useState<number | ''>('');
@@ -170,8 +173,16 @@ export default function ResepPage() {
       }
     }
 
-    // 3. Default row
-    setEditorRows(materialList.length > 0 ? [{ raw_material_id: materialList[0].id, qty_per_unit: 1 }] : []);
+    // 3. Default rows: initialize with 4 standard packaging/branding materials if available
+    const standardKeywords = ['opp plastik', 'polymailer', 'label brand', 'sticker cod'];
+    const standardMats = materialList.filter(m =>
+      standardKeywords.some(kw => m.name.toLowerCase().includes(kw))
+    );
+    if (standardMats.length > 0) {
+      setEditorRows(standardMats.map(m => ({ raw_material_id: m.id, qty_per_unit: 1 })));
+    } else {
+      setEditorRows(materialList.length > 0 ? [{ raw_material_id: materialList[0].id, qty_per_unit: 1 }] : []);
+    }
   };
 
   useEffect(() => {
@@ -209,6 +220,24 @@ export default function ResepPage() {
     setEditorRows(prev => [...prev, { raw_material_id: availableMat.id, qty_per_unit: 1 }]);
   };
 
+  // Quick insert standard packaging & branding materials (OPP, Polymailer, Label Brand, Sticker COD)
+  const handleAddStandardPackaging = () => {
+    const standardKeywords = ['opp plastik', 'polymailer', 'label brand', 'sticker cod'];
+    const standardMats = materials.filter(m =>
+      standardKeywords.some(kw => m.name.toLowerCase().includes(kw))
+    );
+    const currentMatIds = new Set(editorRows.map(r => r.raw_material_id));
+    const missing = standardMats.filter(m => !currentMatIds.has(m.id));
+    if (missing.length === 0) {
+      alert('Semua 4 komponen kemasan standar (OPP Plastik, Polymailer, Label Brand, Sticker COD) sudah ada dalam resep.');
+      return;
+    }
+    setEditorRows(prev => [
+      ...prev,
+      ...missing.map(m => ({ raw_material_id: m.id, qty_per_unit: 1 }))
+    ]);
+  };
+
   // Remove row
   const handleRemoveRow = (index: number) => {
     setEditorRows(prev => prev.filter((_, idx) => idx !== index));
@@ -217,6 +246,56 @@ export default function ResepPage() {
   // Change row value
   const handleRowChange = (index: number, field: 'raw_material_id' | 'qty_per_unit', val: number) => {
     setEditorRows(prev => prev.map((row, idx) => idx === index ? { ...row, [field]: val } : row));
+  };
+
+  // Export all recipes to Excel (.xlsx)
+  const handleExportExcel = async () => {
+    if (recipes.length === 0) {
+      alert('Belum ada data resep untuk diekspor.');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const exportItems: RecipeExportItem[] = [];
+      const artMap = new Map(articles.map(a => [a.id, a]));
+      const matMap = new Map(materials.map(m => [m.id, m]));
+      const varMap = new Map<number, { color: string; articleName: string }>();
+
+      articles.forEach(art => {
+        (art.variants || art.product_variants || []).forEach(v => {
+          varMap.set(v.id, { color: v.color, articleName: art.name });
+        });
+      });
+
+      recipes.forEach(r => {
+        const vInfo = r.variant_id ? varMap.get(r.variant_id) : undefined;
+        const art = r.article_id ? artMap.get(r.article_id) : undefined;
+        const mat = r.raw_material_id ? matMap.get(r.raw_material_id) : undefined;
+
+        exportItems.push({
+          articleName: vInfo?.articleName || art?.name || 'Tanpa Artikel',
+          variantColor: vInfo?.color || '(Semua Warna)',
+          materialName: r.raw_materials?.name || mat?.name || 'Bahan Baku',
+          qty: r.qty_per_piece,
+          unit: r.raw_materials?.unit || mat?.unit || 'pcs',
+        });
+      });
+
+      exportItems.sort((a, b) => {
+        const artCmp = a.articleName.localeCompare(b.articleName, 'id', { sensitivity: 'base' });
+        if (artCmp !== 0) return artCmp;
+        const varCmp = a.variantColor.localeCompare(b.variantColor, 'id', { sensitivity: 'base' });
+        if (varCmp !== 0) return varCmp;
+        return a.materialName.localeCompare(b.materialName, 'id', { sensitivity: 'base' });
+      });
+
+      await exportRecipesToExcel(exportItems);
+    } catch (err: any) {
+      console.error('Export error:', err);
+      alert('Gagal mengekspor data resep ke Excel: ' + (err.message || err));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Copy recipe from another variant color
@@ -394,6 +473,18 @@ export default function ResepPage() {
       <PageHeader 
         title="Resep Produk / Bill of Materials (BOM) per Varian" 
         description="Atur seluruh aksesoris rasio-tetap per varian warna (misal: Baju Putih pakai kancing putih, Baju Hitam pakai kancing hitam)" 
+        action={
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExporting || recipes.length === 0}
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#1a2838] hover:bg-[#22354a] border border-[#2a3848] text-[#7eb3db] hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
+            title="Download seluruh data resep dalam format spreadsheet Excel (.xlsx)"
+          >
+            <FileSpreadsheet className={`w-4 h-4 text-[#8ab896] ${isExporting ? 'animate-bounce' : ''}`} />
+            <span>{isExporting ? 'Mengekspor Excel...' : 'Download Excel Resep (BOM)'}</span>
+          </button>
+        }
       />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
@@ -671,16 +762,28 @@ export default function ResepPage() {
                       </table>
                     </div>
 
-                    {/* Add Component Button */}
+                    {/* Add Component Buttons */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                      <button
-                        type="button"
-                        onClick={handleAddRow}
-                        className="flex items-center gap-1.5 px-3.5 py-2 bg-[#121620] hover:bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] hover:text-[#9bc7eb] rounded-xl text-xs font-bold transition-all"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>+ Tambah Komponen Bahan Lain</span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAddRow}
+                          className="flex items-center gap-1.5 px-3.5 py-2 bg-[#121620] hover:bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] hover:text-[#9bc7eb] rounded-xl text-xs font-bold transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Tambah Komponen Bahan</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleAddStandardPackaging}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-[#1a2838] hover:bg-[#22354a] border border-[#2a3848] text-[#7eb3db] hover:text-white rounded-xl text-xs font-bold transition-all"
+                          title="Sisipkan 4 bahan kemasan standar (OPP, Polymailer, Label Brand, Sticker COD)"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-[#e0a96d]" />
+                          <span>+ Kemasan Standar (OPP, Poly, Label, COD)</span>
+                        </button>
+                      </div>
 
                       {activeVariants.length > 1 && editorRows.length > 0 && (
                         <button
