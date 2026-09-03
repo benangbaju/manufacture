@@ -1361,7 +1361,7 @@ export async function getDbDashboardSummary() {
   if (!isSupabaseConfigured()) return null;
 
   try {
-    const [cashRes, variantsRes, fabricRes, rawRes, salesRes, batchRes, purchasesRes, settingsRes] = await Promise.all([
+    const [cashRes, variantsRes, fabricRes, rawRes, salesRes, batchRes, purchasesRes, settingsRes, recipesRes] = await Promise.all([
       supabase.from('v_current_cash_balance').select('*').single(),
       supabase.from('product_variants').select('id, color, stock_qty, stock_reject_qty, initial_hpp, article_id, articles(id, name)'),
       supabase.from('fabric_stock').select('id, name, stock_qty, unit, initial_unit_price'),
@@ -1370,6 +1370,7 @@ export async function getDbDashboardSummary() {
       supabase.from('production_batches').select('id, variant_id, qty_produced, qty_reject, fabric_used, fabric_stock_id, production_date, production_costs(amount), production_batch_materials(qty_used, raw_material_id)'),
       supabase.from('purchases').select('item_type, fabric_stock_id, raw_material_id, qty, unit_price'),
       supabase.from('app_settings').select('key, value'),
+      supabase.from('product_recipes').select('article_id, variant_id, raw_material_id, qty_per_unit'),
     ]);
 
     const settingsMap = new Map<string, string>();
@@ -1450,7 +1451,33 @@ export async function getDbDashboardSummary() {
       }
     });
 
-    const avgHppOverall = totalAllBatchCut > 0 ? Math.round(totalAllBatchCost / totalAllBatchCut) : 45000;
+    // Compute estimated BOM cost per variant from recipes if no batches exist
+    let totalRecipeBomSum = 0;
+    let variantsWithRecipeCount = 0;
+    const recipesData = recipesRes.data || [];
+
+    (variantsRes.data || []).forEach((v: any) => {
+      const vRecipes = recipesData.filter((r: any) => r.variant_id === v.id || (!r.variant_id && r.article_id === v.article_id));
+      if (vRecipes.length > 0) {
+        let bomCost = 0;
+        vRecipes.forEach((r: any) => {
+          const rawObj = (rawRes.data || []).find((rm: any) => rm.id === r.raw_material_id);
+          const rp = r.raw_material_id ? rawPriceMap.get(r.raw_material_id) : null;
+          const initialRawPrice = rawObj && typeof rawObj.initial_unit_price !== 'undefined' ? Number(rawObj.initial_unit_price) : 0;
+          const unitPrice = rp && rp.qty > 0 ? rp.cost / rp.qty : (initialRawPrice > 0 ? initialRawPrice : 500);
+          bomCost += Number(r.qty_per_unit || 1) * unitPrice;
+        });
+        // Estimasi kain standar 1.2m @ 25k (30k) + estimasi jahit CMT 15k
+        bomCost += 30000 + 15000;
+        totalRecipeBomSum += bomCost;
+        variantsWithRecipeCount++;
+      }
+    });
+
+    const fallbackRecipeAvg = variantsWithRecipeCount > 0 ? Math.round(totalRecipeBomSum / variantsWithRecipeCount) : 0;
+    const avgHppOverall = totalAllBatchCut > 0 
+      ? Math.round(totalAllBatchCost / totalAllBatchCut) 
+      : fallbackRecipeAvg;
 
     // Track sale prices for potential revenue calculation
     const variantSalePriceMap = new Map<number, { totalRevenue: number; totalQty: number }>();
@@ -1592,6 +1619,12 @@ export async function getDbDashboardSummary() {
       totalRawMaterialStock,
       totalSKUCount: variantsRes.data?.length || 0,
       totalBatchesCount: batchRes.data?.length || 0,
+      salesCount: (salesRes.data || []).length,
+      avgSalePrice: (salesRes.data || []).length > 0 
+        ? Math.round(totalSalesRevenue / (salesRes.data || []).reduce((a, c) => a + Number(c.qty || 0), 0)) 
+        : 0,
+      isCashDeficit: finalCashBalance < 0,
+      hasInitialCash: initialCashFromSettings > 0,
       avgHppOverall,
       totalCogs,
       grossProfit,

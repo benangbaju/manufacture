@@ -38,7 +38,8 @@ import {
   Scissors,
   Pencil,
   DollarSign,
-  PackageCheck
+  PackageCheck,
+  Search
 } from 'lucide-react';
 
 interface ArticleItem {
@@ -126,6 +127,7 @@ export default function ProduksiPage() {
 
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+  const [articleSearchQuery, setArticleSearchQuery] = useState<string>('');
   
   // Multi-Fabric Rows State
   const [fabricRows, setFabricRows] = useState<FabricUsageRow[]>([
@@ -609,28 +611,74 @@ export default function ProduksiPage() {
 
               {/* Step 1: Article and Variant Selection */}
               <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider mb-2">
-                    1. Pilih Model Artikel yang Diproduksi <span className="text-[#c87070]">*</span>
-                  </label>
-                  <div className="flex gap-2 overflow-x-auto pb-1 max-w-full">
-                    {articles.map((art) => {
-                      const isSelected = selectedArticleId === art.id;
-                      return (
+                <div className="space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                    <label className="block text-xs font-semibold text-[#8899aa] uppercase tracking-wider">
+                      1. Pilih Model Artikel yang Diproduksi <span className="text-[#c87070]">*</span>
+                    </label>
+                    <span className="text-[0.7rem] text-[#7eb3db] font-mono">
+                      {articles.length} Model Tersedia
+                    </span>
+                  </div>
+
+                  {/* Main Dropdown Select (Native Picker on Mobile & Quick Select on Desktop) */}
+                  <select
+                    value={selectedArticleId || ''}
+                    onChange={(e) => handleArticleChange(Number(e.target.value))}
+                    className="w-full p-3 bg-[#0c0f17] border border-[#2a3040] rounded-xl text-xs sm:text-sm text-[#e2e6ed] font-bold focus:border-[#7eb3db] outline-none cursor-pointer"
+                  >
+                    <option value="" disabled>-- Pilih Model Artikel ({articles.length} Pilihan) --</option>
+                    {articles.map((art) => (
+                      <option key={art.id} value={art.id}>
+                        {art.name} ({art.variants?.length || 0} Warna)
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Search Filter & Quick Chips Grid */}
+                  <div className="space-y-2 pt-1">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-[#5a6270] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={articleSearchQuery}
+                        onChange={(e) => setArticleSearchQuery(e.target.value)}
+                        placeholder="Ketik untuk filter cepat model baju..."
+                        className="w-full pl-9 pr-8 py-2 bg-[#0c0f17] border border-[#1e2330] rounded-xl text-xs text-[#e2e6ed] placeholder-[#5a6270] outline-none focus:border-[#7eb3db]"
+                      />
+                      {articleSearchQuery && (
                         <button
-                          key={art.id}
                           type="button"
-                          onClick={() => handleArticleChange(art.id)}
-                          className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-[#3d5a80] text-white shadow-sm'
-                              : 'bg-[#0c0f17] hover:bg-[#1a2030] text-[#8899aa] hover:text-[#e2e6ed] border border-[#1e2330]'
-                          }`}
+                          onClick={() => setArticleSearchQuery('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5a6270] hover:text-[#e2e6ed]"
                         >
-                          {art.name}
+                          <X className="w-3.5 h-3.5" />
                         </button>
-                      );
-                    })}
+                      )}
+                    </div>
+
+                    {/* Wrapped Scrollable Chips */}
+                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-[#0a0d14] rounded-xl border border-[#1e2330]">
+                      {articles
+                        .filter(a => !articleSearchQuery || a.name.toLowerCase().includes(articleSearchQuery.toLowerCase()))
+                        .map((art) => {
+                          const isSelected = selectedArticleId === art.id;
+                          return (
+                            <button
+                              key={art.id}
+                              type="button"
+                              onClick={() => handleArticleChange(art.id)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#3d5a80] text-white shadow-sm font-bold'
+                                  : 'bg-[#121620] hover:bg-[#1a2030] text-[#8899aa] hover:text-[#e2e6ed] border border-[#1e2330]'
+                              }`}
+                            >
+                              {art.name}
+                            </button>
+                          );
+                        })}
+                    </div>
                   </div>
                 </div>
 

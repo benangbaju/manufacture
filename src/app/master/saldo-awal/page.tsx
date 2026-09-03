@@ -6,6 +6,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import SearchInput from "@/components/ui/SearchInput";
 import { formatRupiah, formatCompactRupiah, formatNumber } from "@/lib/utils/formatters";
 import Link from 'next/link';
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { 
   getDbInitialBalances, 
   saveDbInitialBalances 
@@ -224,6 +225,8 @@ export default function SaldoAwalPage() {
           </button>
         }
       />
+
+      <MasterSubNav />
 
       {/* Top Overview Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">

@@ -7,33 +7,44 @@
  */
 export function formatRupiah(val: number | null | undefined): string {
   const num = Number(val || 0);
+  if (num < 0) {
+    return `-Rp ${Math.abs(num).toLocaleString('id-ID')}`;
+  }
   return `Rp ${num.toLocaleString('id-ID')}`;
 }
 
 /**
- * Format a number into a clean compact abbreviation (e.g. "Rp 1.5 Juta", "Rp 50k", "Rp 500")
+ * Format a number into a clean compact abbreviation (e.g. "Rp 1.5 Juta", "Rp 50k", "-Rp 1.5 Juta")
  */
 export function formatCompactRupiah(val: number | null | undefined): string {
   const num = Number(val || 0);
-  if (Math.abs(num) >= 1_000_000) {
-    return `Rp ${(num / 1_000_000).toFixed(1)} Juta`;
+  const isNeg = num < 0;
+  const abs = Math.abs(num);
+  const prefix = isNeg ? '-Rp ' : 'Rp ';
+
+  if (abs >= 1_000_000) {
+    return `${prefix}${(abs / 1_000_000).toFixed(1)} Juta`;
   }
-  if (Math.abs(num) >= 1_000) {
-    return `Rp ${(num / 1_000).toFixed(0)}k`;
+  if (abs >= 1_000) {
+    return `${prefix}${(abs / 1_000).toFixed(0)}k`;
   }
   return formatRupiah(num);
 }
 
 /**
- * Format compact number with k/jt suffix without "Rp" prefix (e.g. "1.5jt", "50k")
+ * Format compact number with k/jt suffix without "Rp" prefix (e.g. "1.5jt", "50k", "-1.5 jt")
  */
 export function formatCompactNumber(val: number | null | undefined): string {
   const num = Number(val || 0);
-  if (Math.abs(num) >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1)} jt`;
+  const isNeg = num < 0;
+  const abs = Math.abs(num);
+  const prefix = isNeg ? '-' : '';
+
+  if (abs >= 1_000_000) {
+    return `${prefix}${(abs / 1_000_000).toFixed(1)} jt`;
   }
-  if (Math.abs(num) >= 1_000) {
-    return `${(num / 1_000).toFixed(0)}k`;
+  if (abs >= 1_000) {
+    return `${prefix}${(abs / 1_000).toFixed(0)}k`;
   }
   return num.toLocaleString('id-ID');
 }

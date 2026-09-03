@@ -9,6 +9,7 @@ import KpiStatCard from "@/components/ui/KpiStatCard";
 import SearchInput from "@/components/ui/SearchInput";
 import { sortMasterItems } from "@/lib/utils/sorting";
 import { getDbFabricStock, createDbFabric, updateDbFabric, deleteDbFabric } from "@/lib/services/db";
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { Scissors, Plus, Pencil, Trash2, X, CheckCircle2, AlertCircle, Sparkles, ArrowUpDown } from 'lucide-react';
 
 interface KainItem {
@@ -143,6 +144,8 @@ export default function KainPage() {
         title="Stok Kain Roll per Warna" 
         description="Master roll kain per varian warna (kain dikelola terpisah karena yield potongnya variatif)" 
       />
+
+      <MasterSubNav />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

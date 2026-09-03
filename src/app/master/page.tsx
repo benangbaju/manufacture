@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import PWAInstallButton from "@/components/ui/PWAInstallButton";
 import ThemeToggle from "@/components/ui/ThemeToggle";
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { 
   getDbArticles, 
   getDbFabricStock, 
@@ -204,6 +205,8 @@ export default function MasterDataPage() {
         description="Pusat navigasi dan konfigurasi sistem manufaktur diurutkan secara kronologis dari Langkah 1 (Setup) hingga Langkah 5 (Laporan P&L)" 
       />
 
+      <MasterSubNav />
+
       <div className="space-y-6">
         {/* Master Setup Onboarding Progress Tracker */}
         <div className="glass-card rounded-2xl p-5 border-[#233548] bg-gradient-to-r from-[#121722] via-[#10141e] to-[#141a24] shadow-md">
@@ -244,13 +247,13 @@ export default function MasterDataPage() {
               <Link 
                 key={i} 
                 href={step.href}
-                className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.02] shadow-sm ${
+                className={`p-2.5 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.02] shadow-sm min-w-0 ${
                   step.isDone 
                     ? 'bg-[#0f1712] border-[#1e3022] text-[#8ab896]' 
                     : 'bg-[#15120f] border-[#2c2018] text-[#c8a870]'
                 }`}
               >
-                <div className="flex items-center justify-between text-[0.68rem] mb-1.5 font-bold">
+                <div className="flex items-center justify-between text-[0.68rem] mb-1.5 font-bold gap-1 min-w-0">
                   <span className="truncate">{step.label}</span>
                   {step.isDone ? (
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#8ab896] shrink-0" />
@@ -258,7 +261,7 @@ export default function MasterDataPage() {
                     <AlertCircle className="w-3.5 h-3.5 text-[#c8a870] shrink-0" />
                   )}
                 </div>
-                <span className="text-[0.65rem] font-mono font-bold text-[#e2e6ed]">
+                <span className="text-[0.65rem] font-mono font-bold text-[#e2e6ed] truncate">
                   {loading ? '...' : step.isDone ? `${step.count} ${step.unit}` : 'Belum diisi'}
                 </span>
               </Link>
@@ -313,7 +316,7 @@ export default function MasterDataPage() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {section.items.map(item => {
                 const Icon = item.icon;
                 return (
@@ -324,26 +327,29 @@ export default function MasterDataPage() {
                       item.highlight ? 'border-[#233548] bg-[#121822]' : 'border-[#1e2330]'
                     }`}
                   >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] group-hover:bg-[#121822] group-hover:scale-105 transition-all">
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {(item as any).badge && (
-                            <span className="px-2 py-0.5 rounded-lg text-[0.65rem] font-bold bg-[#121822] border border-[#233548] text-[#7eb3db]">
-                              {(item as any).badge}
-                            </span>
-                          )}
-                          <ArrowRight className="w-4 h-4 text-[#5a6270] group-hover:text-[#7eb3db] group-hover:translate-x-1 transition-all" />
-                        </div>
+                    <div className="flex sm:block items-start gap-3.5">
+                      <div className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] group-hover:bg-[#121822] group-hover:scale-105 transition-all shrink-0 sm:mb-3">
+                        <Icon className="w-5 h-5 sm:w-4.5 sm:h-4.5" />
                       </div>
-                      <h3 className="text-sm sm:text-base font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] tracking-tight transition-colors">
-                        {item.title}
-                      </h3>
-                      <p className="text-xs text-[#8899aa] mt-1 line-clamp-2 leading-relaxed transition-colors">
-                        {item.desc}
-                      </p>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <h3 className="text-sm sm:text-base font-bold text-[#e2e6ed] group-hover:text-[#7eb3db] tracking-tight transition-colors truncate">
+                            {item.title}
+                          </h3>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {(item as any).badge && (
+                              <span className="px-2 py-0.5 rounded-lg text-[0.65rem] font-bold bg-[#121822] border border-[#233548] text-[#7eb3db]">
+                                {(item as any).badge}
+                              </span>
+                            )}
+                            <ArrowRight className="w-4 h-4 text-[#5a6270] group-hover:text-[#7eb3db] group-hover:translate-x-1 transition-all" />
+                          </div>
+                        </div>
+                        <p className="text-xs text-[#8899aa] line-clamp-2 leading-relaxed transition-colors">
+                          {item.desc}
+                        </p>
+                      </div>
                     </div>
                   </Link>
                 );

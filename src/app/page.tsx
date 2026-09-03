@@ -53,6 +53,10 @@ export default function Home() {
     rawMaterialStockValuation?: number;
     totalInventoryValuation?: number;
     potentialFinishedRevenue?: number;
+    salesCount?: number;
+    avgSalePrice?: number;
+    isCashDeficit?: boolean;
+    hasInitialCash?: boolean;
     finishedItemDetails?: any[];
     fabricItemDetails?: any[];
     rawMaterialItemDetails?: any[];
@@ -142,19 +146,31 @@ export default function Home() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 mb-6">
         <KpiStatCard
           title="Total Kas Saat Ini"
-          value={<span className="text-[#e2e6ed]">{formatCompactRupiah(cash)}</span>}
-          subtitle="likuiditas siap pakai"
-          badge="Kas Riil"
+          value={
+            <span className={cash < 0 ? "text-[#c87070] font-bold font-mono" : "text-[#8ab896] font-bold font-mono"}>
+              {formatCompactRupiah(cash)}
+            </span>
+          }
+          subtitle={
+            cash < 0 
+              ? (!summary?.hasInitialCash ? 'Saldo awal belum diisi' : 'Defisit pengeluaran') 
+              : 'likuiditas siap pakai'
+          }
+          badge={cash < 0 ? 'Defisit Kas' : 'Kas Riil'}
           icon={Wallet}
-          iconColor="text-[#aab8c8]"
-          iconBg="bg-[#1a2838]"
-          iconBorder="border-[#2a3848]"
+          iconColor={cash < 0 ? 'text-[#c87070]' : 'text-[#8ab896]'}
+          iconBg={cash < 0 ? 'bg-[#241a1a]' : 'bg-[#1a2a20]'}
+          iconBorder={cash < 0 ? 'border-[#3a2828]' : 'border-[#2a3a30]'}
         />
 
         <KpiStatCard
           title="Total Omset"
-          value={<span className="text-[#8ab896]">{formatCompactRupiah(revenue)}</span>}
-          subtitle={`Laba Kotor: ${formatCompactRupiah(grossProfit)} (${grossMargin}%)`}
+          value={<span className="text-[#8ab896] font-mono">{formatCompactRupiah(revenue)}</span>}
+          subtitle={
+            revenue > 0 && summary?.salesCount 
+              ? `Rata-rata: ${formatCompactRupiah(summary.avgSalePrice)}/pcs` 
+              : `Laba Kotor: ${formatCompactRupiah(grossProfit)} (${grossMargin}%)`
+          }
           icon={Coins}
           iconColor="text-[#8ab896]"
           iconBg="bg-[#1a2a20]"
@@ -163,15 +179,19 @@ export default function Home() {
 
         <KpiStatCard
           title="Rata-rata HPP"
-          value={<span className="text-[#7eb3db]">{formatRupiah(avgHpp)}</span>}
-          subtitle="Biaya pokok / pcs baju"
+          value={<span className="text-[#7eb3db] font-mono">{formatRupiah(avgHpp)}</span>}
+          subtitle={
+            summary?.totalBatchesCount 
+              ? `Berdasarkan ${summary.totalBatchesCount} batch produksi` 
+              : `Estimasi Resep BOM (${skuCount} SKU)`
+          }
           icon={TrendingUp}
           iconColor="text-[#7eb3db]"
         />
 
         <KpiStatCard
           title="Stok Siap Jual"
-          value={<span className="text-[#e2e6ed]">{formatNumber(finishedStock)} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
+          value={<span className="text-[#e2e6ed] font-mono">{formatNumber(finishedStock)} <span className="text-xs font-normal text-[#5a6270]">pcs</span></span>}
           subtitle={`${skuCount} SKU ${rejectStock > 0 ? `• Reject: ${rejectStock} pcs` : ''}`}
           icon={Shirt}
           iconColor="text-[#7eb3db]"
@@ -179,12 +199,30 @@ export default function Home() {
 
         <KpiStatCard
           title="Stok Kain"
-          value={<span className="text-[#e2e6ed]">{formatNumber(fabricStock)} <span className="text-xs font-normal text-[#5a6270]">meter</span></span>}
+          value={<span className="text-[#e2e6ed] font-mono">{formatNumber(fabricStock)} <span className="text-xs font-normal text-[#5a6270]">meter</span></span>}
           subtitle={`Aksesoris: ${rawStock} unit`}
           icon={Scissors}
           iconColor="text-[#8ab896]"
         />
       </div>
+
+      {/* Cash Deficit Notice Banner */}
+      {cash < 0 && (
+        <div className="mb-6 p-4 rounded-2xl bg-[#1c1414] border border-[#3a2020] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-2.5 text-xs text-[#e2a8a8]">
+            <AlertCircle className="w-4 h-4 text-[#c87070] shrink-0" />
+            <span>
+              <strong>Perhatian Kas Riil:</strong> Saldo kas saat ini tercatat minus <strong className="font-mono">{formatRupiah(cash)}</strong> karena terdapat transaksi pembelian bahan tetapi Saldo Kas Awal belum diinput di sistem.
+            </span>
+          </div>
+          <Link
+            href="/master/saldo-awal"
+            className="px-4 py-2 rounded-xl bg-[#2a1818] hover:bg-[#382020] border border-[#4a2828] text-xs font-bold text-[#e28888] hover:text-white shrink-0 text-center transition-all shadow-sm"
+          >
+            Input Saldo Kas Awal &rarr;
+          </Link>
+        </div>
+      )}
 
       {/* Inventory Valuation Hub Card */}
       <div className="glass-card rounded-2xl p-5 sm:p-6 mb-6 border-[#233548] bg-gradient-to-r from-[#121722] via-[#10141e] to-[#141a24] relative overflow-hidden shadow-lg">

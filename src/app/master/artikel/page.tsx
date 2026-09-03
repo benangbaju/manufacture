@@ -9,6 +9,7 @@ import KpiStatCard from "@/components/ui/KpiStatCard";
 import SearchInput from "@/components/ui/SearchInput";
 import { formatNumber } from "@/lib/utils/formatters";
 import Link from 'next/link';
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { getDbArticles, createDbArticle, updateDbArticle, deleteDbArticle, createDbVariant, deleteDbVariant } from "@/lib/services/db";
 import { Shirt, Plus, Pencil, Trash2, X, AlertCircle, ArrowUpDown, ArrowRight, ChevronRight, Palette, Layers } from 'lucide-react';
 
@@ -175,6 +176,8 @@ export default function ArtikelPage() {
         title="Master Artikel Produk" 
         description="Daftar produk baju induk dan konfigurasi varian warna SKU (tersimpan real-time di database Supabase)" 
       />
+
+      <MasterSubNav />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">

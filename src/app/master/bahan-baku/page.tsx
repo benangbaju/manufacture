@@ -10,6 +10,7 @@ import SearchInput from "@/components/ui/SearchInput";
 import { sortMasterItems } from "@/lib/utils/sorting";
 import { formatNumber } from "@/lib/utils/formatters";
 import { getDbRawMaterials, createDbRawMaterial, updateDbRawMaterial, deleteDbRawMaterial } from "@/lib/services/db";
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { Tag, Plus, Pencil, Trash2, X, CheckCircle2, AlertCircle, ArrowUpDown } from 'lucide-react';
 
 interface BahanItem {
@@ -150,6 +151,8 @@ export default function BahanBakuPage() {
         title="Bahan Baku & Aksesoris (BOM)" 
         description="Master komponen non-kain (kancing, renda, karet, label, resleting, benang) dengan satuan fleksibel (pcs, cm, meter, roll, cone) yang dikonsumsi per pcs produk" 
       />
+
+      <MasterSubNav />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">

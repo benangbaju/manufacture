@@ -7,6 +7,7 @@ import DeleteConfirmModal from "@/components/ui/DeleteConfirmModal";
 import BaseModal from "@/components/ui/BaseModal";
 import SearchInput from "@/components/ui/SearchInput";
 import { getDbChannels, createDbChannel, updateDbChannel, deleteDbChannel } from "@/lib/services/db";
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { Store, Plus, Pencil, Trash2, X, CheckCircle2, ShoppingBag } from 'lucide-react';
 
 interface ChannelItem {
@@ -128,6 +129,8 @@ export default function ChannelPage() {
         title="Channel Penjualan" 
         description="Daftar marketplace dan saluran distribusi tempat penjualan produk dicatat" 
       />
+
+      <MasterSubNav />
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">

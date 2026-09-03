@@ -6,6 +6,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import KpiStatCard from "@/components/ui/KpiStatCard";
 import SearchInput from "@/components/ui/SearchInput";
 import Link from 'next/link';
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { 
   getDbRecipes, 
   getDbArticles, 
@@ -489,6 +490,8 @@ export default function ResepPage() {
           </button>
         }
       />
+
+      <MasterSubNav />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-6">

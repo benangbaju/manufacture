@@ -13,6 +13,7 @@ import {
   saveDbFabricMapping, 
   deleteDbFabricMapping 
 } from "@/lib/services/db";
+import MasterSubNav from "@/components/ui/MasterSubNav";
 import { Link2, Plus, Trash2, Scissors, ArrowRight, Shirt, ArrowUpDown } from 'lucide-react';
 
 interface MappingRecord {
@@ -202,6 +203,8 @@ export default function PemetaanKainPage() {
         title="Pemetaan Kain ke Varian" 
         description="Hubungkan varian warna artikel ke jenis roll kain yang otomatis dipotong saat produksi berlangsung" 
       />
+
+      <MasterSubNav />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
