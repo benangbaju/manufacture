@@ -193,12 +193,12 @@ export default function ArticleDetailPage({ params }: { params: Promise<{ id: st
           <div className="lg:col-span-2 space-y-6">
             {/* Variants Table */}
             <div className="glass-card rounded-2xl overflow-hidden border-[#1e2330]">
-              <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex items-center justify-between">
+              <div className="p-4 bg-[#0e1219] border-b border-[#1e2330] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2">
                   <Palette className="w-4 h-4 text-[#7eb3db]" />
                   <h2 className="text-xs font-bold text-[#e2e6ed] uppercase tracking-wider">Daftar Varian Warna ({variants.length} SKU)</h2>
                 </div>
-                <div className="flex items-center gap-3 text-[0.7rem] font-medium">
+                <div className="flex flex-wrap items-center gap-3 text-[0.7rem] font-medium">
                   <span className="text-[#5a6270]">Siap Jual: <strong className="text-[#8ab896] font-mono">{totalGoodStock} pcs</strong></span>
                   <span className="text-[#5a6270]">Reject: <strong className="text-[#c8a870] font-mono">{totalRejectStock} pcs</strong></span>
                 </div>

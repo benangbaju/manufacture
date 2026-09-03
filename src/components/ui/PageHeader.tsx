@@ -28,7 +28,7 @@ export default function PageHeader({
         )}
       </div>
 
-      <div className="mt-1 sm:mt-0 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+      <div className="mt-1 sm:mt-0 flex items-center gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
         {action}
         {/* Desktop Theme Toggle if no custom action or alongside action */}
         {showThemeToggle && (

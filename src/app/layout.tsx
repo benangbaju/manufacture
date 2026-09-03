@@ -57,7 +57,7 @@ export default function RootLayout({
         <ThemeProvider>
           <div className="flex flex-col min-h-screen md:flex-row">
             <Sidebar />
-            <main className="flex-1 p-4 pb-24 md:ml-64 md:p-6 md:pb-6 bg-base">
+            <main className="flex-1 min-w-0 max-w-full p-3 sm:p-4 pb-24 md:ml-64 md:p-6 md:pb-6 bg-base overflow-x-hidden">
               {children}
             </main>
           </div>

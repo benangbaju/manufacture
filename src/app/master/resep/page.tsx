@@ -27,6 +27,7 @@ import {
   PackageCheck,
   Palette,
   ArrowRight,
+  ArrowLeft,
   Share2,
   FileSpreadsheet
 } from 'lucide-react';
@@ -80,6 +81,7 @@ export default function ResepPage() {
   const [selectedArticleId, setSelectedArticleId] = useState<number | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
   const [articleSearch, setArticleSearch] = useState('');
+  const [mobileTab, setMobileTab] = useState<'selector' | 'editor'>('selector');
 
   // Multi-item editor rows for active variant
   const [editorRows, setEditorRows] = useState<EditorRow[]>([]);
@@ -210,6 +212,7 @@ export default function ResepPage() {
     setSelectedVariantId(varId);
     if (artId) setSelectedArticleId(artId);
     loadVariantRecipesIntoEditor(varId, recipes, materials, articles);
+    setMobileTab('editor');
   };
 
   // Add component row
@@ -478,7 +481,7 @@ export default function ResepPage() {
             type="button"
             onClick={handleExportExcel}
             disabled={isExporting || recipes.length === 0}
-            className="flex items-center gap-2 px-3.5 py-2 bg-[#1a2838] hover:bg-[#22354a] border border-[#2a3848] text-[#7eb3db] hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-3.5 py-2.5 sm:py-2 bg-[#1a2838] hover:bg-[#22354a] border border-[#2a3848] text-[#7eb3db] hover:text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 disabled:opacity-50"
             title="Download seluruh data resep dalam format spreadsheet Excel (.xlsx)"
           >
             <FileSpreadsheet className={`w-4 h-4 text-[#8ab896] ${isExporting ? 'animate-bounce' : ''}`} />
@@ -488,27 +491,29 @@ export default function ResepPage() {
       />
 
       {/* Top Stat Overview Cards via KpiStatCard */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3 mb-6">
         <KpiStatCard
-          title="Varian Warna Ter-Resep"
-          value={<span className="text-[#e2e6ed]">{variantRecipeMap.size} <span className="text-xs font-normal text-[#5a6270]">SKU Varian</span></span>}
+          title="Varian Ter-Resep"
+          value={<span className="text-[#e2e6ed]">{variantRecipeMap.size} <span className="text-xs font-normal text-[#5a6270]">SKU</span></span>}
           icon={Shirt}
           iconColor="text-[#7eb3db]"
         />
         <KpiStatCard
-          title="Total Formulasi Terpasang"
+          title="Total Formulasi"
           value={<span className="text-[#7eb3db]">{recipes.length} <span className="text-xs font-normal text-[#5a6270]">Komponen</span></span>}
           icon={Layers}
           iconColor="text-[#7eb3db]"
         />
-        <KpiStatCard
-          title="Pilihan Bahan Baku / Aksesoris"
-          value={<span className="text-[#8ab896]">{materials.length} <span className="text-xs font-normal text-[#5a6270]">Master Bahan</span></span>}
-          icon={Tag}
-          iconColor="text-[#8ab896]"
-          iconBg="bg-[#1a2a20]"
-          iconBorder="border-[#2a3a30]"
-        />
+        <div className="col-span-2 sm:col-span-1">
+          <KpiStatCard
+            title="Pilihan Bahan Baku"
+            value={<span className="text-[#8ab896]">{materials.length} <span className="text-xs font-normal text-[#5a6270]">Master</span></span>}
+            icon={Tag}
+            iconColor="text-[#8ab896]"
+            iconBg="bg-[#1a2a20]"
+            iconBorder="border-[#2a3a30]"
+          />
+        </div>
       </div>
 
       {articles.length === 0 ? (
@@ -526,9 +531,41 @@ export default function ResepPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid lg:grid-cols-12 gap-6">
-          {/* Left Column: 2-Step Selector (Artikel -> Varian Warna) */}
-          <div className="lg:col-span-4 space-y-4">
+        <div>
+          {/* Mobile Tab Switcher (Visible on < lg screens) */}
+          <div className="lg:hidden flex items-center p-1 bg-[#0c0f17] border border-[#1e2330] rounded-xl mb-4 gap-1">
+            <button
+              type="button"
+              onClick={() => setMobileTab('selector')}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                mobileTab === 'selector'
+                  ? 'bg-[#3d5a80] text-white shadow-md'
+                  : 'text-[#8899aa] hover:text-[#e2e6ed]'
+              }`}
+            >
+              <Shirt className="w-3.5 h-3.5" />
+              <span className="truncate">1. Pilih Produk ({articles.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('editor')}
+              disabled={!activeArticle || !activeVariant}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 ${
+                mobileTab === 'editor'
+                  ? 'bg-[#3d5a80] text-white shadow-md'
+                  : 'text-[#8899aa] hover:text-[#e2e6ed]'
+              }`}
+            >
+              <Palette className="w-3.5 h-3.5 text-[#e0a96d]" />
+              <span className="truncate">
+                2. Formulasi BOM {activeVariant ? `(${activeVariant.color})` : ''}
+              </span>
+            </button>
+          </div>
+
+          <div className="grid lg:grid-cols-12 gap-6">
+            {/* Left Column: 2-Step Selector (Artikel -> Varian Warna) */}
+            <div className={`lg:col-span-4 space-y-4 ${mobileTab === 'editor' ? 'hidden lg:block' : 'block'}`}>
             <div className="glass-card rounded-2xl p-4 border-[#1e2330]">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[0.7rem] font-bold text-[#8899aa] uppercase tracking-wider">Pilih Model & Varian Warna</span>
@@ -634,10 +671,27 @@ export default function ResepPage() {
             </div>
           </div>
 
-          {/* Right Column: Multi-Item BOM Editor for Selected Variant */}
-          <div className="lg:col-span-8 space-y-4">
+            {/* Right Column: Multi-Item BOM Editor for Selected Variant */}
+            <div className={`lg:col-span-8 space-y-4 ${mobileTab === 'selector' ? 'hidden lg:block' : 'block'}`}>
             {activeArticle && activeVariant ? (
-              <div className="glass-card rounded-2xl p-5 md:p-6 border-[#1e2330] space-y-5">
+              <div className="glass-card rounded-2xl p-4 sm:p-5 md:p-6 border-[#1e2330] space-y-5">
+                {/* Mobile Back to Selector Button */}
+                <div className="lg:hidden pb-3 border-b border-[#1e2330]">
+                  <button
+                    type="button"
+                    onClick={() => setMobileTab('selector')}
+                    className="w-full flex items-center justify-between p-2.5 bg-[#121620] hover:bg-[#1a2030] border border-[#2a3040] rounded-xl text-xs text-[#7eb3db] font-bold transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Ganti Produk / Varian Warna</span>
+                    </div>
+                    <span className="text-[0.65rem] text-[#8899aa] font-mono font-normal">
+                      {activeArticle.name}
+                    </span>
+                  </button>
+                </div>
+
                 {/* Header of Active Variant */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1e2330]">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -657,23 +711,25 @@ export default function ResepPage() {
 
                   {/* Copy Preset from Another Variant */}
                   {allVariantsWithRecipes.length > 0 && (
-                    <div className="flex items-center gap-1.5 bg-[#0c0f17] border border-[#2a3040] rounded-xl px-2 py-1 text-xs">
-                      <Copy className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />
-                      <select
-                        value={copySourceVariantId}
-                        onChange={e => setCopySourceVariantId(e.target.value ? Number(e.target.value) : '')}
-                        className="bg-transparent border-none text-[0.7rem] text-[#8899aa] focus:outline-none cursor-pointer"
-                      >
-                        <option value="">Salin dari Varian Warna Lain...</option>
-                        {allVariantsWithRecipes.map(item => (
-                          <option key={item.id} value={item.id}>{item.label}</option>
-                        ))}
-                      </select>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-[#0c0f17] border border-[#2a3040] rounded-xl p-2 sm:py-1 sm:px-2 text-xs w-full sm:w-auto">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <Copy className="w-3.5 h-3.5 text-[#7eb3db] shrink-0" />
+                        <select
+                          value={copySourceVariantId}
+                          onChange={e => setCopySourceVariantId(e.target.value ? Number(e.target.value) : '')}
+                          className="bg-transparent border-none text-[0.75rem] text-[#8899aa] focus:outline-none cursor-pointer w-full min-w-0 truncate"
+                        >
+                          <option value="">Salin dari Varian Warna Lain...</option>
+                          {allVariantsWithRecipes.map(item => (
+                            <option key={item.id} value={item.id}>{item.label}</option>
+                          ))}
+                        </select>
+                      </div>
                       {copySourceVariantId && (
                         <button
                           type="button"
                           onClick={handleCopyRecipe}
-                          className="px-2 py-0.5 bg-[#3d5a80] text-white font-bold rounded text-[0.65rem] hover:bg-[#4a6d8c]"
+                          className="w-full sm:w-auto px-2.5 py-1 bg-[#3d5a80] text-white font-bold rounded-lg text-xs hover:bg-[#4a6d8c] text-center shrink-0"
                         >
                           Terapkan
                         </button>
@@ -689,8 +745,75 @@ export default function ResepPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* Multi-Row BOM Table */}
-                    <div className="overflow-x-auto">
+                    {/* Mobile Card List (sm:hidden) */}
+                    <div className="sm:hidden space-y-3">
+                      {editorRows.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-[#5a6270] bg-[#0c0f17] border border-[#1e2330] rounded-xl">
+                          Belum ada komponen bahan dalam resep warna ini. Klik tombol <strong>+ Tambah Komponen Bahan</strong> di bawah.
+                        </div>
+                      ) : (
+                        editorRows.map((row, idx) => {
+                          const matObj = materials.find(m => m.id === row.raw_material_id);
+                          return (
+                            <div key={idx} className="p-3 bg-[#0c0f17] border border-[#2a3040] rounded-xl space-y-2.5 shadow-sm">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[0.65rem] font-mono font-bold text-[#7eb3db] bg-[#1a2838] border border-[#2a3848] px-2 py-0.5 rounded-md">
+                                  Komponen #{idx + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveRow(idx)}
+                                  className="p-1.5 text-[#c87070] hover:bg-[#341e1e] border border-[#3a2020] rounded-lg transition-colors flex items-center gap-1 text-xs"
+                                  title="Hapus Komponen"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span className="text-[0.65rem] font-bold">Hapus</span>
+                                </button>
+                              </div>
+
+                              <div>
+                                <label className="block text-[0.68rem] text-[#8899aa] font-medium mb-1">
+                                  Aksesoris / Bahan Baku:
+                                </label>
+                                <select
+                                  value={row.raw_material_id}
+                                  onChange={e => handleRowChange(idx, 'raw_material_id', Number(e.target.value))}
+                                  className="w-full p-2.5 bg-[#121620] border border-[#2a3040] rounded-xl text-xs text-[#e2e6ed] font-semibold focus:border-[#7eb3db] outline-none"
+                                >
+                                  {materials.map(m => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.name} ({m.unit})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#1e2330]">
+                                <span className="text-xs text-[#8899aa] font-medium">Takaran per 1 pcs:</span>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    required
+                                    value={row.qty_per_unit || ''}
+                                    onChange={e => handleRowChange(idx, 'qty_per_unit', Number(e.target.value))}
+                                    placeholder="1"
+                                    className="w-24 p-2 bg-[#121620] border border-[#2a3040] rounded-xl text-center font-mono font-bold text-[#8ab896] text-sm focus:border-[#7eb3db] outline-none"
+                                  />
+                                  <span className="text-xs font-mono font-semibold text-[#7eb3db] min-w-[32px]">
+                                    {matObj?.unit || 'pcs'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Desktop Table (hidden sm:block) */}
+                    <div className="hidden sm:block overflow-x-auto">
                       <table className="w-full text-left text-xs sm:text-sm">
                         <thead>
                           <tr className="bg-[#0c0f17] text-[#5a6270] text-[0.68rem] uppercase tracking-wider border-b border-[#1e2330]">
@@ -763,12 +886,12 @@ export default function ResepPage() {
                     </div>
 
                     {/* Add Component Buttons */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-2">
+                      <div className="flex flex-col xs:flex-row sm:flex-row items-stretch sm:items-center gap-2">
                         <button
                           type="button"
                           onClick={handleAddRow}
-                          className="flex items-center gap-1.5 px-3.5 py-2 bg-[#121620] hover:bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] hover:text-[#9bc7eb] rounded-xl text-xs font-bold transition-all"
+                          className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-[#121620] hover:bg-[#1a2030] border border-[#2a3040] text-[#7eb3db] hover:text-[#9bc7eb] rounded-xl text-xs font-bold transition-all w-full sm:w-auto"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>+ Tambah Komponen Bahan</span>
@@ -777,7 +900,7 @@ export default function ResepPage() {
                         <button
                           type="button"
                           onClick={handleAddStandardPackaging}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-[#1a2838] hover:bg-[#22354a] border border-[#2a3848] text-[#7eb3db] hover:text-white rounded-xl text-xs font-bold transition-all"
+                          className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-[#1a2838] hover:bg-[#22354a] border border-[#2a3848] text-[#7eb3db] hover:text-white rounded-xl text-xs font-bold transition-all w-full sm:w-auto"
                           title="Sisipkan 4 bahan kemasan standar (OPP, Polymailer, Label Brand, Sticker COD)"
                         >
                           <Sparkles className="w-3.5 h-3.5 text-[#e0a96d]" />
@@ -790,7 +913,7 @@ export default function ResepPage() {
                           type="button"
                           onClick={handleApplyToAllVariants}
                           disabled={isSaving}
-                          className="flex items-center gap-1.5 px-3 py-2 bg-[#1a2030] hover:bg-[#222a3a] border border-[#2a3040] text-[#8ab896] rounded-xl text-xs font-semibold transition-all"
+                          className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-[#1a2030] hover:bg-[#222a3a] border border-[#2a3040] text-[#8ab896] rounded-xl text-xs font-semibold transition-all w-full sm:w-auto"
                           title="Terapkan susunan bahan ini ke semua warna artikel"
                         >
                           <Share2 className="w-3.5 h-3.5" />
@@ -837,6 +960,7 @@ export default function ResepPage() {
             )}
           </div>
         </div>
+      </div>
       )}
 
       {/* Confirmation Modal */}
